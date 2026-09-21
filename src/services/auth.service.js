@@ -16,12 +16,12 @@ function verifyPassword(password, passwordHash) {
   return crypto.timingSafeEqual(candidate, expected);
 }
 
-function getUser(username) {
+async function getUser(username) {
   return usersRepo.get(username);
 }
 
-function saveUser(username, record) {
-  usersRepo.save(username, record);
+async function saveUser(username, record) {
+  return usersRepo.save(username, record);
 }
 
 module.exports = { hashPassword, verifyPassword, getUser, saveUser };

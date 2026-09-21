@@ -1,33 +1,31 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { resetTestDb, cleanupTestDb } from "../setup/test-db.js";
 
 let serverInfo;
 let token;
 
 beforeAll(async () => {
-  resetTestDb();
-  await new Promise((r) => setTimeout(r, 100));
-
-  // Importa módulos APÓS o reset (para pegar o novo caminho)
   const { startServer } = await import("../../src/server/index.js");
   serverInfo = await startServer({ port: 0, host: "127.0.0.1" });
 
-  // Cria usuário
+  // Username único a cada execução
+  const testUser = `apitester_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
   const res = await fetch(`${serverInfo.url}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "apitester", password: "1234" })
+    body: JSON.stringify({ username: testUser, password: "1234" })
   });
   const data = await res.json();
   token = data.sessionToken;
-  if (!token) throw new Error("Falha ao criar usuário de teste: " + JSON.stringify(data));
+
+  if (!token) {
+    throw new Error("Falha ao criar usuário de teste: " + JSON.stringify(data));
+  }
 });
 
 afterAll(async () => {
   const { stopServer } = await import("../../src/server/index.js");
   await stopServer();
-  await new Promise((r) => setTimeout(r, 200));
-  cleanupTestDb();
 });
 
 async function request(path, opts = {}) {

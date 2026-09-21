@@ -4,16 +4,18 @@ const logger = require("../utils/logger");
 const rateLimit = require("../middleware/rate-limit");
 const sessions = require("../services/sessions.service");
 const { handleRequest } = require("./router");
-const { closeDb } = require("../db");
+const { runMigrations } = require("../db");
 
 const server = http.createServer(handleRequest);
 
-// Timers de limpeza
 rateLimit.startCleanup();
 const sessionCleanup = setInterval(() => sessions.cleanupExpired(), 60 * 60_000);
 sessionCleanup.unref?.();
 
-function startServer({ port = config.PORT, host = config.HOST } = {}) {
+async function startServer({ port = config.PORT, host = config.HOST } = {}) {
+  // Roda migrations antes de subir
+  await runMigrations();
+
   return new Promise((resolve, reject) => {
     const onError = (error) => {
       server.off("listening", onListening);
@@ -30,21 +32,14 @@ function startServer({ port = config.PORT, host = config.HOST } = {}) {
     };
     server.once("error", onError);
     server.once("listening", onListening);
-    server.listen(port, host, "0.0.0.0");
+    server.listen(port, host);
   });
 }
 
 function stopServer() {
   return new Promise((resolve, reject) => {
-    if (!server.listening) {
-      closeDb();
-      return resolve();
-    }
-    server.close((error) => {
-      closeDb();
-      if (error) reject(error);
-      else resolve();
-    });
+    if (!server.listening) return resolve();
+    server.close((error) => (error ? reject(error) : resolve()));
   });
 }
 

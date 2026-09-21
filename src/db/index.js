@@ -1,49 +1,43 @@
 const fs = require("fs");
 const path = require("path");
-const { DatabaseSync } = require("node:sqlite");
-const { DATA_DIR, DB_FILE, LEGACY_USER_STORE_FILE } = require("../config/paths");
+const { createClient } = require("@libsql/client");
+const config = require("../config/env");
 const logger = require("../utils/logger");
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
-fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
-
-let db = new DatabaseSync(DB_FILE);
-db.exec("PRAGMA journal_mode = WAL");
-db.exec("PRAGMA foreign_keys = ON");
-
-function reopenDb() {
-  try { db.close(); } catch {}
-  db = new DatabaseSync(DB_FILE);
-  db.exec("PRAGMA journal_mode = WAL");
-  db.exec("PRAGMA foreign_keys = ON");
-  runMigrations();
+if (!config.TURSO_DATABASE_URL) {
+  throw new Error(
+    "TURSO_DATABASE_URL não configurada. " +
+    "Crie um banco no Turso e defina as variáveis de ambiente."
+  );
 }
 
-// ─── Migrations ──────────────────────────────────────────────────────────────
-function ensureMigrationsTable() {
-  db.exec(`
+const client = createClient({
+  url: config.TURSO_DATABASE_URL,
+  authToken: config.TURSO_AUTH_TOKEN || undefined
+});
+
+/* ═══ MIGRATIONS ═══ */
+async function ensureMigrationsTable() {
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
       applied_at TEXT NOT NULL
-    );
+    )
   `);
 }
 
-function getAppliedVersions() {
-  ensureMigrationsTable();
-  return new Set(
-    db.prepare("SELECT version FROM schema_migrations").all().map((r) => r.version)
-  );
+async function getAppliedVersions() {
+  const result = await client.execute("SELECT version FROM schema_migrations");
+  return new Set(result.rows.map((r) => Number(r.version)));
 }
 
-function runMigrations() {
-  const migrationsDir = path.join(__dirname, "migrations");
+async function runMigrations() {
+  await ensureMigrationsTable();
 
+  const migrationsDir = path.join(__dirname, "migrations");
   if (!fs.existsSync(migrationsDir)) {
-    logger.warn("Pasta de migrations não encontrada — pulando migrations", {
-      path: migrationsDir
-    });
+    logger.warn("Pasta de migrations não encontrada — pulando", { path: migrationsDir });
     return;
   }
 
@@ -56,77 +50,62 @@ function runMigrations() {
     return;
   }
 
-  const applied = getAppliedVersions();
+  const applied = await getAppliedVersions();
 
-  files.forEach((file) => {
+  for (const file of files) {
     const migration = require(path.join(migrationsDir, file));
-    if (applied.has(migration.version)) return;
+    if (applied.has(migration.version)) continue;
+
     logger.info(`Applying migration ${migration.version} - ${migration.name}`);
-    db.exec("BEGIN");
     try {
-      migration.up(db);
-      db.prepare(
-        "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)"
-      ).run(migration.version, migration.name, new Date().toISOString());
-      db.exec("COMMIT");
+      await migration.up(client);
+      await client.execute({
+        sql: "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)",
+        args: [migration.version, migration.name, new Date().toISOString()]
+      });
     } catch (error) {
-      db.exec("ROLLBACK");
+      logger.error(`Migration ${migration.version} falhou`, { error: error.message });
       throw error;
     }
-  });
+  }
 }
 
-// ─── Transaction helper ─────────────────────────────────────────────────────
-function withTransaction(fn) {
-  db.exec("BEGIN");
+/* ═══ HELPERS ═══ */
+// Executa múltiplos statements em uma transação
+async function withTransaction(fn) {
+  const tx = await client.transaction("write");
   try {
-    const result = fn();
-    db.exec("COMMIT");
+    const result = await fn(tx);
+    await tx.commit();
     return result;
   } catch (error) {
-    db.exec("ROLLBACK");
+    try { await tx.rollback(); } catch {}
     throw error;
   }
 }
 
-// ─── Fechar banco (para testes) ─────────────────────────────────────────────
-function closeDb() {
-  try {
-    db.close();
-  } catch (e) {
-    // já fechado ou nunca aberto — ignora
-  }
+// Atalho para SELECT que retorna 1 linha
+async function queryOne(sql, args = []) {
+  const result = await client.execute({ sql, args });
+  return result.rows[0] || null;
 }
 
-// ─── Legacy data migrations ─────────────────────────────────────────────────
-function migrateLegacyUsers(saveUserRecord) {
-  if (!fs.existsSync(LEGACY_USER_STORE_FILE)) return;
-  let legacy = null;
-  try {
-    legacy = JSON.parse(fs.readFileSync(LEGACY_USER_STORE_FILE, "utf8"));
-  } catch {
-    return;
-  }
-  Object.entries(legacy.users || {}).forEach(([username, user]) => {
-    if (!username) return;
-    const existing = db.prepare("SELECT username FROM users WHERE username = ?").get(username);
-    if (existing) return;
-    saveUserRecord(username, {
-      provider: "local",
-      passwordHash: user.passwordHash || "",
-      createdAt: user.createdAt || new Date().toISOString(),
-      updatedAt: user.updatedAt || new Date().toISOString()
-    });
-  });
+// Atalho para SELECT que retorna várias linhas
+async function queryAll(sql, args = []) {
+  const result = await client.execute({ sql, args });
+  return result.rows;
 }
 
-runMigrations();
-try { db.exec("DROP TABLE IF EXISTS net_sales"); } catch {}
+// Atalho para INSERT/UPDATE/DELETE
+async function execute(sql, args = []) {
+  return client.execute({ sql, args });
+}
 
 module.exports = {
-  db,
+  client,
+  runMigrations,
   withTransaction,
-  migrateLegacyUsers,
-  closeDb,
-  nowIso: () => new Date().toISOString()
+  queryOne,
+  queryAll,
+  execute
 };

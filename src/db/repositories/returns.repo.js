@@ -1,30 +1,32 @@
-const { db } = require("../index");
+const { queryAll, execute } = require("../index");
 
-function listByUser(userId) {
-  return db.prepare(`
+async function listByUser(userId) {
+  return queryAll(`
     SELECT platform_id, month, amount FROM returns WHERE user_id = ?
     ORDER BY month ASC, platform_id ASC
-  `).all(userId);
+  `, [userId]);
 }
 
-function deleteAllForUser(userId) {
-  db.prepare("DELETE FROM returns WHERE user_id = ?").run(userId);
+async function deleteAllForUser(userId) {
+  await execute("DELETE FROM returns WHERE user_id = ?", [userId]);
 }
 
-function insertMany(userId, months, platforms, platformIds, timestamp) {
-  const stmt = db.prepare(`
-    INSERT INTO returns (user_id, platform_id, month, amount, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  Object.entries(months || {}).forEach(([month, monthData]) => {
-    platforms.forEach((platform) => {
+async function insertMany(userId, months, platforms, platformIds, timestamp) {
+  for (const [month, monthData] of Object.entries(months || {})) {
+    for (const platform of platforms) {
       const platformId = platformIds.get(platform.key);
-      if (!platformId) return;
+      if (!platformId) continue;
+
       const amount = Number(monthData.returns?.[platform.key] || 0);
-      if (amount <= 0) return;
-      stmt.run(userId, platformId, month, amount, timestamp, timestamp);
-    });
-  });
+      if (amount <= 0) continue;
+
+      await execute(`
+        INSERT INTO returns
+          (user_id, platform_id, month, amount, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [userId, platformId, month, amount, timestamp, timestamp]);
+    }
+  }
 }
 
 module.exports = { listByUser, deleteAllForUser, insertMany };

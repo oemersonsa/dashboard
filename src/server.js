@@ -1,9 +1,4 @@
 const { server, startServer, stopServer } = require("./server/index");
-const { migrateLegacyUsers } = require("./db");
-const usersRepo = require("./db/repositories/users.repo");
-
-// Migração de dados legados
-migrateLegacyUsers((username, record) => usersRepo.save(username, record));
 
 if (require.main === module) {
   startServer().catch((error) => {

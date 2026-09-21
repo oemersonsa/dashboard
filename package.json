@@ -59,6 +59,7 @@
     "runAfterFinish": false
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "electron-to-web": "^0.2.0"
   }
 }

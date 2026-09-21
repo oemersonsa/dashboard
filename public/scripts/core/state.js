@@ -241,6 +241,9 @@ export function normalizeState(raw, presetMap) {
 }
 
 function loadState() {
+   if (typeof localStorage === "undefined") {
+    return defaultState();
+  }
   try {
     const authRaw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (authRaw) {

@@ -2,10 +2,9 @@ const { URL } = require("url");
 const { setCorsHeaders } = require("../middleware/cors");
 const rateLimit = require("../middleware/rate-limit");
 const authMiddleware = require("../middleware/auth");
-const { Errors } = require("../utils/errors");
-const logger = require("../utils/logger");
 const staticServer = require("./static");
 const { APP_ORIGIN } = require("../config/env");
+const logger = require("../utils/logger");
 
 const authRoutes = require("../routes/auth.routes");
 const stateRoutes = require("../routes/state.routes");
@@ -45,7 +44,12 @@ async function handleRequest(req, res) {
   }
 
   try {
-    // ─── Public auth routes ─────────────────────────────────────────────
+    // ─── Healthcheck ───────────────────────────────────────────────────
+    if (req.method === "GET" && url.pathname === "/health") {
+      return sendJson(res, 200, { status: "ok" });
+    }
+
+    // ─── Public auth routes ────────────────────────────────────────────
     if (req.method === "POST" && url.pathname === "/api/auth/register") {
       return await authRoutes.register(req, res);
     }
@@ -97,6 +101,7 @@ async function handleRequest(req, res) {
       if (req.method === "POST" && url.pathname === "/api/returns") {
         return await returnsRoutes.save(req, res, authenticatedUser);
       }
+
       const dashboardMatch = url.pathname.match(/^\/api\/dashboard\/(.+)$/);
       if (req.method === "GET" && dashboardMatch) {
         return await salesRoutes.dashboard(req, res, authenticatedUser, dashboardMatch[1]);
@@ -112,13 +117,9 @@ async function handleRequest(req, res) {
   } catch (error) {
     const statusCode = error.statusCode || 500;
     logger.error("Unhandled error", { message: error.message, path: url.pathname });
-    const safeMessage = statusCode === 500 ? "internal_server_error" : error.code || error.message;
+    const safeMessage = statusCode === 500 ? "internal_server_error" : (error.code || error.message);
     sendJson(res, statusCode, { error: safeMessage });
   }
-}
-
-if (req.method === "GET" && url.pathname === "/health") {
-  return sendJson(res, 200, { status: "ok" });
 }
 
 module.exports = { handleRequest };

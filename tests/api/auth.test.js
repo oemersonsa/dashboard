@@ -1,11 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { resetTestDb, cleanupTestDb } from "../setup/test-db.js";
 
 let serverInfo;
 
 beforeAll(async () => {
-  resetTestDb();
-  await new Promise((r) => setTimeout(r, 100));
   const { startServer } = await import("../../src/server/index.js");
   serverInfo = await startServer({ port: 0, host: "127.0.0.1" });
 });
@@ -13,9 +10,11 @@ beforeAll(async () => {
 afterAll(async () => {
   const { stopServer } = await import("../../src/server/index.js");
   await stopServer();
-  await new Promise((r) => setTimeout(r, 200));
-  cleanupTestDb();
 });
+
+let counter = 0;
+const uniqueUser = () =>
+  `user_${Date.now()}_${counter++}_${Math.random().toString(36).slice(2, 8)}`;
 
 async function request(path, opts = {}) {
   const res = await fetch(`${serverInfo.url}${path}`, {
@@ -25,15 +24,11 @@ async function request(path, opts = {}) {
   return { status: res.status, data: await res.json().catch(() => null) };
 }
 
-let counter = 0;
-const uniqueUser = () => `user_${Date.now()}_${counter++}`;
-
 describe("API - Auth", () => {
   it("register cria novo usuário", async () => {
-    const u = uniqueUser();
     const r = await request("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ username: u, password: "1234" })
+      body: JSON.stringify({ username: uniqueUser(), password: "1234" })
     });
     expect(r.status).toBe(200);
     expect(r.data.sessionToken).toBeTruthy();
