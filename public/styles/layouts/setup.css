@@ -1,0 +1,32 @@
+.setup-shell { width: min(100%, 620px); }
+.setup-card { width: 100%; max-width: none; }
+
+.setup-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(100px, 1fr) 90px;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.platform-builder { display: grid; gap: var(--space-4); }
+.setup-list { display: grid; gap: var(--space-3); }
+
+.setup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.setup-item:hover { transform: translateX(2px); }
+
+.setup-item-main { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.setup-item-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.setup-item-copy strong { font-size: var(--text-base); font-weight: 600; }
+.setup-item-copy span { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.setup-item-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }

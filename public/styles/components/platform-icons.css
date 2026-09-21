@@ -1,0 +1,57 @@
+.platform-icon {
+  position: relative;
+  overflow: hidden;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.platform-icon-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  z-index: 1;
+}
+
+.platform-icon-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: transparent;
+  border-radius: inherit;
+  z-index: 2;
+}
+
+.platform-icon:has(.platform-icon-img) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.platform-icon-fallback {
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.platform-summary-table { table-layout: auto; font-size: var(--text-sm); }
+.platform-summary-table th, .platform-summary-table td { padding: var(--space-2); }

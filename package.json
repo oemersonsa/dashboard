@@ -1,0 +1,64 @@
+{
+  "name": "dashboard-vendas",
+  "version": "5.0.0",
+  "private": true,
+  "description": "Dashboard de vendas para marketplaces com Electron + SQLite",
+  "main": "src/main/electron-main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "node src/server.js",
+    "dev:watch": "node --watch src/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:api": "vitest run tests/api",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:all": "npm run test:coverage && npm run test:e2e",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:portable": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.seuapp.dashboard",
+    "productName": "Dashboard de Vendas",
+    "win": {
+      "target": "portable",
+      "icon": "public/assets/icon.ico"
+    },
+    "portable": {
+      "artifactName": "${productName}.exe",
+      "requestExecutionLevel": "user"
+    },
+    "files": [
+      "src/**/*",
+      "public/**/*",
+      "package.json"
+    ]
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "nsis": {
+    "perMachine": false,
+    "allowElevation": false,
+    "runAfterFinish": false
+  },
+  "dependencies": {
+    "electron-to-web": "^0.2.0"
+  }
+}

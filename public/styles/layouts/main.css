@@ -1,0 +1,31 @@
+/* ─── 1. Tokens ─── */
+@import url("./tokens.css");
+
+/* ─── 2. Base ─── */
+@import url("./base.css");
+
+/* ─── 3. Componentes ─── */
+@import url("./components/buttons.css");
+@import url("./components/cards.css");
+@import url("./components/forms.css");
+@import url("./components/tables.css");
+@import url("./components/modals.css");
+@import url("./components/toast.css");
+@import url("./components/kpi.css");
+@import url("./components/save-indicator.css");
+@import url("./components/platform-icons.css");
+@import url("./components/charts.css");
+
+/* ─── 4. Layouts ─── */
+@import url("./layouts/auth.css");
+@import url("./layouts/setup.css");
+@import url("./layouts/hub.css");
+@import url("./layouts/dashboard.css");
+@import url("./layouts/calculator.css");
+@import url("./layouts/daily-close.css");
+
+/* ─── 5. Utilities ─── */
+@import url("./utilities.css");
+
+/* ─── 6. Responsive ─── */
+@import url("./responsive.css");

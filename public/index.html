@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               style-src 'self' 'unsafe-inline';
+               script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+               img-src 'self' data: https:;
+               font-src 'self' data:;">
+<title>Dashboard de Vendas</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link rel="stylesheet" href="/styles/main.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<script type="module" src="/scripts/main.js" defer></script>
+</head>
+<body>
+<div class="app">
+  <!-- AUTH -->
+  <section class="screen auth-screen" id="authScreen">
+    <div class="auth-card">
+      <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
+      <div class="auth-copy">
+        <div class="card-title" id="authTitle">Entrar</div>
+        <div class="card-sub" id="authSubtitle">Acesse seu dashboard local nesta maquina.</div>
+      </div>
+      <div class="auth-switch" id="authModeSwitch">
+        <button class="auth-switch-btn active" id="authModeLoginButton" type="button">Fazer login</button>
+        <button class="auth-switch-btn" id="authModeCreateButton" type="button">Criar acesso</button>
+      </div>
+      <div class="auth-form">
+        <div class="auth-local-fields" id="authLocalFields">
+          <div class="fg"><label class="flabel" for="authUsername">Usuario</label><input class="finput" id="authUsername" type="text" autocomplete="username" placeholder="Seu usuário"></div>
+          <div class="fg"><label class="flabel" for="authPassword">Senha</label><input class="finput" id="authPassword" type="password" autocomplete="current-password" placeholder="Sua senha"></div>
+        </div>
+        <div class="actions-row"><button class="btn btn-primary" id="authSubmitButton" type="button">Entrar</button></div>
+        <div class="auth-tip" id="authHint">Ao entrar, seus dados ficam salvos no servidor do app.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="screen setup-screen" id="setupScreen" hidden>
+    <div class="setup-shell">
+      <div class="auth-card setup-card">
+        <div class="logo"><div class="logo-dot"></div>Configurar Plataformas</div>
+        <div class="auth-copy">
+          <div class="card-title">Cadastre suas plataformas</div>
+          <div class="card-sub">O dashboard será gerado com base nas plataformas que você usar.</div>
+        </div>
+        <div class="platform-builder">
+          <div class="setup-grid">
+            <div class="fg"><label class="flabel" for="platformName">Nome</label><input class="finput" id="platformName" type="text" placeholder="Ex.: Mercado Livre"></div>
+            <div class="fg"><label class="flabel" for="platformShort">Sigla</label><input class="finput" id="platformShort" type="text" maxlength="3" placeholder="ML"></div>
+            <div class="fg"><label class="flabel" for="platformColor">Cor</label><input class="finput color-input" id="platformColor" type="color" value="#2563eb"></div>
+          </div>
+          <div class="actions-row">
+            <button class="btn btn-primary" id="addPlatformConfigButton" type="button">Adicionar Plataforma</button>
+            <button class="btn btn-secondary" id="cancelPlatformEditButton" type="button" hidden>Cancelar Edição</button>
+          </div>
+          <div class="setup-list" id="platformConfigList"></div>
+          <div class="actions-row">
+            <button class="btn btn-secondary" id="importBackupSetupButton" type="button">Importar Backup</button>
+            <button class="btn btn-primary" id="finishSetupButton" type="button">Finalizar Configuração</button>
+            <button class="btn btn-secondary" id="logoutFromSetupButton" type="button">Sair</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HUB -->
+  <section class="screen hub-screen" id="hubScreen" hidden>
+    <div class="hub-shell"></div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="screen dashboard-screen" id="dashboardScreen" hidden>
+    <header class="topbar">
+      <div class="header-left">
+        <button class="icon-btn menu-toggle" id="menuToggleButton" type="button" aria-label="Menu">☰</button>
+        <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
+      </div>
+    </header>
+
+    <div class="dashboard-layout">
+      <aside class="sidebar" id="dashboardSidebar">
+        <div class="sidebar-top">
+          <button class="sidebar-period-btn" id="periodPickerButton" type="button">
+            <span class="sidebar-period-year" id="sidebarCurrentYear">2026</span>
+            <span class="sidebar-period-month" id="sidebarCurrentMonth">Setembro</span>
+            <span class="sidebar-period-chevron">▾</span>
+          </button>
+        </div>
+        <nav class="sidebar-nav">
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">Visão</div>
+            <button class="sidebar-item active" data-dashboard-tab="overview" type="button"><span class="sidebar-label">Visão Geral</span></button>
+            <button class="sidebar-item" data-dashboard-tab="daily" type="button"><span class="sidebar-label">Vendas Diárias</span></button>
+            <button class="sidebar-item" data-dashboard-tab="weekly" type="button"><span class="sidebar-label">Semanas</span></button>
+            <button class="sidebar-item" data-dashboard-tab="platforms" type="button"><span class="sidebar-label">Plataformas</span></button>
+            <button class="sidebar-item" id="reportButton" type="button"><span class="sidebar-label">Relatório</span></button>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">Gestão</div>
+            <button class="sidebar-item" data-dashboard-tab="entries" type="button"><span class="sidebar-label">Lançamentos</span></button>
+            <button class="sidebar-item" data-dashboard-tab="projection" type="button"><span class="sidebar-label">Projeção</span></button>
+          </div>
+          <div class="sidebar-section sidebar-section-bottom">
+            <button class="sidebar-item" id="sidebarOpenHub" type="button"><span class="sidebar-label">Menu Inicial</span></button>
+            <button class="sidebar-item" id="sidebarOpenDailyClose" type="button"><span class="sidebar-label">Fechamento</span></button>
+            <button class="sidebar-item" id="sidebarOpenCalculator" type="button"><span class="sidebar-label">Calculadora</span></button>
+            <div class="sidebar-divider"></div>
+            <button class="sidebar-item" id="sidebarSaveButton" type="button"><span class="sidebar-label">Salvar Dados</span></button>
+            <button class="sidebar-item" id="sidebarImportBackupButton" type="button"><span class="sidebar-label">Importar Backup</span></button>
+            <button class="sidebar-item" id="sidebarExportBackupButton" type="button"><span class="sidebar-label">Exportar Backup</span></button>
+          </div>
+        </nav>
+      </aside>
+
+      <main id="dashboardMain" class="dashboard-main">
+        <div class="kpi-row" id="kpiRow"></div>
+        <div class="dashboard-panels">
+          <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
+            <div class="card">
+              <div class="card-header">
+                <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">% do faturamento líquido</div></div>
+              </div>
+              <div class="platform-bars" id="platformBars"></div>
+            </div>
+          </section>
+          <section class="dashboard-panel" id="dashboard-panel-daily" data-dashboard-panel="daily" hidden>
+            <div class="grid2">
+              <div class="card daily-card">
+                <div class="card-header">
+                  <div><div class="card-title">Vendas Diárias por Plataforma</div><div class="card-sub">Gráfico consolidado do mês.</div></div>
+                  <button class="btn btn-secondary" id="openDailyDetailsButton" type="button">Ver detalhes</button>
+                </div>
+                <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
+              </div>
+              <div class="card">
+                <div class="card-header"><div><div class="card-title">Melhores Dias</div><div class="card-sub">Maior venda registrada</div></div></div>
+                <div class="bdgrid" id="bestDayGrid"></div>
+              </div>
+            </div>
+          </section>
+          <section class="dashboard-panel" id="dashboard-panel-weekly" data-dashboard-panel="weekly" hidden>
+            <div class="card">
+              <div class="card-header"><div><div class="card-title">Vendas por Semana</div><div class="card-sub">Total geral e detalhamento por plataforma</div></div></div>
+              <div class="wgrid" id="weekBars"></div>
+            </div>
+          </section>
+          <section class="dashboard-panel" id="dashboard-panel-platforms" data-dashboard-panel="platforms" hidden>
+            <div class="card">
+              <div class="card-header">
+                <div><div class="card-title">Resumo por Plataforma</div><div class="card-sub">Vendas e devoluções vs. mês anterior</div></div>
+              </div>
+              <div id="monthCompareCards"></div>
+              <table class="ptable platform-summary-table" id="platformTable"></table>
+            </div>
+          </section>
+          <section class="dashboard-panel" id="dashboard-panel-entries" data-dashboard-panel="entries" hidden>
+            <div class="card">
+              <div class="sec-label">Lançamento de Dados</div>
+              <div class="itabs">
+                <button class="itab active" data-tab="sales" type="button">+ Vendas Diárias</button>
+                <button class="itab" data-tab="returns" type="button">Devoluções</button>
+              </div>
+              <div class="ipanel active" id="panel-sales">
+                <div class="irow">
+                  <div class="fg"><label class="flabel" for="inputDate">Data</label><input type="date" class="finput" id="inputDate"></div>
+                  <div class="fg"><label class="flabel" for="inputMonth">Mês</label><select class="finput" id="inputMonth"></select></div>
+                </div>
+                <div class="sec-label small-label">Valor bruto por plataforma (R$)</div>
+                <div class="pigrid" id="saleInputs"></div>
+                <div class="actions-row">
+                  <button class="btn btn-primary" id="registerSaleButton" type="button">Registrar</button>
+                  <button class="btn btn-secondary" id="clearSaleButton" type="button">Limpar</button>
+                </div>
+              </div>
+              <div class="ipanel" id="panel-returns">
+                <div class="irow">
+                  <div class="fg"><label class="flabel" for="returnMonth">Mês</label><select class="finput" id="returnMonth"></select></div>
+                </div>
+                <div class="sec-label small-label">Total de devoluções por plataforma no mês (R$)</div>
+                <div class="pigrid" id="returnInputs"></div>
+                <div class="actions-row">
+                  <button class="btn btn-primary" id="saveReturnsButton" type="button">Salvar Devoluções</button>
+                  <button class="btn btn-secondary" id="cancelReturnsButton" type="button">Cancelar</button>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="dashboard-panel" id="dashboard-panel-projection" data-dashboard-panel="projection" hidden>
+            <div class="card">
+              <div class="card-header"><div><div class="card-title">Projeção do Mês</div><div class="card-sub">Estimativa baseada na média dos dias já lançados</div></div></div>
+              <div class="projection-grid" id="projectionGrid"></div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- CALCULATOR -->
+  <section class="screen calculator-screen" id="calculatorScreen" hidden>
+    <header class="topbar">
+      <div class="header-left">
+        <button class="btn btn-secondary" id="calculatorBackToHubButton" type="button">Menu</button>
+        <button class="btn btn-secondary" id="calculatorOpenDashboardButton" type="button">Dashboard</button>
+      </div>
+      <div class="logo header-brand"><div class="logo-dot"></div><span id="calculatorTitle">Calculadora</span></div>
+      <div class="header-right">
+        <button class="btn btn-secondary" id="calculatorManagePlatformsButton" type="button">Plataformas</button>
+      </div>
+    </header>
+    <main class="calculator-main">
+      <div class="grid2">
+        <div class="card">
+          <div class="card-header"><div><div class="card-title">Base do Produto</div><div class="card-sub">Informe os custos comuns antes de abrir o resultado por plataforma.</div></div></div>
+          <div class="pricing-form-grid">
+            <label class="fg"><span class="flabel">Custo do Produto</span><input class="finput" id="pricingProductCost" type="number" step="0.01" min="0"></label>
+            <label class="fg"><span class="flabel">Embalagem</span><input class="finput" id="pricingPackagingCost" type="number" step="0.01" min="0"></label>
+            <label class="fg"><span class="flabel">Custos Extras</span><input class="finput" id="pricingExtraCost" type="number" step="0.01" min="0"></label>
+            <label class="fg"><span class="flabel">Frete Bancado</span><input class="finput" id="pricingShippingSubsidy" type="number" step="0.01" min="0"></label>
+          </div>
+          <div class="pricing-mode-row">
+            <button class="mode-card" id="pricingModeMargin" type="button">Calcular por margem</button>
+            <button class="mode-card" id="pricingModeProfit" type="button">Calcular por lucro</button>
+          </div>
+          <div class="pricing-form-grid">
+            <label class="fg" id="pricingTargetMarginWrap"><span class="flabel">Margem Desejada %</span><input class="finput" id="pricingTargetMargin" type="number" step="0.1" min="0"></label>
+            <label class="fg" id="pricingTargetProfitWrap" hidden><span class="flabel">Lucro Desejado R$</span><input class="finput" id="pricingTargetProfit" type="number" step="0.01" min="0"></label>
+            <label class="fg"><span class="flabel">Vender por R$</span><input class="finput" id="pricingManualPrice" type="number" step="0.01" min="0"></label>
+          </div>
+          <div class="pricing-base-resume"><span>Custo base considerado</span><strong id="pricingBaseCost">R$ 0,00</strong></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div><div class="card-title">Como Ler</div><div class="card-sub">As taxas podem ser ajustadas individualmente em cada plataforma.</div></div></div>
+          <div class="calculator-tips">
+            <div class="empty-state">Use os valores como ponto de partida. Ajuste o card da plataforma antes de confiar no preço final.</div>
+            <div class="empty-state">Para marketplaces com frete variável, deixe o frete zerado na base e preencha o repasse extra no card da plataforma.</div>
+          </div>
+        </div>
+      </div>
+      <div class="pricing-platform-grid" id="pricingPlatformGrid"></div>
+    </main>
+  </section>
+
+  <!-- DAILY CLOSE -->
+  <section class="screen daily-close-screen" id="dailyCloseScreen" hidden>
+    <header class="topbar">
+      <div class="header-left">
+        <button class="btn btn-secondary" id="dailyCloseBackToHubButton" type="button">Menu</button>
+        <button class="btn btn-secondary" id="dailyCloseOpenDashboardButton" type="button">Dashboard</button>
+      </div>
+      <div class="logo header-brand"><div class="logo-dot"></div><span id="dailyCloseTitle">Fechamento Diário</span></div>
+      <div class="header-right">
+        <button class="btn btn-secondary" id="dailyCloseManagePlatformsButton" type="button">Plataformas</button>
+      </div>
+    </header>
+    <main class="daily-close-main">
+      <div class="card">
+        <div class="card-header">
+          <div><div class="card-title">Fechamento Diário</div><div class="card-sub">Digite vendas e devoluções por plataforma.</div></div>
+          <div class="daily-close-date"><label class="flabel" for="dailyCloseDate">Data</label><input class="finput" id="dailyCloseDate" type="date"></div>
+        </div>
+        <div class="daily-close-grid" id="dailyClosePlatformGrid"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Relatório TXT</div><div class="card-sub">O texto abaixo fica no mesmo formato do envio diário.</div></div></div>
+        <div class="daily-close-totals" id="dailyCloseTotals"></div>
+        <textarea class="daily-close-preview" id="dailyClosePreview" readonly></textarea>
+        <div class="actions-row">
+          <button class="btn btn-primary" id="downloadDailyCloseButton" type="button">Baixar TXT</button>
+          <button class="btn btn-secondary" id="copyDailyCloseButton" type="button">Copiar Texto</button>
+          <button class="btn btn-secondary" id="clearDailyCloseButton" type="button">Limpar</button>
+        </div>
+      </div>
+    </main>
+  </section>
+</div>
+
+<!-- MODAIS -->
+<div class="moverlay" id="addMonthModal">
+  <div class="modal modal-small">
+    <div class="mheader">
+      <div><div class="mtitle">Selecionar Mês</div><div class="card-sub modal-subtitle">Escolha um mês existente ou crie um novo</div></div>
+      <button class="mclose" data-close-modal="addMonthModal" type="button">X</button>
+    </div>
+    <label class="fg add-period-year"><span class="flabel">Ano</span><input class="finput" id="periodYearInput" type="number" min="2000" max="2100" step="1"></label>
+    <div class="month-grid" id="monthPicker"></div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="confirmAddMonthButton" type="button">Criar Mês</button>
+      <button class="btn btn-secondary" id="openDeleteMonthButton" type="button">Excluir Mês Atual</button>
+      <button class="btn btn-secondary" data-close-modal="addMonthModal" type="button">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="importBackupModal">
+  <div class="modal modal-small">
+    <div class="mheader"><div><div class="mtitle">Importar Backup</div><div class="card-sub modal-subtitle">Escolha se deseja mesclar ou substituir.</div></div><button class="mclose" data-close-modal="importBackupModal" type="button">X</button></div>
+    <div class="modal-stack">
+      <button class="mode-card active" id="importModeMergeButton" data-import-mode="merge" type="button"><span class="mode-card-title">Mesclar</span><span class="mode-card-sub">Mantém o que já existe e adiciona dados do backup.</span></button>
+      <button class="mode-card" id="importModeReplaceButton" data-import-mode="replace" type="button"><span class="mode-card-title">Substituir</span><span class="mode-card-sub">Usa o backup como base principal.</span></button>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="confirmImportBackupButton" type="button">Escolher Arquivo</button>
+      <button class="btn btn-secondary" data-close-modal="importBackupModal" type="button">Cancelar</button>
+      <input id="backupFileInputModal" type="file" accept=".json,application/json" hidden>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="changePasswordModal">
+  <div class="modal modal-small">
+    <div class="mheader"><div><div class="mtitle">Trocar Senha</div><div class="card-sub modal-subtitle">Atualize sua senha local sem alterar os dados salvos.</div></div><button class="mclose" data-close-modal="changePasswordModal" type="button">X</button></div>
+    <div class="modal-stack">
+      <div class="fg"><label class="flabel" for="currentPasswordInput">Senha Atual</label><input class="finput" id="currentPasswordInput" type="password"></div>
+      <div class="fg"><label class="flabel" for="newPasswordInput">Nova Senha</label><input class="finput" id="newPasswordInput" type="password"></div>
+      <div class="fg"><label class="flabel" for="confirmPasswordInput">Confirmar Nova Senha</label><input class="finput" id="confirmPasswordInput" type="password"></div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="savePasswordButton" type="button">Salvar Senha</button>
+      <button class="btn btn-secondary" data-close-modal="changePasswordModal" type="button">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="deleteMonthModal">
+  <div class="modal modal-small">
+    <div class="mheader"><div><div class="mtitle">Excluir Mês</div><div class="card-sub modal-subtitle" id="deleteMonthSubtitle">Confirme a exclusão do mês atual.</div></div><button class="mclose" data-close-modal="deleteMonthModal" type="button">X</button></div>
+    <div class="empty-state delete-month-warning">Essa ação remove todas as vendas e devoluções do mês selecionado.</div>
+    <div class="actions-row">
+      <button class="btn btn-primary btn-danger" id="confirmDeleteMonthButton" type="button">Excluir Mês</button>
+      <button class="btn btn-secondary" data-close-modal="deleteMonthModal" type="button">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="reportModal">
+  <div class="modal rmodal">
+    <div class="mheader">
+      <div><div class="mtitle" id="reportTitle">Relatório</div><div class="card-sub modal-subtitle">Desempenho completo de vendas</div></div>
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-print" id="exportReportButton" type="button">Exportar PNG</button>
+        <button class="mclose" data-close-modal="reportModal" type="button">X</button>
+      </div>
+    </div>
+    <div id="reportContent"></div>
+  </div>
+</div>
+
+<div class="moverlay" id="dailyDetailsModal">
+  <div class="modal rmodal">
+    <div class="mheader">
+      <div><div class="mtitle">Vendas Diárias</div><div class="card-sub modal-subtitle">Edite vendas e pedidos diretamente na tabela.</div></div>
+      <button class="mclose" data-close-modal="dailyDetailsModal" type="button">X</button>
+    </div>
+    <div class="daily-wrap modal-daily-wrap"><table class="dtable" id="dailyDetailsTable"></table></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

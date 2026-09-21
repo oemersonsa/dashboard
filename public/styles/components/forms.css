@@ -1,0 +1,94 @@
+.fg { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.flabel {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.finput {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  color: var(--text);
+  font-size: var(--text-base);
+  outline: none;
+  transition: border-color var(--duration-base),
+              box-shadow var(--duration-base),
+              background var(--duration-base);
+}
+
+.finput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+  background: var(--surface);
+}
+
+.finput::placeholder { color: var(--muted); }
+.finput:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.color-input { padding: 4px 6px; min-height: 40px; width: 100%; }
+
+.itabs { display: flex; gap: var(--space-2); margin-bottom: var(--space-5); }
+
+.itab {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: var(--text-sm);
+  transition: all var(--duration-base) var(--ease-out);
+}
+
+.itab.active {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border-2);
+}
+
+.itab:hover { color: var(--text); }
+
+.ipanel { display: none; }
+.ipanel.active { display: block; animation: panel-in var(--duration-slow) var(--ease-out); }
+
+.irow {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-end;
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.pigrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3) var(--space-6);
+  margin-bottom: var(--space-5);
+  align-items: end;
+}
+
+.sec-label {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sec-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.small-label { font-size: var(--text-sm); margin-bottom: var(--space-2); }

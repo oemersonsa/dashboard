@@ -1,0 +1,60 @@
+.chart-box { height: 160px; }
+.daily-card { display: flex; flex-direction: column; min-height: 340px; }
+.daily-chart-box { flex: 1; height: auto; min-height: 260px; }
+
+.platform-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-1) 0;
+}
+
+.pb-row { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.pb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.pb-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.pb-value {
+  font-weight: 650;
+  font-size: var(--text-md);
+  color: var(--text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.pb-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.8s var(--ease-out);
+}
+
+.pb-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}

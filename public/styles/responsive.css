@@ -1,0 +1,102 @@
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 1400px) {
+  .kpi-value { font-size: var(--text-lg); }
+  .kpi-card { padding: var(--space-4); min-height: 124px; }
+  .dashboard-main { padding: var(--space-5) var(--space-6); }
+}
+
+@media (max-width: 1180px) {
+  .app { max-width: 100%; }
+  .topbar { padding: var(--space-3) var(--space-4); }
+  .dashboard-main { padding: var(--space-4); }
+  .kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid2, .grid2b { grid-template-columns: 1fr; }
+  .pricing-platform-grid { grid-template-columns: 1fr; }
+  .daily-close-grid { grid-template-columns: 1fr; }
+  .hub-hero { grid-template-columns: 1fr; }
+  .hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 860px) {
+  .dashboard-layout { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed;
+    top: var(--topbar-h);
+    left: 0;
+    bottom: 0;
+    width: 220px;
+    z-index: 45;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-5) var(--space-3);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .menu-toggle { display: inline-flex; }
+  .dashboard-main { padding: var(--space-4); }
+  .topbar { padding: var(--space-3) var(--space-3); }
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2, .grid2b { grid-template-columns: 1fr; }
+  .pricing-form-grid, .pricing-grid, .pricing-breakdown, .pricing-manual,
+  .pricing-rounding > div, .pricing-kpis { grid-template-columns: 1fr; }
+  .pigrid { grid-template-columns: 1fr 1fr; }
+  .setup-grid { grid-template-columns: 1fr; }
+  .commission-shell { flex-direction: column; }
+  .hub-shell { min-height: auto; padding: var(--space-5); }
+  .hub-copy { min-height: 220px; padding: var(--space-6); }
+  .hub-summary-grid { grid-template-columns: 1fr; }
+  .calculator-main, .daily-close-main { padding: var(--space-4); }
+  .daily-close-date { width: 100%; }
+  .auth-card, .hub-shell, .modal { border-radius: var(--radius-lg); }
+  .card, .kpi-card, .pricing-card { padding: var(--space-4); }
+  .card-header, .mheader { gap: var(--space-3); }
+  .card-header { flex-direction: column; align-items: flex-start; }
+  .daily-card { min-height: auto; }
+  .daily-chart-box { min-height: 240px; }
+  .irow, .actions-row, .header-actions { align-items: stretch; }
+  .irow .fg { flex: 1 1 140px; }
+  .month-grid { grid-template-columns: repeat(3, 1fr); }
+  .modal { padding: var(--space-6); }
+  .toast { left: var(--space-4); right: var(--space-4); bottom: var(--space-4); text-align: center; }
+}
+
+@media (max-width: 640px) {
+  .logo { font-size: var(--text-md); }
+  .header-left, .header-right { flex-wrap: wrap; }
+  .kpi-row { grid-template-columns: 1fr; }
+  .pigrid { grid-template-columns: 1fr; }
+  .auth-screen, .setup-screen, .hub-screen { padding: var(--space-3); }
+  .auth-card, .hub-shell { padding: var(--space-5); }
+  .setup-shell { width: 100%; }
+  .hub-card { padding: var(--space-5); }
+  .hub-card strong { font-size: var(--text-lg); }
+  .hub-topbar { align-items: flex-start; flex-direction: column; }
+  .hub-topbar-actions { width: 100%; }
+  .hub-topbar-actions .btn { flex: 1; }
+  .hub-grid { grid-template-columns: 1fr; }
+  .hub-copy h1 { font-size: 34px; }
+  .setup-item { align-items: flex-start; flex-direction: column; }
+  .setup-item-actions { width: 100%; justify-content: flex-start; }
+  .actions-row { display: grid; grid-template-columns: 1fr; gap: var(--space-3); width: 100%; }
+  .actions-row .btn { width: 100%; }
+  .itabs { display: grid; grid-template-columns: 1fr 1fr; }
+  .itab { text-align: center; }
+  .dtable, .ptable, .rtable { font-size: var(--text-sm); }
+  .month-grid { grid-template-columns: repeat(2, 1fr); }
+  .pricing-platform-grid { grid-template-columns: 1fr; }
+  .daily-close-input-grid, .daily-close-totals { grid-template-columns: 1fr; }
+  .modal { padding: var(--space-5); max-height: 85vh; }
+  .modal-small, .rmodal { max-width: none; }
+  .moverlay { padding: var(--space-3); }
+  .compare-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .topbar { padding: var(--space-3) var(--space-3); }
+  .dashboard-main, .calculator-main, .daily-close-main { padding: var(--space-3); }
+  .auth-card, .hub-shell, .card, .kpi-card, .pricing-card, .modal { padding: var(--space-4); }
+  .logo { font-size: var(--text-base); }
+  .card-title { font-size: var(--text-md); }
+  .kpi-value { font-size: var(--text-lg); }
+  .month-grid { grid-template-columns: repeat(2, 1fr); }
+  .toast { font-size: var(--text-sm); padding: var(--space-3); }
+}

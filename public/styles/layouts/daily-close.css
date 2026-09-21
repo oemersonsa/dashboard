@@ -1,0 +1,93 @@
+.daily-close-main { padding: var(--space-6) var(--space-8); display: grid; gap: var(--space-5); }
+.daily-close-date { width: min(240px, 100%); }
+
+.daily-close-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.daily-close-platform {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.daily-close-platform:hover { transform: translateY(-1px); }
+
+.daily-close-platform-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.daily-close-platform-net {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--accent);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.daily-close-input-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+
+.daily-close-input { min-height: 96px; resize: vertical; line-height: 1.5; }
+
+.daily-close-platform-totals, .daily-close-totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.daily-close-totals { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: var(--space-4); }
+
+.daily-close-platform-totals div, .daily-close-totals div {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.daily-close-platform-totals span, .daily-close-totals span {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.daily-close-platform-totals strong, .daily-close-totals strong {
+  min-width: 0;
+  font-size: var(--text-md);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.daily-close-preview {
+  width: 100%;
+  min-height: 360px;
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--duration-base), box-shadow var(--duration-base);
+}
+
+.daily-close-preview:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+}

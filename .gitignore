@@ -1,0 +1,40 @@
+# Dependências
+node_modules/
+
+# Bancos de dados locais
+.data/
+.data-test/
+.data-e2e/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Cache de build
+dist/
+build/
+out/
+
+# Resultados de teste
+test-results/
+coverage/
+playwright-report/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.*.local
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp

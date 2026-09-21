@@ -1,0 +1,183 @@
+.hub-shell {
+  width: min(100%, 1180px);
+  min-height: min(760px, calc(100vh - 48px));
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), transparent 38%), var(--surface);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-lg);
+}
+
+.hub-topbar, .hub-topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.hub-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: var(--space-6);
+}
+
+.hub-copy, .hub-summary, .hub-card {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  backdrop-filter: var(--blur);
+}
+
+.hub-copy {
+  display: flex;
+  min-height: 260px;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-10);
+  border-radius: 26px;
+}
+
+.hub-copy h1 {
+  max-width: 620px;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 0.98;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.hub-copy p {
+  max-width: 560px;
+  color: var(--muted-2);
+  font-size: var(--text-md);
+  line-height: 1.55;
+}
+
+.hub-eyebrow, .hub-card-kicker, .hub-summary-head span, .hub-summary-grid span, .hub-summary-note {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.hub-platform-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-height: 26px;
+}
+
+.hub-platform-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 11px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted-2);
+  font-size: var(--text-sm);
+  transition: transform var(--duration-base) var(--ease-spring);
+}
+
+.hub-platform-pill:hover { transform: translateY(-1px); }
+
+.hub-summary {
+  display: flex;
+  min-height: 260px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-8);
+  border-radius: 26px;
+}
+
+.hub-summary-head { display: grid; gap: var(--space-3); }
+.hub-summary-head strong { font-size: var(--text-2xl); line-height: 1; font-weight: 650; letter-spacing: -0.03em; }
+
+.hub-meter {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.hub-meter span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.9s var(--ease-out);
+}
+
+.hub-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.hub-summary-grid div {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.hub-summary-grid strong { font-size: var(--text-md); font-weight: 650; overflow-wrap: anywhere; }
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.hub-card {
+  position: relative;
+  display: grid;
+  min-height: 200px;
+  grid-template-rows: auto auto auto 1fr;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform var(--duration-slow) var(--ease-spring),
+              border-color var(--duration-base),
+              background var(--duration-base),
+              box-shadow var(--duration-base);
+}
+
+.hub-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+  background: var(--surface);
+}
+
+.hub-card:active { transform: translateY(-1px) scale(0.99); }
+.hub-card-primary { background: linear-gradient(145deg, rgba(0, 113, 227, 0.16), var(--surface-2)); }
+
+.hub-card-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.hub-card strong { font-size: var(--text-xl); font-weight: 650; letter-spacing: -0.02em; }
+.hub-card span:last-child { align-self: end; font-size: var(--text-sm); color: var(--muted); line-height: 1.5; }

@@ -1,0 +1,79 @@
+.daily-wrap {
+  overflow-x: auto;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-top: var(--space-3);
+}
+
+.daily-wrap::-webkit-scrollbar, .modal::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.daily-wrap::-webkit-scrollbar-thumb, .modal::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 4px;
+}
+
+.modal-daily-wrap { max-height: 55vh; margin-top: 0; }
+
+.dtable, .ptable, .rtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.dtable th, .ptable th, .rtable th {
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: var(--space-3) var(--space-4);
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.dtable th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 2;
+}
+
+.dtable th:first-child, .ptable th:first-child, .rtable th:first-child { text-align: left; }
+
+.dtable td, .ptable td, .rtable td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+
+.dtable td:first-child { text-align: left; color: var(--muted-2); }
+.ptable td:first-child, .rtable td:first-child { text-align: left; }
+
+.dtable tbody tr:hover, .ptable tbody tr:hover { background: rgba(0, 113, 227, 0.03); }
+
+.dtable tfoot td, .ptable tfoot td, .rtable tfoot td {
+  border-top: 1px solid var(--border-2);
+  font-weight: 600;
+  color: var(--accent);
+  padding-top: var(--space-4);
+}
+
+.ceditable {
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 5px;
+  transition: background var(--duration-fast);
+  display: inline-block;
+  min-width: 30px;
+}
+
+.ceditable:hover { background: rgba(0, 113, 227, 0.06); outline: 1px solid rgba(0, 113, 227, 0.2); }
+.ceditable:focus { outline: 1px solid var(--accent); background: var(--surface-2); }
+.czero { color: var(--muted) !important; }

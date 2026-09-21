@@ -1,0 +1,94 @@
+:root {
+  /* ─── Cores (light default) ─── */
+  --bg: #f5f5f7;
+  --surface: rgba(255, 255, 255, 0.8);
+  --surface-2: rgba(255, 255, 255, 0.6);
+  --surface-3: rgba(255, 255, 255, 0.4);
+  --border: rgba(0, 0, 0, 0.06);
+  --border-2: rgba(0, 0, 0, 0.1);
+  --text: #1d1d1f;
+  --muted: #86868b;
+  --muted-2: #6e6e73;
+  --accent: #0071e3;
+  --accent-2: #5ac8fa;
+  --accent-3: #ff3b30;
+  --accent-4: #34c759;
+  --green: #34c759;
+  --red: #ff3b30;
+
+  /* ─── Tipografia ─── */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --font-mono: 'SF Mono', Consolas, 'Courier New', monospace;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 22px;
+  --text-2xl: 32px;
+  --text-3xl: 48px;
+
+  /* ─── Espaçamento (escala 4) ─── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ─── Radius ─── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+  /* ─── Sombra ─── */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+
+  /* ─── Blur ─── */
+  --blur: blur(20px);
+
+  /* ─── Motion ─── */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+
+  /* ─── Layout ─── */
+  --sidebar-w: 190px;
+  --topbar-h: 58px;
+  --ui-scale: 0.9;
+}
+
+/* ─── Dark theme ─── */
+body.dark-theme {
+  --bg: #0a0c10;
+  --surface: #111318;
+  --surface-2: #181c24;
+  --surface-3: #1e2330;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-2: rgba(255, 255, 255, 0.12);
+  --text: #f0f2f7;
+  --muted: #6b7280;
+  --muted-2: #9ca3af;
+  --accent: #e8ff47;
+  --accent-2: #47d4ff;
+  --accent-3: #ff6b6b;
+  --accent-4: #a78bfa;
+  --green: #4ade80;
+  --red: #f87171;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
