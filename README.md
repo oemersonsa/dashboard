@@ -154,9 +154,8 @@ PORT=3000
 HOST=0.0.0.0
 APP_ORIGIN=http://localhost:3000
 
-TURSO_DATABASE_URL=libsql://dashboard-vendas-xxx.turso.io
-TURSO_AUTH_TOKEN=eyJhbGciOi...
-```
+TURSO_DATABASE_URL=
+TURSO_AUTH_TOKEN=
 
 ### 4. Rodar
 
@@ -200,8 +199,8 @@ O app roda **como um único serviço web** no Render:
 **Variáveis de ambiente (no painel do Render):**
 
 ```
-TURSO_DATABASE_URL = libsql://dashboard-vendas-xxx.turso.io
-TURSO_AUTH_TOKEN   = eyJhbGciOi...
+TURSO_DATABASE_URL = libsql://xxx.turso.io
+TURSO_AUTH_TOKEN   = 
 HOST               = 0.0.0.0
 NODE_ENV           = production
 ```
