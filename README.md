@@ -119,7 +119,7 @@ O projeto tem **duas formas de rodar** o mesmo código:
 ### 1. Clonar e instalar
 
 ```bash
-git clone https://github.com/seu-usuario/dashboard.git
+git clone https://github.com/oemersonsa/dashboard.git
 cd dashboard
 npm install
 ```
