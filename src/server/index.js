@@ -9,7 +9,13 @@ const { runMigrations } = require("../db");
 const server = http.createServer(handleRequest);
 
 rateLimit.startCleanup();
-const sessionCleanup = setInterval(() => sessions.cleanupExpired(), 60 * 60_000);
+
+// Limpa sessões expiradas do banco a cada 1h
+const sessionCleanup = setInterval(() => {
+  sessions.cleanupExpired().catch((error) => {
+    logger.error("Falha na limpeza de sessões", { error: error.message });
+  });
+}, 60 * 60_000);
 sessionCleanup.unref?.();
 
 async function startServer({ port = config.PORT, host = config.HOST } = {}) {

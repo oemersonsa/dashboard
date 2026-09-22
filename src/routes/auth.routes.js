@@ -25,7 +25,7 @@ async function login(req, res) {
     return sendJson(res, 401, { error: "invalid_credentials" });
   }
 
-  const token = sessions.create(username);
+  const token = await sessions.create(username);       // ⬅️ await
   sendJson(res, 200, { sessionToken: token });
 }
 
@@ -54,7 +54,7 @@ async function register(req, res) {
     updatedAt: new Date().toISOString()
   });
 
-  const token = sessions.create(username);
+  const token = await sessions.create(username);       // ⬅️ await
   sendJson(res, 200, { sessionToken: token });
 }
 
@@ -91,7 +91,7 @@ async function migrateLocal(req, res) {
 async function logout(req, res) {
   const { extractToken } = require("../middleware/auth");
   const token = extractToken(req);
-  if (token) sessions.remove(token);
+  if (token) await sessions.remove(token);             // ⬅️ await
   sendJson(res, 200, { ok: true });
 }
 
@@ -125,6 +125,10 @@ async function changePassword(req, res, authenticatedUser) {
     passwordHash: auth.hashPassword(newPassword),
     updatedAt: new Date().toISOString()
   });
+
+  // Remove todas as sessões antigas (força novo login)
+  await sessions.removeAllForUser(username);
+
   sendJson(res, 200, { ok: true });
 }
 
@@ -132,7 +136,7 @@ async function changePassword(req, res, authenticatedUser) {
 async function session(req, res) {
   const { extractToken } = require("../middleware/auth");
   const token = extractToken(req);
-  const username = sessions.validate(token);
+  const username = await sessions.validate(token);     // ⬅️ await
   if (!username) return sendJson(res, 401, { error: "unauthorized" });
   sendJson(res, 200, { username });
 }

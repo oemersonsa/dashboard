@@ -67,7 +67,7 @@ async function handleRequest(req, res) {
     }
 
     // ─── Protected routes ──────────────────────────────────────────────
-    const authenticatedUser = authMiddleware.validate(req, url);
+    const authenticatedUser = await authMiddleware.validate(req, url);   // ⬅️ await
 
     if (req.method === "POST" && url.pathname === "/api/auth/change-password") {
       if (!authenticatedUser) return sendJson(res, 401, { error: "unauthorized" });

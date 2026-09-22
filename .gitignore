@@ -40,3 +40,5 @@ desktop.ini
 *.swp
 
 dashboard-vendas-backup-2026-setembro.jsondashboard-vendas-backup-*.json
+dashboard.git/
+*.git/

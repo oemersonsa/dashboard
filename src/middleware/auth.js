@@ -10,9 +10,9 @@ function extractToken(req, url = null) {
   return null;
 }
 
-function validate(req, url) {
+async function validate(req, url) {
   const token = extractToken(req, url);
-  return sessions.validate(token);
+  return await sessions.validate(token);
 }
 
 module.exports = { extractToken, validate };

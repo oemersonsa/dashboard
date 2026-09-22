@@ -1,71 +1,56 @@
-const fs = require("fs");
 const crypto = require("crypto");
-const { SESSION_STORE_FILE, DATA_DIR } = require("../config/paths");
-const { SESSION_TTL_MS } = require("../config/env");
+const { queryOne, execute } = require("../db");
+const config = require("../config/env");
+const logger = require("../utils/logger");
 
-function ensureDataDir() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+function nowIso() {
+  return new Date().toISOString();
 }
 
-function readStore() {
-  ensureDataDir();
-  if (!fs.existsSync(SESSION_STORE_FILE)) return { sessions: {} };
-  try {
-    return JSON.parse(fs.readFileSync(SESSION_STORE_FILE, "utf8"));
-  } catch {
-    return { sessions: {} };
-  }
+function expiresIso() {
+  return new Date(Date.now() + config.SESSION_TTL_MS).toISOString();
 }
 
-function writeStore(store) {
-  ensureDataDir();
-  const tmp = SESSION_STORE_FILE + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(store, null, 2));
-  fs.renameSync(tmp, SESSION_STORE_FILE);
-}
-
-function create(username) {
+async function create(username) {
   const token = crypto.randomBytes(32).toString("hex");
-  const store = readStore();
-  if (!store.sessions) store.sessions = {};
-  store.sessions[token] = { username, createdAt: Date.now() };
-  writeStore(store);
+  await execute(`
+    INSERT INTO sessions (token, username, created_at, expires_at)
+    VALUES (?, ?, ?, ?)
+  `, [token, username, nowIso(), expiresIso()]);
   return token;
 }
 
-function validate(token) {
+async function validate(token) {
   if (!token) return null;
-  const store = readStore();
-  const session = store.sessions?.[String(token)];
-  if (!session) return null;
-  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-    delete store.sessions[token];
-    writeStore(store);
+  const row = await queryOne(`
+    SELECT username, expires_at FROM sessions WHERE token = ?
+  `, [token]);
+
+  if (!row) return null;
+
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    await execute("DELETE FROM sessions WHERE token = ?", [token]);
     return null;
   }
-  return session.username;
+
+  return row.username;
 }
 
-function remove(token) {
+async function remove(token) {
   if (!token) return;
-  const store = readStore();
-  if (store.sessions?.[token]) {
-    delete store.sessions[token];
-    writeStore(store);
+  await execute("DELETE FROM sessions WHERE token = ?", [token]);
+}
+
+async function removeAllForUser(username) {
+  await execute("DELETE FROM sessions WHERE username = ?", [username]);
+}
+
+async function cleanupExpired() {
+  try {
+    await execute("DELETE FROM sessions WHERE expires_at < ?", [nowIso()]);
+  } catch (error) {
+    logger.error("Falha ao limpar sessões expiradas", { error: error.message });
   }
 }
 
-function cleanupExpired() {
-  const store = readStore();
-  const now = Date.now();
-  let changed = false;
-  for (const [token, session] of Object.entries(store.sessions || {})) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      delete store.sessions[token];
-      changed = true;
-    }
-  }
-  if (changed) writeStore(store);
-}
-
-module.exports = { create, validate, remove, cleanupExpired };
+module.exports = { create, validate, remove, removeAllForUser, cleanupExpired };
