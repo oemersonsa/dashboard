@@ -1,12 +1,8 @@
-import { state, getPeriodLabel, getPeriodMonth } from "../../core/state.js";
-import { RS } from "../../core/format.js";
+import { state, getPeriodLabel } from "../../core/state.js";
+import { RS, escapeHtml } from "../../core/format.js";
 import { platformIcon } from "../../ui/icons.js";
-import { escapeHtml } from "../../core/format.js";
 import { setActiveScreen, renderScreen } from "../../main.js";
-import { calcTotals } from "../sales/sales.calc.js";
-import { getLoggedDays } from "../sales/sales.calc.js";
-import { getMonthDays } from "../sales/sales.calc.js";
-import { openModal } from "../../ui/modal.js";
+import { calcTotals, getMonthDays, getLoggedDays } from "../sales/sales.calc.js";
 
 let bound = false;
 
@@ -20,7 +16,9 @@ function render() {
   if (!shell) return;
 
   const month = state.currentMonth;
-  const totals = calcTotals(month) || { sales: {}, ret: {}, gross: 0, totalRet: 0, net: 0, orders: 0 };
+  const totals = calcTotals(month) || {
+    sales: {}, ret: {}, gross: 0, totalRet: 0, net: 0, orders: 0
+  };
   const platforms = state.platforms || [];
   const activePlatforms = platforms.filter((p) => Number(totals.sales[p.key] || 0) > 0);
   const returnRate = totals.gross > 0 ? (totals.totalRet / totals.gross) * 100 : 0;
@@ -38,7 +36,7 @@ function render() {
     <div class="hub-topbar">
       <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
       <div class="hub-topbar-actions">
-        <button class="btn btn-secondary" id="hubImportBackupButton" type="button">Importar</button>
+        <button class="btn btn-secondary" id="hubImportBackupButton" type="button">Importar Backup</button>
         <button class="btn btn-secondary" id="hubLogoutButton" type="button">Sair</button>
       </div>
     </div>
@@ -102,34 +100,22 @@ function render() {
 }
 
 function bindEvents() {
-  document.getElementById("hubScreen")?.addEventListener("click", async (e) => {
-    const nav = e.target.closest("[data-nav]");
-    if (!nav) return;
-    const target = nav.dataset.nav;
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#hubScreen")) return;
 
-    if (target === "dashboard") { setActiveScreen("dashboard"); renderScreen(); }
-    else if (target === "calculator") { setActiveScreen("calculator"); renderScreen(); }
-    else if (target === "dailyClose") { setActiveScreen("dailyClose"); renderScreen(); }
-    else if (target === "setup") {
-      // Vai para setup manualmente
-      document.getElementById("authScreen").hidden = true;
-      document.getElementById("setupScreen").hidden = false;
-      document.getElementById("hubScreen").hidden = true;
-      const { init: initPlatforms } = await import("../platforms/platforms.ui.js");
-      initPlatforms();
+    // Botão do topo
+    if (event.target.closest("#hubImportBackupButton")) {
+      event.preventDefault();
+      window.dashboard.openImportBackupModal();
+      return;
     }
-    else if (target === "import") {
-      openModal("importBackupModal");
-    }
-  });
 
-  document.getElementById("hubScreen")?.addEventListener("click", async (e) => {
-    if (e.target.closest("#hubLogoutButton")) {
-      const { handleLogout } = await import("../auth/auth.ui.js");
-      handleLogout();
-    }
-    if (e.target.closest("#hubImportBackupButton")) {
-      openModal("importBackupModal");
+    // Card "Backup"
+    const nav = event.target.closest("[data-nav]");
+    if (nav?.dataset.nav === "import") {
+      event.preventDefault();
+      window.dashboard.openImportBackupModal();
+      return;
     }
   });
 }

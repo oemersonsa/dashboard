@@ -4,7 +4,7 @@
 // no topo do main.js
 const DEBUG = false;
 const log = (...args) => { if (DEBUG) console.log(...args); };
-console.log("🔥 main.js CARREGOU");
+//console.log("🔥 main.js CARREGOU");
 
 // ─── Core ───────────────────────────────────────────────────────────────────
 import {
@@ -40,7 +40,7 @@ import { init as initDailyClose } from "./features/daily-close/daily-close.ui.js
 import { init as initBackup, exportBackup } from "./features/backup/backup.export.js";
 import { init as initReports, openReport } from "./features/reports/report.builder.js";
 
-console.log("🔥 main.js: TODOS os imports passaram");
+//console.log("🔥 main.js: TODOS os imports passaram");
 
 // ─── Roteador ───────────────────────────────────────────────────────────────
 const KNOWN_SCREENS = ["hub", "dashboard", "calculator", "dailyClose"];
@@ -497,7 +497,7 @@ function bindSidebarActions() {
 
 /* ═══ BOOT ═══ */
 async function init() {
-  console.log("🔥 main.js: init() começou");
+  //console.log("🔥 main.js: init() começou");
 
   bindModalDismiss();
   bindSidebarActions();
@@ -524,7 +524,7 @@ async function init() {
     try { saveState({ localOnly: true }); } catch {}
   });
 
-  console.log("🔥 main.js: init() concluído");
+  //console.log("🔥 main.js: init() concluído");
 }
 
 /* ═══ API GLOBAL ═══ */
@@ -549,6 +549,6 @@ window.dashboard = {
   state
 };
 
-console.log("🔥 main.js: window.dashboard definido");
+//console.log("🔥 main.js: window.dashboard definido");
 
 void init();

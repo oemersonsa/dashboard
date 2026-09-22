@@ -19,12 +19,12 @@ let bound = false;
 
 export function bindModalDismiss() {
   if (bound) {
-    console.log("[modal] já estava bound");
+    //console.log("[modal] já estava bound");
     return;
   }
   bound = true;
 
-  console.log("[modal] bindModalDismiss: registrando listeners globais");
+  //console.log("[modal] bindModalDismiss: registrando listeners globais");
 
   // Delegação: cobre qualquer modal, atual ou futuro
   document.addEventListener("click", (event) => {
@@ -41,7 +41,7 @@ export function bindModalDismiss() {
     // 2. Clique no overlay (fora do .modal)
     const overlay = event.target.closest(".moverlay");
     if (overlay && event.target === overlay) {
-      console.log("[modal] overlay clicado:", overlay.id);
+      //console.log("[modal] overlay clicado:", overlay.id);
       closeModal(overlay.id);
     }
   });
@@ -51,10 +51,10 @@ export function bindModalDismiss() {
     if (event.key !== "Escape") return;
     const openM = document.querySelector(".moverlay.open");
     if (openM) {
-      console.log("[modal] ESC fechou:", openM.id);
+      //console.log("[modal] ESC fechou:", openM.id);
       closeModal(openM.id);
     }
   });
 
-  console.log("[modal] listeners registrados");
+  //console.log("[modal] listeners registrados");
 }
