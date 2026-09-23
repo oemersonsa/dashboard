@@ -1,4 +1,7 @@
-/* ═══ RESPONSIVE ═══ */
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — Layout adaptativo
+   ═══════════════════════════════════════════════════════════════ */
+
 @media (max-width: 1400px) {
   .kpi-value { font-size: var(--text-lg); }
   .kpi-card { padding: var(--space-4); min-height: 124px; }
@@ -18,26 +21,69 @@
 }
 
 @media (max-width: 860px) {
-  .dashboard-layout { grid-template-columns: 1fr; }
+  /* ─── Layout: sem coluna para sidebar ─── */
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* ─── Sidebar flutuante ─── */
   .sidebar {
     position: fixed;
     top: var(--topbar-h);
     left: 0;
     bottom: 0;
-    width: 220px;
+    width: 260px;
+    max-width: 85vw;
     z-index: 45;
     transform: translateX(-100%);
+    transition: transform var(--duration-slow) var(--ease-out);
     box-shadow: var(--shadow-lg);
     padding: var(--space-5) var(--space-3);
+    overflow-y: auto;
+    will-change: transform;
   }
-  .sidebar.open { transform: translateX(0); }
-  .menu-toggle { display: inline-flex; }
-  .dashboard-main { padding: var(--space-4); }
-  .topbar { padding: var(--space-3) var(--space-3); }
+
+  .sidebar.open {
+    transform: translateX(0) !important;
+  }
+
+  /* ─── Botão hamburger ─── */
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  /* ─── Conteúdo principal ─── */
+  .dashboard-main {
+    grid-column: 1 / -1;
+    padding: var(--space-4);
+    width: 100%;
+  }
+
+  /* ─── Overlay (fundo escuro) ─── */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 44;
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+
+  .sidebar-overlay.visible {
+    display: block;
+    opacity: 1;
+  }
+
+  /* ─── Grids diversos ─── */
   .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid2, .grid2b { grid-template-columns: 1fr; }
-  .pricing-form-grid, .pricing-grid, .pricing-breakdown, .pricing-manual,
-  .pricing-rounding > div, .pricing-kpis { grid-template-columns: 1fr; }
+  .pricing-form-grid, .pricing-grid, .pricing-breakdown,
+  .pricing-manual, .pricing-rounding > div, .pricing-kpis {
+    grid-template-columns: 1fr;
+  }
   .pigrid { grid-template-columns: 1fr 1fr; }
   .setup-grid { grid-template-columns: 1fr; }
   .commission-shell { flex-direction: column; }

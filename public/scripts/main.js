@@ -304,7 +304,11 @@ function bindSidebarActions() {
         sidebar.classList.remove("open");
         overlay.classList.remove("visible");
       });
-      document.body.appendChild(overlay);
+      // ⬇️ FIX: precisa entrar no stacking context do .app (que tem z-index
+      // próprio). Anexado no <body> ele ficava por cima do sidebar inteiro,
+      // mesmo o sidebar tendo z-index maior — porque esse z-index só é
+      // comparado dentro do contexto de empilhamento do .app.
+      (document.querySelector(".app") || document.body).appendChild(overlay);
     }
     sidebar.classList.toggle("open");
     overlay.classList.toggle("visible");
@@ -355,145 +359,6 @@ function bindSidebarActions() {
     }
   });
 }
-
-  // 2. Tabs do dashboard
-  document.addEventListener("click", (event) => {
-    const tab = event.target.closest(".sidebar-item[data-dashboard-tab]");
-    if (!tab) return;
-    event.preventDefault();
-    const name = tab.dataset.dashboardTab;
-    document.querySelectorAll(".sidebar-item[data-dashboard-tab]").forEach((b) =>
-      b.classList.toggle("active", b === tab)
-    );
-    document.querySelectorAll(".dashboard-panel").forEach((p) => {
-      const active = p.dataset.dashboardPanel === name;
-      p.classList.toggle("active", active);
-      p.hidden = !active;
-    });
-    const k = document.getElementById("kpiRow");
-    if (k) k.hidden = name !== "overview";
-  });
-
-  // 3. Relatório
-  document.addEventListener("click", (event) => {
-    if (event.target.closest("#reportButton")) {
-      event.preventDefault();
-      openReport();
-    }
-  });
-
-  // 4. Seletor de período (modal de mês)
-  document.addEventListener("click", (event) => {
-    // Abrir modal
-    if (event.target.closest("#periodPickerButton")) {
-      event.preventDefault();
-      openAddMonth();
-      return;
-    }
-
-    // Escolher mês no picker
-    const picker = event.target.closest("[data-picker-month]");
-    if (picker) {
-      event.preventDefault();
-      const month = picker.dataset.pickerMonth;
-      const year = Number(
-        document.getElementById("periodYearInput")?.value || new Date().getFullYear()
-      );
-      const period = `${year}-${month}`;
-      const exists = Boolean(state.db[period]);
-      if (exists) {
-        state.currentMonth = period;
-        saveState();
-        closeModal("addMonthModal");
-        renderTabs();
-        renderAll();
-      } else {
-        selectMonth(month);
-      }
-      return;
-    }
-
-    // Confirmar criação
-    if (event.target.closest("#confirmAddMonthButton")) {
-      event.preventDefault();
-      confirmAddMonth();
-      return;
-    }
-  });
-
-  // 4b. Input do ano → re-renderiza o picker
-  document.addEventListener("input", (event) => {
-    if (event.target.id === "periodYearInput") {
-      refreshMonthPickerForYear();
-    }
-  });
-
-  // 5. Hamburger mobile
-  document.addEventListener("click", (event) => {
-    if (!event.target.closest("#menuToggleButton")) return;
-    event.preventDefault();
-    const sidebar = document.getElementById("dashboardSidebar");
-    if (!sidebar) return;
-
-    let overlay = document.querySelector(".sidebar-overlay");
-    if (!overlay) {
-      overlay = document.createElement("div");
-      overlay.className = "sidebar-overlay";
-      overlay.addEventListener("click", () => {
-        sidebar.classList.remove("open");
-        overlay.classList.remove("visible");
-      });
-      document.body.appendChild(overlay);
-    }
-    sidebar.classList.toggle("open");
-    overlay.classList.toggle("visible");
-  });
-
-  // 6. Topbar das telas calculator/dailyClose
-  document.addEventListener("click", (event) => {
-    const btn = event.target.closest(
-      "#calculatorBackToHubButton, #calculatorOpenDashboardButton, #calculatorManagePlatformsButton, " +
-      "#dailyCloseBackToHubButton, #dailyCloseOpenDashboardButton, #dailyCloseManagePlatformsButton"
-    );
-    if (!btn) return;
-    event.preventDefault();
-    switch (btn.id) {
-      case "calculatorBackToHubButton":
-      case "dailyCloseBackToHubButton":
-        setActiveScreen("hub"); renderScreen(); break;
-      case "calculatorOpenDashboardButton":
-      case "dailyCloseOpenDashboardButton":
-        setActiveScreen("dashboard"); renderScreen(); break;
-      case "calculatorManagePlatformsButton":
-      case "dailyCloseManagePlatformsButton":
-        openSetupScreen(); break;
-    }
-  });
-
-  // 7. Hub (cards + ações)
-  document.addEventListener("click", (event) => {
-    const nav = event.target.closest("[data-nav]");
-    if (nav) {
-      event.preventDefault();
-      const target = nav.dataset.nav;
-      if (target === "dashboard") { setActiveScreen("dashboard"); renderScreen(); }
-      else if (target === "calculator") { setActiveScreen("calculator"); renderScreen(); }
-      else if (target === "dailyClose") { setActiveScreen("dailyClose"); renderScreen(); }
-      else if (target === "setup") { openSetupScreen(); }
-      else if (target === "import") { openImportBackupModal(); }
-      return;
-    }
-    if (event.target.closest("#hubLogoutButton")) {
-      event.preventDefault(); handleLogout(); return;
-    }
-    if (event.target.closest("#hubImportBackupButton")) {
-      event.preventDefault(); openImportBackupModal(); return;
-    }
-    if (event.target.closest("#hubManagePlatformsButton")) {
-      event.preventDefault(); openSetupScreen(); return;
-    }
-  });
-
 
 /* ═══ BOOT ═══ */
 async function init() {
