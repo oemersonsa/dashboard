@@ -40,8 +40,17 @@ export const LEGACY_PLATFORM_KEY_ALIASES = {
 };
 
 export const PLATFORM_DOMAINS = {
+  // Mercado Livre (inclui variações)
   "mercado-livre": "mercadolivre.com.br",
+  "mercado-livre-paraiso": "mercadolivre.com.br",
+  "mercado-livre-paraíso": "mercadolivre.com.br",
+
+  // Shopee (inclui variações)
   "shopee": "shopee.com.br",
+  "shopee-paraiso": "shopee.com.br",
+  "shopee-paraíso": "shopee.com.br",
+
+  // Outros
   "shein": "shein.com.br",
   "magalu": "magazineluiza.com.br",
   "nuvem-shop": "nuvemshop.com.br",

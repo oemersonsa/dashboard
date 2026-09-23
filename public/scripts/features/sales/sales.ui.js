@@ -11,7 +11,7 @@ import {
   getPeriodLabel,
   parsePeriodKey
 } from "../../core/state.js";
-import { R, RS, escapeHtml, escapeAttribute } from "../../core/format.js";
+import { R, RS, escapeHtml, escapeAttribute, alphaColor } from "../../core/format.js";
 import { DASH_HTML as dash, ALL_MONTHS, SHORT } from "../../core/constants.js";
 import { platformBadge, platformIcon } from "../../ui/icons.js";
 import { getPlatformVisualColor } from "../../ui/charts.js";
@@ -32,6 +32,62 @@ import { init as initReturns } from "../returns/returns.ui.js";
 let bound = false;
 let dailyChart = null;
 let newMonthSel = null;
+
+/* ═══ PLUGIN: linha de brilho no topo de cada stack ═══ */
+const topHighlightPlugin = {
+  id: "topHighlight",
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const datasets = chart.data.datasets;
+    if (!datasets.length) return;
+
+    const dayCount = chart.data.labels.length;
+
+    for (let dayIdx = 0; dayIdx < dayCount; dayIdx++) {
+      let topY = null;
+      let topX = null;
+      let topColor = null;
+      let topWidth = 22;
+
+      for (let dsIdx = 0; dsIdx < datasets.length; dsIdx++) {
+        const meta = chart.getDatasetMeta(dsIdx);
+        const el = meta?.data?.[dayIdx];
+        if (!el) continue;
+
+        const value = Number(datasets[dsIdx].data[dayIdx] || 0);
+        if (value <= 0) continue;
+
+        if (topY === null || el.y < topY) {
+          topY = el.y;
+          topX = el.x;
+          topColor = datasets[dsIdx].hoverBackgroundColor
+            || datasets[dsIdx].borderColor
+            || "#000";
+          // largura da barra
+          const barWidth = el.width || (el.x + el.base) ? Math.abs(el.width || 20) : 20;
+          topWidth = Math.max(16, Math.min(barWidth - 4, 26));
+        }
+      }
+
+      if (topY !== null && topX !== null && topColor) {
+        ctx.save();
+        ctx.strokeStyle = topColor;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(topX - topWidth / 2, topY);
+        ctx.lineTo(topX + topWidth / 2, topY);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+};
+
+// Registra uma vez
+if (typeof Chart !== "undefined" && !Chart.registry.plugins.get("topHighlight")) {
+  Chart.register(topHighlightPlugin);
+}
 
 /* ═══ INIT ═══ */
 export function init() {
@@ -61,6 +117,7 @@ export function renderAll() {
   initProjection();
 }
 
+/* ═══ KPIs ═══ */
 function renderKPIs() {
   const c = getComparisonPeriod(state.currentMonth);
   const t = c.currentTotals;
@@ -82,6 +139,7 @@ function renderKPIs() {
   `;
 }
 
+/* ═══ DAILY CHART ═══ */
 function renderDailyChart() {
   const data = state.db[state.currentMonth];
   const c = document.getElementById("dailyChart");
@@ -92,56 +150,145 @@ function renderDailyChart() {
   );
   const ctx = c.getContext("2d");
   if (dailyChart) dailyChart.destroy();
+
   if (!active.length || !data.days.length) {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     return;
   }
 
+  // Gradiente vertical para cada plataforma
+  function makeGradient(color, maxHeight) {
+    const g = ctx.createLinearGradient(0, 0, 0, maxHeight);
+    g.addColorStop(0, alphaColor(color, 1));
+    g.addColorStop(0.5, alphaColor(color, 0.85));
+    g.addColorStop(1, alphaColor(color, 0.4));
+    return g;
+  }
+
+  // Ordem: plataformas maiores embaixo (stacked mais legível)
+  const totals = {};
+  active.forEach((p) => {
+    totals[p.key] = data.days.reduce((s, d) => s + Number(d[p.key] || 0), 0);
+  });
+  const sorted = [...active].sort((a, b) => totals[b.key] - totals[a.key]);
+
+  const chartHeight = c.parentElement?.clientHeight || 400;
+  const maxBarHeight = Math.max(60, chartHeight - 60);
+
+  const datasets = sorted.map((p, idx) => {
+    const isTop = idx === sorted.length - 1;
+    const color = getPlatformVisualColor(p);
+    return {
+      label: p.name,
+      data: data.days.map((d) => Number(d[p.key] || 0)),
+      backgroundColor: makeGradient(color, maxBarHeight),
+      hoverBackgroundColor: color,
+      borderColor: "transparent",
+      borderWidth: 0,
+      borderRadius: isTop
+        ? { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 }
+        : 0,
+      borderSkipped: false,
+      barPercentage: 0.7,
+      categoryPercentage: 0.8
+    };
+  });
+
   dailyChart = new Chart(ctx, {
     type: "bar",
     data: {
       labels: data.days.map((d) => d.d),
-      datasets: active.map((p) => ({
-        label: p.name,
-        data: data.days.map((d) => Number(d[p.key] || 0)),
-        backgroundColor: getPlatformVisualColor(p, 0.73),
-        borderColor: getPlatformVisualColor(p),
-        borderWidth: 0,
-        borderRadius: 3,
-        borderSkipped: false
-      }))
+      datasets
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: { duration: 700, easing: "easeOutQuart" },
+      interaction: { mode: "index", intersect: false },
+      layout: { padding: { top: 8, right: 8, left: 0, bottom: 0 } },
       plugins: {
-        legend: { labels: { color: "#6b7280", font: { size: 10 }, boxWidth: 7, padding: 10 } },
+        legend: {
+          position: "bottom",
+          align: "start",
+          labels: {
+            color: "#86868b",
+            font: { family: "inherit", size: 11, weight: "500" },
+            boxWidth: 8,
+            boxHeight: 8,
+            padding: 12,
+            usePointStyle: true,
+            pointStyle: "circle"
+          }
+        },
         tooltip: {
-          backgroundColor: "#181c24",
-          borderColor: "rgba(255,255,255,.1)",
+          backgroundColor: "rgba(17, 19, 24, 0.95)",
+          titleColor: "#f0f2f7",
+          titleFont: { size: 12, weight: "600" },
+          bodyColor: "#f0f2f7",
+          bodyFont: { size: 12 },
+          borderColor: "rgba(255, 255, 255, 0.08)",
           borderWidth: 1,
-          callbacks: { label: (c) => ` ${c.dataset.label}: ${R(c.raw)}` }
+          padding: 12,
+          cornerRadius: 10,
+          displayColors: true,
+          boxWidth: 8,
+          boxHeight: 8,
+          boxPadding: 4,
+          usePointStyle: true,
+          callbacks: {
+            label: (item) => {
+              const value = Number(item.raw || 0);
+              if (value === 0) return null;
+              const total = item.chart.data.datasets.reduce(
+                (s, ds) => s + Number(ds.data[item.dataIndex] || 0), 0
+              );
+              const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
+              return ` ${item.dataset.label}: ${R(value)} (${pct}%)`;
+            },
+            footer: (items) => {
+              if (!items.length) return "";
+              const total = items.reduce((s, i) => s + Number(i.raw || 0), 0);
+              return `Total: ${R(total)}`;
+            }
+          }
         }
       },
       scales: {
         x: {
           stacked: true,
-          ticks: { color: "#4b5563", font: { size: 8 }, maxRotation: 50 },
+          ticks: {
+            color: "#86868b",
+            font: { size: 10, family: "inherit" },
+            maxRotation: 0,
+            autoSkipPadding: 12
+          },
           grid: { display: false },
           border: { display: false }
         },
         y: {
           stacked: true,
-          ticks: { color: "#4b5563", font: { size: 9 }, callback: (v) => RS(v) },
-          grid: { color: "rgba(255,255,255,.04)" },
+          beginAtZero: true,
+          ticks: {
+            color: "#86868b",
+            font: { size: 10, family: "inherit" },
+            padding: 8,
+            callback: (v) => RS(v)
+          },
+          grid: {
+            color: "rgba(134, 134, 139, 0.05)",
+            drawTicks: false,
+            drawBorder: false,
+            lineWidth: 1
+          },
           border: { display: false }
         }
       }
-    }
+    },
+    plugins: [topHighlightPlugin]
   });
 }
 
+/* ═══ DAILY TABLE ═══ */
 function renderDailyTable() {
   const data = state.db[state.currentMonth];
   const t = document.getElementById("dailyDetailsTable");
@@ -187,39 +334,70 @@ function renderDailyTable() {
   t.innerHTML = head + body + foot;
 }
 
+/* ═══ PLATFORM BARS (Mix) ═══ */
 function renderPlatformBars() {
   const totals = calcTotals(state.currentMonth);
   const c = document.getElementById("platformBars");
   if (!c || !totals) return;
 
   const rows = state.platforms
-    .map((p) => ({
-      platform: p,
-      value: Math.max(0, Number(totals.sales[p.key] || 0) - Number(totals.ret[p.key] || 0))
-    }))
-    .filter((r) => r.value > 0)
-    .sort((a, b) => b.value - a.value);
+    .map((p) => {
+      const gross = Math.max(0, Number(totals.sales[p.key] || 0));
+      const returns = Math.max(0, Number(totals.ret[p.key] || 0));
+      const net = Math.max(0, gross - returns);
+      return { platform: p, gross, returns, net };
+    })
+    .filter((r) => r.gross > 0 || r.returns > 0)
+    .sort((a, b) => b.net - a.net);
 
   if (!rows.length) {
     c.innerHTML = `<div class="pb-empty">Sem dados suficientes para o mix.</div>`;
     return;
   }
 
-  const max = rows[0].value;
-  c.innerHTML = rows.map(({ platform, value }) => {
-    const wp = max > 0 ? (value / max) * 100 : 0;
+  const max = rows[0].net || 1;
+  const totalGross = rows.reduce((s, r) => s + r.gross, 0);
+  const totalReturns = rows.reduce((s, r) => s + r.returns, 0);
+
+  c.innerHTML = rows.map(({ platform, gross, returns, net }) => {
+    const wp = max > 0 ? (net / max) * 100 : 0;
+    const returnRate = gross > 0 ? (returns / gross) * 100 : 0;
     return `
       <div class="pb-row">
         <div class="pb-head">
           <div class="pb-name">${platformIcon(platform)}<span>${escapeHtml(platform.name)}</span></div>
-          <div class="pb-value">${R(value)}</div>
+          <div class="pb-meta">
+            <span class="pb-meta-item">
+              <span class="pb-meta-label">Vendas</span>
+              <span class="pb-meta-value">${R(gross)}</span>
+            </span>
+            ${returns > 0 ? `
+              <span class="pb-meta-item pb-meta-returns">
+                <span class="pb-meta-label">Dev.</span>
+                <span class="pb-meta-value">${R(returns)}</span>
+                <span class="pb-meta-rate">${returnRate.toFixed(1)}%</span>
+              </span>
+            ` : ""}
+            <span class="pb-meta-item pb-meta-net">
+              <span class="pb-meta-label">Líquido</span>
+              <span class="pb-meta-value">${R(net)}</span>
+            </span>
+          </div>
         </div>
         <div class="pb-track"><div class="pb-fill" style="width:${wp.toFixed(1)}%;background:${getPlatformVisualColor(platform)}"></div></div>
       </div>
     `;
-  }).join("");
+  }).join("") + `
+    <div class="pb-total">
+      <span>Total do mês</span>
+      <span><strong>${R(totalGross)}</strong> em vendas</span>
+      <span class="pb-total-returns"><strong>${R(totalReturns)}</strong> em devoluções</span>
+      <span class="pb-total-net"><strong>${R(totalGross - totalReturns)}</strong> líquido</span>
+    </div>
+  `;
 }
 
+/* ═══ BEST DAYS ═══ */
 function renderBestDays() {
   const data = state.db[state.currentMonth];
   const el = document.getElementById("bestDayGrid");
@@ -248,6 +426,7 @@ function renderBestDays() {
   el.innerHTML = html || `<div class="empty-state">Ainda não há dias destacados.</div>`;
 }
 
+/* ═══ PLATFORM TABLE ═══ */
 function renderPlatformTable() {
   const c = getComparisonPeriod(state.currentMonth);
   const t = c.currentTotals;
@@ -294,6 +473,7 @@ function renderPlatformTable() {
   `;
 }
 
+/* ═══ MONTH COMPARE ═══ */
 function renderMonthCompare() {
   const c = getComparisonPeriod(state.currentMonth);
   const t = c.currentTotals;
@@ -322,7 +502,7 @@ function renderMonthCompare() {
   </div>`;
 }
 
-/* ═══ INPUTS ═══ */
+/* ═══ SALE INPUTS ═══ */
 export function renderSaleInputs() {
   const el = document.getElementById("saleInputs");
   if (!el) return;
@@ -452,7 +632,7 @@ function varH(current, previous, reverse = false) {
   return `<span class="${cls}">${arrow} ${Math.abs(diff).toFixed(1)}%</span>`;
 }
 
-/* ═══ BIND ═══ */
+/* ═══ BIND DE EVENTOS LOCAIS ═══ */
 function bindEvents() {
   document.getElementById("inputMonth")?.addEventListener("change", syncDateWithMonth);
 

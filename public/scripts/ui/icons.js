@@ -9,10 +9,18 @@ function canonicalizePlatformKey(value) {
 function getPlatformIconSources(platform) {
   const key = canonicalizePlatformKey(platform?.key || platform?.name || "");
   const domain = PLATFORM_DOMAINS[key];
-  if (!domain) return [];
+
+  // Se não achou pelo slug exato, tenta casar por prefixo (ex: "mercado-livre-paraiso" → "mercado-livre")
+  let resolvedDomain = domain;
+  if (!resolvedDomain) {
+    const match = Object.keys(PLATFORM_DOMAINS).find((k) => key.startsWith(k));
+    if (match) resolvedDomain = PLATFORM_DOMAINS[match];
+  }
+
+  if (!resolvedDomain) return [];
   return [
-    `https://a.favicon.im/${domain}?larger=true`,
-    `https://a.favicon.im/${domain}`
+    `https://a.favicon.im/${resolvedDomain}?larger=true`,
+    `https://a.favicon.im/${resolvedDomain}`
   ];
 }
 

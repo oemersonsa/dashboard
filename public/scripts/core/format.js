@@ -30,8 +30,11 @@ export function hexToRgb(color) {
 }
 
 export function alphaColor(color, alpha) {
-  const rgb = hexToRgb(color);
-  return rgb ? `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})` : color;
+  const n = String(color || "").replace("#", "");
+  if (!/^[\da-f]{3}([\da-f]{6})?$/i.test(n)) return color;
+  const full = n.length === 3 ? n.split("").map((c) => c + c).join("") : n;
+  const v = parseInt(full, 16);
+  return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${alpha})`;
 }
 
 export function formatSavedAt(v) {
