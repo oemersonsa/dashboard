@@ -825,3 +825,75 @@
 .down {
   color: var(--red) !important;
 }
+
+/* ═══ COMPARAR MÊS NO GRÁFICO ═══ */
+.daily-chart-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.daily-compare-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.daily-compare-picker .finput {
+  padding: 8px 12px;
+  font-size: var(--text-sm);
+  min-height: 36px;
+}
+
+.daily-compare-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.daily-compare-legend strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.daily-compare-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.daily-compare-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.daily-compare-legend-dot.dashed {
+  border-radius: 0;
+  height: 3px;
+  width: 18px;
+  background-image: linear-gradient(to right, currentColor 50%, transparent 50%);
+  background-size: 6px 100%;
+}
+
+@media (max-width: 860px) {
+  .daily-chart-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .daily-compare-picker {
+    flex: 1;
+    min-width: 0;
+  }
+}

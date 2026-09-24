@@ -32,6 +32,7 @@ import { init as initReturns } from "../returns/returns.ui.js";
 let bound = false;
 let dailyChart = null;
 let newMonthSel = null;
+let compareMonthKey = "";   // ⬅️ NOVO
 
 /* ═══ PLUGIN: linha de brilho no topo de cada stack ═══ */
 const topHighlightPlugin = {
@@ -107,6 +108,7 @@ export function init() {
 export function renderAll() {
   if (!state.platforms.length || !state.db[state.currentMonth]) return;
   renderKPIs();
+  renderComparePicker();
   renderDailyChart();
   renderDailyTable();
   renderPlatformBars();
@@ -156,7 +158,7 @@ function renderDailyChart() {
     return;
   }
 
-  // Gradiente vertical para cada plataforma
+  // ─── Gradiente vertical para cada plataforma ───
   function makeGradient(color, maxHeight) {
     const g = ctx.createLinearGradient(0, 0, 0, maxHeight);
     g.addColorStop(0, alphaColor(color, 1));
@@ -165,7 +167,7 @@ function renderDailyChart() {
     return g;
   }
 
-  // Ordem: plataformas maiores embaixo (stacked mais legível)
+  // ─── Ordem das plataformas (maiores embaixo) ───
   const totals = {};
   active.forEach((p) => {
     totals[p.key] = data.days.reduce((s, d) => s + Number(d[p.key] || 0), 0);
@@ -175,7 +177,8 @@ function renderDailyChart() {
   const chartHeight = c.parentElement?.clientHeight || 400;
   const maxBarHeight = Math.max(60, chartHeight - 60);
 
-  const datasets = sorted.map((p, idx) => {
+  // ─── Datasets das barras (mês atual) ───
+  const barDatasets = sorted.map((p, idx) => {
     const isTop = idx === sorted.length - 1;
     const color = getPlatformVisualColor(p);
     return {
@@ -190,15 +193,63 @@ function renderDailyChart() {
         : 0,
       borderSkipped: false,
       barPercentage: 0.7,
-      categoryPercentage: 0.8
+      categoryPercentage: 0.8,
+      stack: "current"
     };
   });
 
+  // ─── Dataset de comparação (linha tracejada) ───
+  const compareDatasets = [];
+  const compareData = state.db[compareMonthKey];
+
+  if (compareMonthKey && compareData) {
+    // Mapeia apenas o DIA (1-31) → valor total no mês de comparação
+    const compareByDay = new Map();
+    compareData.days.forEach((d) => {
+      const day = Number(String(d.d || "").split("/")[0]);
+      if (!day) return;
+      const total = state.platforms.reduce(
+        (s, p) => s + Number(d[p.key] || 0), 0
+      );
+      compareByDay.set(day, total);
+    });
+
+    // Alinha pelo dia do mês (1, 2, 3...) do mês atual
+    const aligned = data.days.map((d) => {
+      const day = Number(String(d.d || "").split("/")[0]);
+      const value = compareByDay.get(day);
+      return value !== undefined ? value : null;
+    });
+
+    compareDatasets.push({
+      type: "line",
+      label: `Comparação: ${getPeriodLabel(compareMonthKey)}`,
+      data: aligned,
+      stack: "compare",
+      borderColor: "#ff3b30",
+      backgroundColor: "transparent",
+      borderWidth: 2.5,
+      borderDash: [6, 4],
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: "#ff3b30",
+      pointBorderColor: "#fff",
+      pointBorderWidth: 1.5,
+      tension: 0.35,
+      fill: false,
+      spanGaps: true,
+      order: 1
+    });
+  }
+
+  renderCompareLegend();
+
+  // ─── Chart ───
   dailyChart = new Chart(ctx, {
     type: "bar",
     data: {
       labels: data.days.map((d) => d.d),
-      datasets
+      datasets: [...barDatasets, ...compareDatasets]
     },
     options: {
       responsive: true,
@@ -238,17 +289,42 @@ function renderDailyChart() {
           callbacks: {
             label: (item) => {
               const value = Number(item.raw || 0);
-              if (value === 0) return null;
-              const total = item.chart.data.datasets.reduce(
-                (s, ds) => s + Number(ds.data[item.dataIndex] || 0), 0
-              );
+              if (value === 0 || value === null || Number.isNaN(value)) return null;
+
+              // Linha de comparação
+              if (item.dataset.type === "line") {
+                return ` ${item.dataset.label}: ${R(value)}`;
+              }
+
+              // Barras — calcula % do dia
+              const total = item.chart.data.datasets
+                .filter((ds) => ds.type !== "line")
+                .reduce((s, ds) => s + Number(ds.data[item.dataIndex] || 0), 0);
               const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
               return ` ${item.dataset.label}: ${R(value)} (${pct}%)`;
             },
             footer: (items) => {
               if (!items.length) return "";
-              const total = items.reduce((s, i) => s + Number(i.raw || 0), 0);
-              return `Total: ${R(total)}`;
+
+              const currentTotal = items
+                .filter((i) => i.dataset.type !== "line")
+                .reduce((s, i) => s + Number(i.raw || 0), 0);
+
+              const compareItem = items.find((i) => i.dataset.type === "line");
+              const compareTotal = compareItem ? Number(compareItem.raw || 0) : null;
+
+              const lines = [`Atual: ${R(currentTotal)}`];
+
+              if (compareTotal !== null && !Number.isNaN(compareTotal)) {
+                const diff = compareTotal > 0
+                  ? ((currentTotal - compareTotal) / compareTotal) * 100
+                  : 0;
+                const arrow = diff >= 0 ? "↑" : "↓";
+                const sign = diff >= 0 ? "+" : "";
+                lines.push(`Comparação: ${R(compareTotal)} (${sign}${diff.toFixed(1)}% ${arrow})`);
+              }
+
+              return lines;
             }
           }
         }
@@ -634,6 +710,14 @@ function varH(current, previous, reverse = false) {
 
 /* ═══ BIND DE EVENTOS LOCAIS ═══ */
 function bindEvents() {
+  const compareSel = document.getElementById("dailyCompareMonth");
+  if (compareSel) {
+    compareSel.addEventListener("change", (e) => {
+      compareMonthKey = e.target.value;
+      renderDailyChart();
+    });
+  }
+
   document.getElementById("inputMonth")?.addEventListener("change", syncDateWithMonth);
 
   document.querySelectorAll(".itab").forEach((btn) => {
@@ -741,4 +825,53 @@ function updateCell(di, key, el) {
   saveState();
   renderAll();
   toastSuccess("Valor atualizado");
+}
+
+/* ═══ COMPARAR MÊS — seletor ═══ */
+function renderComparePicker() {
+  const sel = document.getElementById("dailyCompareMonth");
+  if (!sel) return;
+
+  const allMonths = sortPeriodKeys(Object.keys(state.db))
+    .filter((m) => m !== state.currentMonth);
+
+  // Mantém seleção se ainda existir
+  if (compareMonthKey && !allMonths.includes(compareMonthKey)) {
+    compareMonthKey = "";
+  }
+
+  sel.innerHTML = [
+    `<option value="">— Nenhum —</option>`,
+    ...allMonths.map((m) =>
+      `<option value="${m}"${m === compareMonthKey ? " selected" : ""}>${getPeriodLabel(m)}</option>`
+    )
+  ].join("");
+
+  sel.value = compareMonthKey;
+}
+
+function renderCompareLegend() {
+  const el = document.getElementById("dailyCompareLegend");
+  if (!el) return;
+
+  if (!compareMonthKey || !state.db[compareMonthKey]) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+
+  const curLabel = getPeriodLabel(state.currentMonth);
+  const cmpLabel = getPeriodLabel(compareMonthKey);
+
+  el.hidden = false;
+  el.innerHTML = `
+    <span class="daily-compare-legend-item">
+      <span class="daily-compare-legend-dot" style="background: var(--accent)"></span>
+      Barras: <strong>${escapeHtml(curLabel)}</strong>
+    </span>
+    <span class="daily-compare-legend-item">
+      <span class="daily-compare-legend-dot dashed" style="color: var(--accent-3)"></span>
+      Linha tracejada: <strong>${escapeHtml(cmpLabel)}</strong>
+    </span>
+  `;
 }

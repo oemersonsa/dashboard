@@ -134,9 +134,21 @@
           <section class="dashboard-panel" id="dashboard-panel-daily" data-dashboard-panel="daily" hidden>
             <div class="grid2">
               <div class="card daily-card">
-                <div class="card-header">
-                  <div><div class="card-title">Vendas Diárias por Plataforma</div><div class="card-sub">Gráfico consolidado do mês.</div></div>
-                  <button class="btn btn-secondary" id="openDailyDetailsButton" type="button">Ver detalhes</button>
+                <div class="card daily-card">
+                  <div class="card-header">
+                    <div><div class="card-title">Vendas Diárias por Plataforma</div><div class="card-sub">Gráfico consolidado do mês.</div></div>
+                    <div class="daily-chart-actions">
+                      <label class="daily-compare-picker">
+                        <span class="flabel">Comparar com</span>
+                        <select class="finput" id="dailyCompareMonth">
+                          <option value="">— Nenhum —</option>
+                        </select>
+                      </label>
+                      <button class="btn btn-secondary" id="openDailyDetailsButton" type="button">Ver detalhes</button>
+                    </div>
+                  </div>
+                  <div class="daily-compare-legend" id="dailyCompareLegend" hidden></div>
+                  <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
                 </div>
                 <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
               </div>
