@@ -1169,3 +1169,45 @@
   .daily-platform-chips { gap: 6px; }
   .daily-platform-chip { padding: 5px 10px 5px 6px; font-size: var(--text-xs); }
 }
+
+/* Remove outline/indicadores de foco padrão dos chips */
+.daily-platform-chip {
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Foco visível só quando navegando por teclado (acessível) */
+.daily-platform-chip:focus {
+  outline: none;
+}
+
+.daily-platform-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove qualquer ::before/::after que possa estar causando o triângulo */
+.daily-platform-chip::before,
+.daily-platform-chip::after {
+  content: none;
+}
+
+/* Remove o indicador de "active" (quadrado) do Chrome */
+.daily-platform-chip:active {
+  background: var(--surface-2);
+}
+
+/* Remove outline em qualquer estado do chip */
+.daily-platform-chip,
+.daily-platform-chip:focus,
+.daily-platform-chip:focus-visible,
+.daily-platform-chip:active,
+button.daily-platform-chip,
+button.daily-platform-chip:focus,
+button.daily-platform-chip:focus-visible,
+button.daily-platform-chip:active {
+  outline: 0 !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  box-shadow: none !important;
+}
