@@ -22,6 +22,30 @@ export const BRAND_COLORS = [
   "#e11d48", "#7c3aed", "#0ea5e9", "#16a34a"
 ];
 
+// Paleta v2 — harmônica, estilo Linear/Apple (para o gráfico de vendas diárias)
+export const BRAND_COLORS_V2 = [
+  "#378ADD", // azul
+  "#1D9E75", // verde
+  "#7F77DD", // roxo
+  "#D4537E", // rosa
+  "#85B7EB", // azul claro
+  "#888780", // cinza quente
+  "#5DCAA5", // verde-água
+  "#BA7517"  // mostarda
+];
+
+// Helper: retorna a primeira cor da paleta v2 que não está em uso
+export function nextFreeBrandColor(platforms = []) {
+  const used = new Set(
+    (platforms || []).map((p) => String(p?.color || "").toUpperCase())
+  );
+  for (const c of BRAND_COLORS_V2) {
+    if (!used.has(c.toUpperCase())) return c;
+  }
+  // Se todas em uso, retorna a primeira da paleta (fallback)
+  return BRAND_COLORS_V2[0];
+}
+
 export const LEGACY_PLATFORM_PRESETS = {
   ml: { name: "Mercado Livre", icon: "ML", color: "#ffe500", iconText: "#1f2937" },
   sh: { name: "Shopee", icon: "SH", color: "#ff5722", iconText: "#ffffff" },

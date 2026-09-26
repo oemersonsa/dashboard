@@ -21,6 +21,8 @@ import { toast, toastSuccess, toastError } from "./ui/toast.js";
 import { bindModalDismiss, openModal, closeModal } from "./ui/modal.js";
 import { setupPlatformIconFallbacks } from "./ui/icons.js";
 import { initSaveIndicator, setSaveStatus } from "./ui/save-indicator.js";
+import { initTheme, setMode as setThemeMode, getMode as getThemeMode, getEffectiveTheme } from "./ui/theme.js";
+import { showGlobalLoader, hideGlobalLoader, renderKpiSkeleton } from "./ui/skeleton.js";
 
 // ─── Features ───────────────────────────────────────────────────────────────
 import { init as initAuth, handleLogout } from "./features/auth/auth.ui.js";
@@ -146,6 +148,9 @@ window.addEventListener("dashboard:reload", () => renderScreen());
 /* ═══ LOAD FROM SERVER ═══ */
 async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
   if (!loadSession()) return false;
+
+  showGlobalLoader();
+
   try {
     const result = await apiRequest("/api/state");
     const remote = result?.state || {};
@@ -171,8 +176,40 @@ async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
     if (error.status === 401) { clearSession(); return false; }
     toastError("Não foi possível carregar os dados do servidor");
     return false;
+  } finally {
+    hideGlobalLoader();
   }
 }
+
+// async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
+//   if (!loadSession()) return false;
+//   try {
+//     const result = await apiRequest("/api/state");
+//     const remote = result?.state || {};
+//     const normalized = normalizeState(
+//       {
+//         ...remote,
+//         auth: state.auth,
+//         currentMonth: remote.currentMonth || state.currentMonth,
+//         currentScreen: remote.currentScreen || state.currentScreen || "hub",
+//         pricing: remote.pricing || state.pricing
+//       },
+//       MARKETPLACE_PRICING_PRESETS
+//     );
+//     state.platforms = normalized.platforms;
+//     state.db = normalized.db;
+//     state.currentMonth = normalized.currentMonth;
+//     state.pricing = normalized.pricing;
+//     state.currentScreen = normalized.currentScreen;
+//     activeScreen = state.currentScreen || "hub";
+//     return true;
+//   } catch (error) {
+//     console.error("Falha ao carregar dados do servidor:", error);
+//     if (error.status === 401) { clearSession(); return false; }
+//     toastError("Não foi possível carregar os dados do servidor");
+//     return false;
+//   }
+// }
 
 /* ═══ AÇÕES GLOBAIS ═══ */
 export async function saveNow() {
@@ -361,25 +398,60 @@ function bindSidebarActions() {
 }
 
 /* ═══ BOOT ═══ */
+// async function init() {
+//   //console.log("🔥 main.js: init() começou");
+
+//   bindModalDismiss();
+//   bindSidebarActions();
+//   setupPlatformIconFallbacks();
+//   initSaveIndicator();
+
+//   initTheme();
+
+//   // const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+//   // document.body.classList.toggle("dark-theme", prefersDark);
+//   // document.body.classList.toggle("light-theme", !prefersDark);
+
+//   // window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+//   //   document.body.classList.toggle("dark-theme", e.matches);
+//   //   document.body.classList.toggle("light-theme", !e.matches);
+//   // });
+
+//   if (loadSession()) {
+//     await loadBusinessStateFromServer({ migrateLocal: true });
+//   }
+
+//   setActiveScreen(state.currentScreen || "hub");
+//   renderScreen();
+
+//   window.addEventListener("beforeunload", () => {
+//     try { saveState({ localOnly: true }); } catch {}
+//   });
+
+//   //console.log("🔥 main.js: init() concluído");
+// }
+
 async function init() {
-  //console.log("🔥 main.js: init() começou");
+  console.log("🔥 main.js: init() começou");
+
+  // Mostra loader global durante o boot
+  showGlobalLoader();
 
   bindModalDismiss();
-  bindSidebarActions();
+  bindSidebarActions();          // ⬅️ CORRIGIDO
   setupPlatformIconFallbacks();
   initSaveIndicator();
 
-  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  document.body.classList.toggle("dark-theme", prefersDark);
-  document.body.classList.toggle("light-theme", !prefersDark);
+  initTheme();
 
-  window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
-    document.body.classList.toggle("dark-theme", e.matches);
-    document.body.classList.toggle("light-theme", !e.matches);
-  });
-
+  // Se tem sessão, carrega state do servidor
   if (loadSession()) {
-    await loadBusinessStateFromServer({ migrateLocal: true });
+    try {
+      renderKpiSkeleton();          // mostra esqueleto antes
+      await loadBusinessStateFromServer({ migrateLocal: true });
+    } catch (e) {
+      console.error("Falha ao carregar:", e);
+    }
   }
 
   setActiveScreen(state.currentScreen || "hub");
@@ -389,7 +461,10 @@ async function init() {
     try { saveState({ localOnly: true }); } catch {}
   });
 
-  //console.log("🔥 main.js: init() concluído");
+  // Esconde o loader global
+  hideGlobalLoader();
+
+  console.log("🔥 main.js: init() concluído");
 }
 
 /* ═══ API GLOBAL ═══ */
@@ -411,6 +486,9 @@ window.dashboard = {
   openSetupScreen,
   openReport,
   renderAll,
+  setThemeMode,
+  getThemeMode,
+  getEffectiveTheme,
   state
 };
 

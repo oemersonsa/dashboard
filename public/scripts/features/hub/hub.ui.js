@@ -3,6 +3,7 @@ import { RS, escapeHtml } from "../../core/format.js";
 import { platformIcon } from "../../ui/icons.js";
 import { setActiveScreen, renderScreen } from "../../main.js";
 import { calcTotals, getMonthDays, getLoggedDays } from "../sales/sales.calc.js";
+import { initTheme } from "../../ui/theme.js";
 
 let bound = false;
 
@@ -36,9 +37,12 @@ function render() {
     <div class="hub-topbar">
       <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
       <div class="hub-topbar-actions">
-        <button class="btn btn-secondary" id="hubImportBackupButton" type="button">Importar Backup</button>
-        <button class="btn btn-secondary" id="hubLogoutButton" type="button">Sair</button>
-      </div>
+  <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
+    <span data-theme-icon></span>
+  </button>
+  <button class="btn btn-secondary" id="hubImportBackupButton" type="button">Importar Backup</button>
+  <button class="btn btn-secondary" id="hubLogoutButton" type="button">Sair</button>
+</div>
     </div>
     <div class="hub-hero">
       <div class="hub-copy">
@@ -97,6 +101,9 @@ function render() {
       </button>
     </div>
   `;
+
+  // Atualiza ícones do botão de tema (pode ter sido recriado)
+initTheme();
 }
 
 function bindEvents() {

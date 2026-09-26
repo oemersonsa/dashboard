@@ -1,5 +1,5 @@
 import { state, saveState, normalizePlatform, slugifyText, canonicalizePlatformKey } from "../../core/state.js";
-import { BRAND_COLORS, PRICING_DEFAULTS } from "../../core/constants.js";
+import { BRAND_COLORS, BRAND_COLORS_V2, nextFreeBrandColor, PRICING_DEFAULTS } from "../../core/constants.js";
 import { escapeHtml, escapeAttribute } from "../../core/format.js";
 import { platformIcon } from "../../ui/icons.js";
 import { toast, toastSuccess, toastError } from "../../ui/toast.js";

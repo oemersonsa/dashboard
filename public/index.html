@@ -3,12 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy"
-      content="default-src 'self';
-               style-src 'self' 'unsafe-inline';
-               script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
-               img-src 'self' data: https:;
-               font-src 'self' data:;">
 <title>Dashboard de Vendas</title>
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="stylesheet" href="/styles/main.css">
@@ -54,7 +48,7 @@
           <div class="setup-grid">
             <div class="fg"><label class="flabel" for="platformName">Nome</label><input class="finput" id="platformName" type="text" placeholder="Ex.: Mercado Livre"></div>
             <div class="fg"><label class="flabel" for="platformShort">Sigla</label><input class="finput" id="platformShort" type="text" maxlength="3" placeholder="ML"></div>
-            <div class="fg"><label class="flabel" for="platformColor">Cor</label><input class="finput color-input" id="platformColor" type="color" value="#2563eb"></div>
+            <div class="fg"><label class="flabel" for="platformColor">Cor</label><input class="finput color-input" id="platformColor" type="color" value="#378ADD"></div>
           </div>
           <div class="actions-row">
             <button class="btn btn-primary" id="addPlatformConfigButton" type="button">Adicionar Plataforma</button>
@@ -80,8 +74,13 @@
   <section class="screen dashboard-screen" id="dashboardScreen" hidden>
     <header class="topbar">
       <div class="header-left">
-        <button class="icon-btn menu-toggle" id="menuToggleButton" type="button" aria-label="Menu" onclick="window.dashboard.toggleSidebar()">☰</button>
+        <button class="icon-btn menu-toggle" id="menuToggleButton" type="button" aria-label="Menu">☰</button>
         <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
+          <span data-theme-icon></span>
+        </button>
       </div>
     </header>
 
@@ -121,36 +120,55 @@
       </aside>
 
       <main id="dashboardMain" class="dashboard-main">
-        <div class="kpi-row" id="kpiRow"></div>
+        <div class="kpi-row" id="kpiRow">
+        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+      </div>
         <div class="dashboard-panels">
           <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
             <div class="card">
               <div class="card-header">
                 <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">% do faturamento líquido</div></div>
               </div>
-              <div class="platform-bars" id="platformBars"></div>
+              <div class="platform-bars" id="platformBars">
+              <div class="bar-skeleton">
+                <div class="bar-skeleton-row"><div class="bar-skeleton-head"><div class="bar-skeleton-dot"></div><div class="bar-skeleton-line" style="width: 40%"></div></div><div class="bar-skeleton-line"></div></div>
+                <div class="bar-skeleton-row"><div class="bar-skeleton-head"><div class="bar-skeleton-dot"></div><div class="bar-skeleton-line" style="width: 35%"></div></div><div class="bar-skeleton-line"></div></div>
+                <div class="bar-skeleton-row"><div class="bar-skeleton-head"><div class="bar-skeleton-dot"></div><div class="bar-skeleton-line" style="width: 30%"></div></div><div class="bar-skeleton-line"></div></div>
+              </div>
+            </div>>
             </div>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-daily" data-dashboard-panel="daily" hidden>
             <div class="grid2">
               <div class="card daily-card">
-                <div class="card daily-card">
-                  <div class="card-header">
-                    <div><div class="card-title">Vendas Diárias por Plataforma</div><div class="card-sub">Gráfico consolidado do mês.</div></div>
-                    <div class="daily-chart-actions">
-                      <label class="daily-compare-picker">
-                        <span class="flabel">Comparar com</span>
-                        <select class="finput" id="dailyCompareMonth">
-                          <option value="">— Nenhum —</option>
-                        </select>
-                      </label>
-                      <button class="btn btn-secondary" id="openDailyDetailsButton" type="button">Ver detalhes</button>
+                <div class="daily-card-header">
+                  <div class="daily-card-titles">
+                    <div class="daily-card-eyebrow" id="dailyCardEyebrow">VENDAS DIÁRIAS</div>
+                    <div class="daily-card-total-row">
+                      <div class="daily-card-total" id="dailyCardTotal">R$ 0,00</div>
+                      <div class="daily-card-delta" id="dailyCardDelta"></div>
                     </div>
                   </div>
-                  <div class="daily-compare-legend" id="dailyCompareLegend" hidden></div>
-                  <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
+                  <div class="daily-card-actions">
+                    <label class="daily-compare-picker">
+                      <span class="flabel">Comparar com</span>
+                      <select class="finput" id="dailyCompareMonth">
+                        <option value="">— Nenhum —</option>
+                      </select>
+                    </label>
+                    <button class="btn-ghost" id="openDailyDetailsButton" type="button">
+                      Ver detalhes <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
                 </div>
+                <div class="daily-platform-chips" id="dailyPlatformChips"></div>
+                <div class="daily-compare-legend" id="dailyCompareLegend" hidden></div>
                 <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
+                <div class="daily-chart-legend" id="dailyChartLegend"></div>
               </div>
               <div class="card">
                 <div class="card-header"><div><div class="card-title">Melhores Dias</div><div class="card-sub">Maior venda registrada</div></div></div>
@@ -226,6 +244,9 @@
       <div class="logo header-brand"><div class="logo-dot"></div><span id="calculatorTitle">Calculadora</span></div>
       <div class="header-right">
         <button class="btn btn-secondary" id="calculatorManagePlatformsButton" type="button">Plataformas</button>
+        <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
+          <span data-theme-icon></span>
+        </button>
       </div>
     </header>
     <main class="calculator-main">
@@ -271,6 +292,9 @@
       <div class="logo header-brand"><div class="logo-dot"></div><span id="dailyCloseTitle">Fechamento Diário</span></div>
       <div class="header-right">
         <button class="btn btn-secondary" id="dailyCloseManagePlatformsButton" type="button">Plataformas</button>
+        <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
+          <span data-theme-icon></span>
+        </button>
       </div>
     </header>
     <main class="daily-close-main">

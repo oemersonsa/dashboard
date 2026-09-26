@@ -28,11 +28,13 @@ import {
 import { init as initProjection } from "../projection/projection.ui.js";
 import { renderWeekly } from "../weekly/weekly.ui.js";
 import { init as initReturns } from "../returns/returns.ui.js";
+import { showChartSkeleton, hideChartSkeleton, showPlatformBarsSkeleton } from "../../ui/skeleton.js";
 
 let bound = false;
 let dailyChart = null;
 let newMonthSel = null;
 let compareMonthKey = "";   // ⬅️ NOVO
+let selectedPlatformKeys = null; // null = todas; array de keys = filtro ativo
 
 /* ═══ PLUGIN: linha de brilho no topo de cada stack ═══ */
 const topHighlightPlugin = {
@@ -141,24 +143,148 @@ function renderKPIs() {
   `;
 }
 
+/* ═══ HEADER DO CARD (eyebrow + total + delta) ═══ */
+function renderDailyHeader() {
+  const eyebrow = document.getElementById("dailyCardEyebrow");
+  const totalEl = document.getElementById("dailyCardTotal");
+  const deltaEl = document.getElementById("dailyCardDelta");
+  if (!eyebrow || !totalEl || !deltaEl) return;
+
+  const comp = getComparisonPeriod(state.currentMonth);
+  const t = comp.currentTotals;
+  const pt = comp.previousTotals;
+
+  // Eyebrow: "VENDAS DIÁRIAS · SETEMBRO 2026"
+  const monthLabel = getPeriodLabel(state.currentMonth).toUpperCase();
+  eyebrow.textContent = `VENDAS DIÁRIAS · ${monthLabel}`;
+
+  // Total do mês (soma dos dados visíveis, respeitando o filtro)
+  const visibleSales = (selectedPlatformKeys || [])
+    .reduce((s, k) => s + Number(t?.sales?.[k] || 0), 0);
+
+  totalEl.textContent = R(visibleSales);
+
+  // Delta vs. mês anterior
+  deltaEl.className = "daily-card-delta";
+  if (pt) {
+    const prevSales = (selectedPlatformKeys || [])
+      .reduce((s, k) => s + Number(pt?.sales?.[k] || 0), 0);
+
+    if (prevSales > 0) {
+      const diff = ((visibleSales - prevSales) / prevSales) * 100;
+      const cls = diff > 0 ? "up" : diff < 0 ? "down" : "neutral";
+      const arrow = diff > 0 ? "↑" : diff < 0 ? "↓" : "→";
+      deltaEl.classList.add(cls);
+      deltaEl.textContent = `${arrow} ${Math.abs(diff).toFixed(1)}% vs ${getPeriodLabel(comp.previousName)}`;
+    } else {
+      deltaEl.textContent = "Sem base de comparação";
+    }
+  } else {
+    deltaEl.textContent = "Primeiro mês";
+  }
+}
+
+/* ═══ CHIPS DE FILTRO POR PLATAFORMA ═══ */
+function renderDailyPlatformChips(platforms) {
+  const el = document.getElementById("dailyPlatformChips");
+  if (!el) return;
+
+  if (!platforms.length) {
+    el.innerHTML = "";
+    return;
+  }
+
+  const selectedSet = new Set(selectedPlatformKeys || []);
+  const allSelected = platforms.every((p) => selectedSet.has(p.key));
+
+  el.innerHTML = `
+    ${platforms.map((p) => {
+      const active = selectedSet.has(p.key);
+      return `
+        <button class="daily-platform-chip ${active ? "is-active" : "is-inactive"}"
+                type="button"
+                data-chip-platform="${escapeAttribute(p.key)}"
+                aria-pressed="${active}">
+          ${platformIcon(p)}
+          <span>${escapeHtml(p.name)}</span>
+        </button>
+      `;
+    }).join("")}
+    <button class="daily-platform-chip-action" type="button" id="dailyChipsToggleAll">
+      ${allSelected ? "Limpar" : "Selecionar todas"}
+    </button>
+  `;
+}
+
+/* ═══ LEGENDA CUSTOMIZADA ═══ */
+function renderDailyChartLegend(platforms) {
+  const el = document.getElementById("dailyChartLegend");
+  if (!el) return;
+
+  if (!platforms.length) {
+    el.innerHTML = "";
+    return;
+  }
+
+  const selectedSet = new Set(selectedPlatformKeys || []);
+
+  el.innerHTML = platforms.map((p) => {
+    const active = selectedSet.has(p.key);
+    return `
+      <button class="daily-chart-legend-item ${active ? "" : "is-inactive"}"
+              type="button"
+              data-legend-platform="${escapeAttribute(p.key)}">
+        <span class="daily-chart-legend-dot" style="background:${getPlatformVisualColor(p)}"></span>
+        <span>${escapeHtml(p.name)}</span>
+      </button>
+    `;
+  }).join("");
+}
+
 /* ═══ DAILY CHART ═══ */
 function renderDailyChart() {
   const data = state.db[state.currentMonth];
   const c = document.getElementById("dailyChart");
   if (!c || !data) return;
 
-  const active = state.platforms.filter((p) =>
+  // ⬇️ Mostra skeleton antes de desenhar
+  showChartSkeleton("dailyChart");
+
+  // ─── Inicializa filtro: começa com todas as plataformas ativas ───
+  const allPlatforms = state.platforms || [];
+  const platformsWithData = allPlatforms.filter((p) =>
     data.days.some((d) => Number(d[p.key] || 0) > 0)
   );
+
+  if (selectedPlatformKeys === null) {
+    selectedPlatformKeys = platformsWithData.map((p) => p.key);
+  } else {
+    // Remove keys que não existem mais
+    const validKeys = new Set(allPlatforms.map((p) => p.key));
+    selectedPlatformKeys = selectedPlatformKeys.filter((k) => validKeys.has(k));
+  }
+
+  const active = platformsWithData.filter((p) =>
+    selectedPlatformKeys.includes(p.key)
+  );
+
+  // ─── Atualiza header (eyebrow + total + delta) ───
+  renderDailyHeader();
+
+  // ─── Atualiza chips ───
+  renderDailyPlatformChips(platformsWithData);
+
+  // ─── Sem dados para mostrar? ───
   const ctx = c.getContext("2d");
   if (dailyChart) dailyChart.destroy();
 
-  if (!active.length || !data.days.length) {
+  if (!platformsWithData.length || !data.days.length) {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    renderDailyChartLegend([]);
     return;
   }
 
-  // ─── Gradiente vertical para cada plataforma ───
+  // ─── Gradiente vertical ───
   function makeGradient(color, maxHeight) {
     const g = ctx.createLinearGradient(0, 0, 0, maxHeight);
     g.addColorStop(0, alphaColor(color, 1));
@@ -167,7 +293,7 @@ function renderDailyChart() {
     return g;
   }
 
-  // ─── Ordem das plataformas (maiores embaixo) ───
+  // ─── Ordem: maiores embaixo ───
   const totals = {};
   active.forEach((p) => {
     totals[p.key] = data.days.reduce((s, d) => s + Number(d[p.key] || 0), 0);
@@ -177,9 +303,28 @@ function renderDailyChart() {
   const chartHeight = c.parentElement?.clientHeight || 400;
   const maxBarHeight = Math.max(60, chartHeight - 60);
 
-  // ─── Datasets das barras (mês atual) ───
-  const barDatasets = sorted.map((p, idx) => {
-    const isTop = idx === sorted.length - 1;
+  // ─── Detecta qual plataforma está no topo em cada dia ───
+  // Assim aplicamos borderRadius só no segmento mais alto daquela barra.
+  const topPlatformByDay = data.days.map((d) => {
+    let topKey = null;
+    let topValue = -1;
+    // percorre da última para a primeira (a mais "de cima" no stack)
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const v = Number(d[sorted[i].key] || 0);
+      if (v > 0 && (topKey === null || sorted.indexOf(sorted[i]) > sorted.indexOf(
+        sorted.find((pp) => pp.key === topKey) || sorted[i]
+      ))) {
+        // verificação simples: escolhe a última com valor > 0
+        topKey = sorted[i].key;
+        topValue = v;
+        break;
+      }
+    }
+    return topKey;
+  });
+
+  // ─── Datasets das barras ───
+  const barDatasets = sorted.map((p) => {
     const color = getPlatformVisualColor(p);
     return {
       label: p.name,
@@ -188,33 +333,42 @@ function renderDailyChart() {
       hoverBackgroundColor: color,
       borderColor: "transparent",
       borderWidth: 0,
-      borderRadius: isTop
-        ? { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 }
-        : 0,
+      borderRadius: 0, // arredondamento aplicado via scriptable abaixo
       borderSkipped: false,
-      barPercentage: 0.7,
+      barPercentage: 0.6,
       categoryPercentage: 0.8,
-      stack: "current"
+      stack: "current",
+      // Arredonda só o topo no dia em que essa plataforma está no topo
+      borderRadiusScriptable: true
     };
   });
 
-  // ─── Dataset de comparação (linha tracejada) ───
+  // Aplica borderRadius por dia (scriptable por contexto)
+  barDatasets.forEach((ds, dsIdx) => {
+    const platformKey = sorted[dsIdx].key;
+    ds.borderRadius = (ctx) => {
+      const dayKey = topPlatformByDay[ctx.dataIndex];
+      if (dayKey === platformKey && Number(ctx.raw || 0) > 0) {
+        return { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 };
+      }
+      return 0;
+    };
+  });
+
+  // ─── Dataset de comparação (linha) ───
   const compareDatasets = [];
   const compareData = state.db[compareMonthKey];
 
   if (compareMonthKey && compareData) {
-    // Mapeia apenas o DIA (1-31) → valor total no mês de comparação
     const compareByDay = new Map();
     compareData.days.forEach((d) => {
       const day = Number(String(d.d || "").split("/")[0]);
       if (!day) return;
-      const total = state.platforms.reduce(
-        (s, p) => s + Number(d[p.key] || 0), 0
-      );
+      // Considera apenas as plataformas visíveis no filtro
+      const total = active.reduce((s, p) => s + Number(d[p.key] || 0), 0);
       compareByDay.set(day, total);
     });
 
-    // Alinha pelo dia do mês (1, 2, 3...) do mês atual
     const aligned = data.days.map((d) => {
       const day = Number(String(d.d || "").split("/")[0]);
       const value = compareByDay.get(day);
@@ -228,14 +382,13 @@ function renderDailyChart() {
       stack: "compare",
       borderColor: "#ff3b30",
       backgroundColor: "transparent",
-      borderWidth: 2.5,
-      borderDash: [6, 4],
-      pointRadius: 3,
-      pointHoverRadius: 5,
+      borderWidth: 2,
+      borderDash: [5, 4],
+      pointRadius: 2.5,
+      pointHoverRadius: 4,
       pointBackgroundColor: "#ff3b30",
-      pointBorderColor: "#fff",
-      pointBorderWidth: 1.5,
-      tension: 0.35,
+      pointBorderColor: "transparent",
+      tension: 0.3,
       fill: false,
       spanGaps: true,
       order: 1
@@ -244,7 +397,11 @@ function renderDailyChart() {
 
   renderCompareLegend();
 
-  // ─── Chart ───
+  // ─── Cor da gridline dinâmica (respeita tema) ───
+  const css = getComputedStyle(document.body);
+  const gridColor = css.getPropertyValue("--border").trim() || "rgba(0,0,0,0.06)";
+  const mutedColor = css.getPropertyValue("--muted").trim() || "#86868b";
+
   dailyChart = new Chart(ctx, {
     type: "bar",
     data: {
@@ -254,23 +411,11 @@ function renderDailyChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 700, easing: "easeOutQuart" },
+      animation: { duration: 600, easing: "easeOutQuart" },
       interaction: { mode: "index", intersect: false },
       layout: { padding: { top: 8, right: 8, left: 0, bottom: 0 } },
       plugins: {
-        legend: {
-          position: "bottom",
-          align: "start",
-          labels: {
-            color: "#86868b",
-            font: { family: "inherit", size: 11, weight: "500" },
-            boxWidth: 8,
-            boxHeight: 8,
-            padding: 12,
-            usePointStyle: true,
-            pointStyle: "circle"
-          }
-        },
+        legend: { display: false }, // legenda customizada via HTML
         tooltip: {
           backgroundColor: "rgba(17, 19, 24, 0.95)",
           titleColor: "#f0f2f7",
@@ -291,12 +436,10 @@ function renderDailyChart() {
               const value = Number(item.raw || 0);
               if (value === 0 || value === null || Number.isNaN(value)) return null;
 
-              // Linha de comparação
               if (item.dataset.type === "line") {
                 return ` ${item.dataset.label}: ${R(value)}`;
               }
 
-              // Barras — calcula % do dia
               const total = item.chart.data.datasets
                 .filter((ds) => ds.type !== "line")
                 .reduce((s, ds) => s + Number(ds.data[item.dataIndex] || 0), 0);
@@ -305,16 +448,13 @@ function renderDailyChart() {
             },
             footer: (items) => {
               if (!items.length) return "";
-
               const currentTotal = items
                 .filter((i) => i.dataset.type !== "line")
                 .reduce((s, i) => s + Number(i.raw || 0), 0);
-
               const compareItem = items.find((i) => i.dataset.type === "line");
               const compareTotal = compareItem ? Number(compareItem.raw || 0) : null;
 
               const lines = [`Atual: ${R(currentTotal)}`];
-
               if (compareTotal !== null && !Number.isNaN(compareTotal)) {
                 const diff = compareTotal > 0
                   ? ((currentTotal - compareTotal) / compareTotal) * 100
@@ -323,7 +463,6 @@ function renderDailyChart() {
                 const sign = diff >= 0 ? "+" : "";
                 lines.push(`Comparação: ${R(compareTotal)} (${sign}${diff.toFixed(1)}% ${arrow})`);
               }
-
               return lines;
             }
           }
@@ -333,7 +472,7 @@ function renderDailyChart() {
         x: {
           stacked: true,
           ticks: {
-            color: "#86868b",
+            color: mutedColor,
             font: { size: 10, family: "inherit" },
             maxRotation: 0,
             autoSkipPadding: 12
@@ -345,13 +484,19 @@ function renderDailyChart() {
           stacked: true,
           beginAtZero: true,
           ticks: {
-            color: "#86868b",
+            color: mutedColor,
             font: { size: 10, family: "inherit" },
             padding: 8,
-            callback: (v) => RS(v)
+            maxTicksLimit: 4,
+            callback: (v) => {
+              const n = Number(v);
+              if (n === 0) return "0";
+              if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
+              return String(n);
+            }
           },
           grid: {
-            color: "rgba(134, 134, 139, 0.05)",
+            color: gridColor,
             drawTicks: false,
             drawBorder: false,
             lineWidth: 1
@@ -362,6 +507,12 @@ function renderDailyChart() {
     },
     plugins: [topHighlightPlugin]
   });
+
+  // ─── Legenda HTML ───
+  renderDailyChartLegend(sorted);
+
+   // No FINAL da função (depois do new Chart), adicione:
+  requestAnimationFrame(() => hideChartSkeleton("dailyChart"));
 }
 
 /* ═══ DAILY TABLE ═══ */
@@ -415,6 +566,13 @@ function renderPlatformBars() {
   const totals = calcTotals(state.currentMonth);
   const c = document.getElementById("platformBars");
   if (!c || !totals) return;
+
+   // Se ainda não tem dados, mostra skeleton
+  const hasData = Object.values(totals.sales || {}).some((v) => Number(v) > 0);
+  if (!hasData) {
+    showPlatformBarsSkeleton(5);
+    return;
+  }
 
   const rows = state.platforms
     .map((p) => {
@@ -717,6 +875,54 @@ function bindEvents() {
       renderDailyChart();
     });
   }
+  
+   const chips = document.getElementById("dailyPlatformChips");
+  if (chips) {
+    chips.addEventListener("click", (e) => {
+      const toggleAll = e.target.closest("#dailyChipsToggleAll");
+      if (toggleAll) {
+        const allKeys = (state.platforms || [])
+          .filter((p) => state.db[state.currentMonth]?.days?.some(
+            (d) => Number(d[p.key] || 0) > 0
+          ))
+          .map((p) => p.key);
+
+        const allSelected = allKeys.every((k) => selectedPlatformKeys.includes(k));
+        selectedPlatformKeys = allSelected ? [] : allKeys;
+        renderDailyChart();
+        return;
+      }
+
+      const chip = e.target.closest("[data-chip-platform]");
+      if (!chip) return;
+
+      const key = chip.dataset.chipPlatform;
+      const set = new Set(selectedPlatformKeys || []);
+      if (set.has(key)) set.delete(key);
+      else set.add(key);
+      selectedPlatformKeys = [...set];
+      renderDailyChart();
+    });
+  }
+
+  // ⬇️ NOVO: clique na legenda alterna visibilidade também
+  const legend = document.getElementById("dailyChartLegend");
+  if (legend) {
+    legend.addEventListener("click", (e) => {
+      const item = e.target.closest("[data-legend-platform]");
+      if (!item) return;
+      const key = item.dataset.legendPlatform;
+      const set = new Set(selectedPlatformKeys || []);
+      if (set.has(key)) set.delete(key);
+      else set.add(key);
+      selectedPlatformKeys = [...set];
+      renderDailyChart();
+    });
+  }
+
+  document.getElementById("inputMonth")?.addEventListener("change", syncDateWithMonth);
+  // ... resto do bindEvents continua igual
+
 
   document.getElementById("inputMonth")?.addEventListener("change", syncDateWithMonth);
 
