@@ -22,19 +22,29 @@ export const slugify = (value) =>
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
 export function hexToRgb(color) {
-  const n = String(color || "").trim().replace("#", "");
-  if (!/^[\da-f]{3}([\da-f]{3})?$/i.test(n)) return null;
-  const full = n.length === 3 ? n.split("").map((c) => c + c).join("") : n;
+  const raw = String(color || "").trim().replace(/^#/, "");
+  // Aceita 3 ou 6 dígitos hexadecimais
+  if (!/^([0-9a-f]{3}|[0-9a-f]{6})$/i.test(raw)) return null;
+
+  const full = raw.length === 3
+    ? raw.split("").map((c) => c + c).join("")
+    : raw;
+
   const value = Number.parseInt(full, 16);
-  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
+  if (!Number.isFinite(value)) return null;
+
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255
+  };
 }
 
 export function alphaColor(color, alpha) {
-  const n = String(color || "").replace("#", "");
-  if (!/^[\da-f]{3}([\da-f]{6})?$/i.test(n)) return color;
-  const full = n.length === 3 ? n.split("").map((c) => c + c).join("") : n;
-  const v = parseInt(full, 16);
-  return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${alpha})`;
+  const rgb = hexToRgb(color);
+  if (!rgb) return color;
+  const a = Math.max(0, Math.min(1, Number(alpha) || 0));
+  return `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`;
 }
 
 export function formatSavedAt(v) {
