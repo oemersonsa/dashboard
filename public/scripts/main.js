@@ -294,7 +294,7 @@ function bindSidebarActions() {
         sidebar.classList.remove("open");
         overlay.classList.remove("visible");
       });
-      document.body.appendChild(overlay);
+     document.querySelector(".app")?.appendChild(overlay);
     }
     sidebar.classList.toggle("open");
     overlay.classList.toggle("visible");
