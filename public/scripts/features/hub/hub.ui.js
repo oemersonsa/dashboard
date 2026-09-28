@@ -4,6 +4,7 @@ import { platformIcon } from "../../ui/icons.js";
 import { setActiveScreen, renderScreen } from "../../main.js";
 import { calcTotals, getMonthDays, getLoggedDays } from "../sales/sales.calc.js";
 import { initTheme } from "../../ui/theme.js";
+import { computeGoalProgress, GOAL_STATUS } from "../goals/goals.calc.js";
 
 let bound = false;
 
@@ -61,9 +62,21 @@ function render() {
         </div>
         <div class="hub-meter"><span style="width:${progress.toFixed(1)}%"></span></div>
         <div class="hub-summary-grid">
-          <div><span>Bruto</span><strong>${RS(totals.gross)}</strong></div>
-          <div><span>Pedidos</span><strong>${totals.orders}</strong></div>
-          <div><span>Devoluções</span><strong>${returnRate.toFixed(1)}%</strong></div>
+          ${(() => {
+  const goalTarget = state.goals?.[month]?.target || 0;
+  const p = goalTarget > 0
+    ? (() => { const g = computeGoalProgress(month, goalTarget, state); return g; })()
+    : null;
+  const goalLine = p
+    ? `<div class="hub-goal-line"><span>Meta: ${RS(goalTarget)}</span><strong style="color:var(--${p.status === GOAL_STATUS.RISCO ? "red" : p.status === GOAL_STATUS.ATENCAO ? "accent-4" : "green"})">${p.percent.toFixed(0)}%</strong></div>`
+    : `<div class="hub-goal-line hub-goal-empty"><span>Sem meta definida</span><button type="button" class="link-btn" data-nav="dashboard" data-goto="projection">Definir</button></div>`;
+  return goalLine;
+})()}
+<div class="hub-summary-grid">
+  <div><span>Bruto</span><strong>${RS(totals.gross)}</strong></div>
+  <div><span>Pedidos</span><strong>${totals.orders}</strong></div>
+  <div><span>Devoluções</span><strong>${returnRate.toFixed(1)}%</strong></div>
+</div>
         </div>
         <div class="hub-summary-note">${loggedDays} de ${monthDays} dias lançados · ${activePlatforms.length} ativa(s)</div>
       </div>

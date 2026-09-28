@@ -47,6 +47,7 @@ export async function importBackupFile(file, mode = "merge") {
     if (mode === "replace") {
       state.platforms = rs.platforms.map((p) => ({ ...p }));
       state.db = JSON.parse(JSON.stringify(rs.db || {}));
+      state.goals = JSON.parse(JSON.stringify(rs.goals || {}));
       state.currentMonth = rs.currentMonth;
     } else {
       mergeImported(rs);
@@ -93,6 +94,15 @@ function mergeImported(rs) {
       const ir = Number(imp.returns?.[p.key] || 0);
       cur.returns[p.key] = Math.max(cr, ir);
     });
+  });
+
+  // Merge de goals (backup vence se não existir local)
+  if (!state.goals) state.goals = {};
+  Object.entries(rs.goals || {}).forEach(([month, value]) => {
+    const target = Number(value?.target ?? value ?? 0);
+    if (Number.isFinite(target) && target > 0) {
+      if (!state.goals[month]) state.goals[month] = { target };
+    }
   });
 }
 

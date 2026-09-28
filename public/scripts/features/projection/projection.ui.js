@@ -1,46 +1,113 @@
-import { state, getPeriodLabel } from "../../core/state.js";
-import { RS } from "../../core/format.js";
+import { state, getPeriodLabel, setGoal, getGoal } from "../../core/state.js";
+import { R, RS, escapeHtml } from "../../core/format.js";
 import { platformBadge } from "../../ui/icons.js";
 import { getPlatformVisualColor } from "../../ui/charts.js";
-import { calcTotals, getComparisonPeriod, getLoggedDays, getMonthDays } from "../sales/sales.calc.js";
+import {
+  calcTotals,
+  getComparisonPeriod,
+  getLoggedDays,
+  getMonthDays,
+  getLastLoggedDay
+} from "../sales/sales.calc.js";
+import {
+  computeGoalProgress,
+  parseGoalInput,
+  GOAL_STATUS,
+  STATUS_LABEL,
+  getStatusColorVar
+} from "../goals/goals.calc.js";
+import { toast, toastSuccess, toastError } from "../../ui/toast.js";
+
+let bound = false;
 
 export function init() {
-  render();
+  renderGoalCard();
+  renderProjection();
+  if (!bound) { bindEvents(); bound = true; }
 }
 
-function calcProjection(month) {
-  const t = calcTotals(month);
-  if (!t) return null;
-  const ld = getLoggedDays(month);
-  const md = getMonthDays(month);
-  const sda = ld > 0 ? t.gross / ld : 0;
-  const oda = ld > 0 ? t.orders / ld : 0;
-  const rda = ld > 0 ? t.totalRet / ld : 0;
+/* ═══ Card de Meta ═══ */
+function renderGoalCard() {
+  const input = document.getElementById("goalInput");
+  if (input) {
+    const t = getGoal(state.currentMonth);
+    input.value = t > 0 ? t.toFixed(2).replace(".", ",") : "";
+  }
 
-  return {
-    loggedDays: ld, monthDays: md,
-    salesDailyAverage: sda, ordersDailyAverage: oda, returnsDailyAverage: rda,
-    projectedGross: sda * md, projectedOrders: oda * md, projectedReturns: rda * md,
-    projectedNet: (sda * md) - (rda * md),
-    platforms: state.platforms.map((p) => {
-      const rg = Number(t.sales[p.key] || 0);
-      const da = ld > 0 ? rg / ld : 0;
-      return { key: p.key, realizedGross: rg, dailyAverage: da, projectedGross: da * md };
-    }),
-    currentReturnRate: t.gross > 0 ? (t.totalRet / t.gross) * 100 : 0,
-    projectedReturnRate: (sda * md) > 0 ? ((rda * md) / (sda * md)) * 100 : 0
-  };
+  const area = document.getElementById("goalProgressArea");
+  if (!area) return;
+
+  const target = getGoal(state.currentMonth);
+  const p = computeGoalProgress(state.currentMonth, target, state);
+
+  if (!p.hasGoal) {
+    area.innerHTML = `
+      <div class="empty-state">
+        Sem meta definida para ${escapeHtml(getPeriodLabel(state.currentMonth))}. Digite um valor acima e pressione Enter para acompanhar o progresso.
+      </div>
+    `;
+    return;
+  }
+
+  const colorVar = `var(${getStatusColorVar(p.status)})`;
+  const statusLabel = STATUS_LABEL[p.status];
+
+  area.innerHTML = `
+    <div class="goal-progress">
+      <div class="goal-progress-head">
+        <div>
+          <div class="goal-progress-realized">${R(p.realized)}</div>
+          <div class="goal-progress-label">realizado de ${R(p.target)}</div>
+        </div>
+        <div class="goal-badge" style="background:${colorVar}1A;color:${colorVar};border-color:${colorVar}44">
+          ${escapeHtml(statusLabel)}
+        </div>
+      </div>
+
+      <div class="goal-progress-bar">
+        <div class="goal-progress-fill" style="width:${Math.min(p.percent, 100).toFixed(1)}%;background:${colorVar}"></div>
+      </div>
+
+      <div class="goal-progress-stats">
+        <div><span>% atingido</span><strong>${p.percent.toFixed(1)}%</strong></div>
+        <div><span>Projeção</span><strong>${R(p.projected)}</strong></div>
+        <div><span>Falta</span><strong>${R(p.remaining)}</strong></div>
+        <div><span>Dias restantes</span><strong>${p.daysLeft}</strong></div>
+        <div><span>Média diária necessária</span><strong>${p.daysLeft > 0 ? R(p.dailyNeeded) : "—"}</strong></div>
+      </div>
+    </div>
+  `;
 }
 
-function render() {
+/* ═══ Projeção (existente) ═══ */
+function renderProjection() {
   const t = calcTotals(state.currentMonth);
-  const p = calcProjection(state.currentMonth);
   const el = document.getElementById("projectionGrid");
-  if (!el || !p) return;
+  if (!el || !t) return;
 
   const c = getComparisonPeriod(state.currentMonth);
   const pt = c.previousTotals;
   const cl = pt ? `${getPeriodLabel(c.previousName)}${c.cutoffDay ? ` até dia ${c.cutoffDay}` : ""}` : "";
+
+  const ld = getLoggedDays(state.currentMonth);
+  const md = getMonthDays(state.currentMonth);
+  const sda = ld > 0 ? t.gross / ld : 0;
+  const oda = ld > 0 ? t.orders / ld : 0;
+  const rda = ld > 0 ? t.totalRet / ld : 0;
+
+  const p = {
+    loggedDays: ld, monthDays: md,
+    salesDailyAverage: sda, ordersDailyAverage: oda, returnsDailyAverage: rda,
+    projectedGross: sda * md, projectedOrders: oda * md, projectedReturns: rda * md,
+    projectedNet: (sda * md) - (rda * md),
+    platforms: state.platforms.map((pl) => {
+      const rg = Number(t.sales[pl.key] || 0);
+      const da = ld > 0 ? rg / ld : 0;
+      return { key: pl.key, realizedGross: rg, dailyAverage: da, projectedGross: da * md };
+    }),
+    currentReturnRate: t.gross > 0 ? (t.totalRet / t.gross) * 100 : 0,
+    projectedReturnRate: (sda * md) > 0 ? ((rda * md) / (sda * md)) * 100 : 0
+  };
 
   const pp = p.platforms
     .filter((i) => i.realizedGross > 0 || i.projectedGross > 0)
@@ -76,6 +143,41 @@ function render() {
       <div class="projection-platform-list">${platformHtml}</div>
     </div>
   `;
+}
+
+/* ═══ Bind ═══ */
+function bindEvents() {
+  const input = document.getElementById("goalInput");
+  if (input) {
+    const commit = () => {
+      const raw = input.value.trim();
+      const parsed = parseGoalInput(raw);
+
+      // Se vazio ou 0 → remove
+      if (!raw || parsed <= 0) {
+        setGoal(state.currentMonth, 0);
+        toast("Meta removida");
+        renderGoalCard();
+        renderProjection();
+        return;
+      }
+
+      setGoal(state.currentMonth, parsed);
+      toastSuccess(`Meta definida: ${R(parsed)}`);
+      renderGoalCard();
+      renderProjection();
+    };
+
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); commit(); input.blur(); }
+      if (e.key === "Escape") {
+        const t = getGoal(state.currentMonth);
+        input.value = t > 0 ? t.toFixed(2).replace(".", ",") : "";
+        input.blur();
+      }
+    });
+  }
 }
 
 function varH(current, previous) {

@@ -116,8 +116,11 @@ function inferPlatformsFromLegacyData(data) {
 export function defaultState() {
   return {
     auth: null, platforms: [], db: {},
+    goals: {},   
     currentMonth: formatPeriodKey(getDefaultMonth(), getCurrentYear()),
-    pricing: clone(PRICING_DEFAULTS), currentScreen: "hub"
+    pricing: clone(PRICING_DEFAULTS), 
+    currentScreen: "hub",
+    activeTab: "overview"  
   };
 }
 
@@ -221,6 +224,15 @@ export function normalizeState(raw, presetMap) {
     pricing: clone(PRICING_DEFAULTS),
     currentScreen: raw?.currentScreen || "hub"
   };
+  const goals = {};
+  const rawGoals = raw?.goals || {};
+  Object.entries(rawGoals).forEach(([month, value]) => {
+    const target = Number(value?.target ?? value ?? 0);
+    if (Number.isFinite(target) && target > 0) {
+      goals[month] = { target };
+    }
+  });
+  next.goals = goals; 
   Object.keys(rawDb).forEach((m) => {
     const nm = normalizePeriodKey(m);
     next.db[nm] = rawDb[m];
@@ -237,6 +249,9 @@ export function normalizeState(raw, presetMap) {
     }
   }
   next.pricing = normalizePricing(raw?.pricing || base.pricing, next.platforms, presetMap);
+  next.activeTab = ["overview", "daily", "weekly", "platforms", "entries", "projection"].includes(raw?.activeTab)
+  ? raw.activeTab
+  : "overview";
   return next;
 }
 
@@ -278,11 +293,29 @@ export function getBusinessSnapshot() {
   return {
     platforms: state.platforms,
     db: state.db,
+    goals: state.goals || {},  
     currentMonth: state.currentMonth,
     currentScreen: state.currentScreen,
+    activeTab: state.activeTab || "overview",
     pricing: state.pricing
   };
 }
 
 export function loadLastSavedAt() { return localStorage.getItem(LAST_SAVED_KEY) || ""; }
 export { formatSavedAt };
+
+/* ═══ Helpers de meta ═══ */
+export function getGoal(month) {
+  return state.goals?.[month]?.target || 0;
+}
+
+export function setGoal(month, target) {
+  const t = Number(target || 0);
+  if (!state.goals) state.goals = {};
+  if (!Number.isFinite(t) || t <= 0) {
+    delete state.goals[month];
+  } else {
+    state.goals[month] = { target: t };
+  }
+  saveState();
+}

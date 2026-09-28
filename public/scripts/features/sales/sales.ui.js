@@ -29,6 +29,8 @@ import { init as initProjection } from "../projection/projection.ui.js";
 import { renderWeekly } from "../weekly/weekly.ui.js";
 import { init as initReturns } from "../returns/returns.ui.js";
 import { showChartSkeleton, hideChartSkeleton, showPlatformBarsSkeleton } from "../../ui/skeleton.js";
+import { computeGoalProgress, GOAL_STATUS, getStatusColorVar, STATUS_LABEL } from "../goals/goals.calc.js";
+import { getGoal } from "../../core/state.js";
 
 let bound = false;
 let dailyChart = null;
@@ -109,6 +111,7 @@ export function init() {
 /* ═══ RENDER ALL ═══ */
 export function renderAll() {
   if (!state.platforms.length || !state.db[state.currentMonth]) return;
+  renderGoalAlert();
   renderKPIs();
   renderComparePicker();
   renderDailyChart();
@@ -119,6 +122,38 @@ export function renderAll() {
   renderPlatformTable();
   renderMonthCompare();
   initProjection();
+}
+
+function renderGoalAlert() {
+  const el = document.getElementById("goalAlertBanner");
+  if (!el) return;
+
+  const target = getGoal(state.currentMonth);
+  const p = computeGoalProgress(state.currentMonth, target, state);
+
+  if (!p.hasGoal) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+
+  if (p.status === GOAL_STATUS.ATENCAO || p.status === GOAL_STATUS.RISCO) {
+    const diff = p.target > 0 ? ((p.projected - p.target) / p.target) * 100 : 0;
+    const colorVar = `var(${getStatusColorVar(p.status)})`;
+    el.hidden = false;
+    el.innerHTML = `
+      <div class="goal-alert" style="border-color:${colorVar}44;background:${colorVar}0F">
+        <div class="goal-alert-icon" style="color:${colorVar}">⚠</div>
+        <div class="goal-alert-text">
+          <strong>${escapeHtml(STATUS_LABEL[p.status])}:</strong>
+          projeção de ${R(p.projected)} está ${Math.abs(diff).toFixed(1)}% ${diff < 0 ? "abaixo" : "acima"} da meta (${R(p.target)}).
+        </div>
+      </div>
+    `;
+  } else {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
 }
 
 /* ═══ KPIs ═══ */

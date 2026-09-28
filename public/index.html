@@ -129,19 +129,14 @@
       </div>
         <div class="dashboard-panels">
           <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
-            <div class="card">
-              <div class="card-header">
-                <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">% do faturamento líquido</div></div>
-              </div>
-              <div class="platform-bars" id="platformBars">
-              <div class="bar-skeleton">
-                <div class="bar-skeleton-row"><div class="bar-skeleton-head"><div class="bar-skeleton-dot"></div><div class="bar-skeleton-line" style="width: 40%"></div></div><div class="bar-skeleton-line"></div></div>
-                <div class="bar-skeleton-row"><div class="bar-skeleton-head"><div class="bar-skeleton-dot"></div><div class="bar-skeleton-line" style="width: 35%"></div></div><div class="bar-skeleton-line"></div></div>
-                <div class="bar-skeleton-row"><div class="bar-skeleton-head"><div class="bar-skeleton-dot"></div><div class="bar-skeleton-line" style="width: 30%"></div></div><div class="bar-skeleton-line"></div></div>
-              </div>
-            </div>>
-            </div>
-          </section>
+  <div class="goal-alert-banner" id="goalAlertBanner" hidden></div>
+  <div class="card">
+    <div class="card-header">
+      <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">% do faturamento líquido</div></div>
+    </div>
+    <div class="platform-bars" id="platformBars"></div>
+  </div>
+</section>
           <section class="dashboard-panel" id="dashboard-panel-daily" data-dashboard-panel="daily" hidden>
             <div class="grid2">
               <div class="card daily-card">
@@ -224,11 +219,24 @@
             </div>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-projection" data-dashboard-panel="projection" hidden>
-            <div class="card">
-              <div class="card-header"><div><div class="card-title">Projeção do Mês</div><div class="card-sub">Estimativa baseada na média dos dias já lançados</div></div></div>
-              <div class="projection-grid" id="projectionGrid"></div>
-            </div>
-          </section>
+  <div class="card goal-card" id="goalCard">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Meta do Mês</div>
+        <div class="card-sub">Defina uma meta sobre o faturamento bruto</div>
+      </div>
+      <div class="goal-input-wrap">
+        <label class="flabel" for="goalInput">Meta R$</label>
+        <input class="finput" id="goalInput" type="text" inputmode="decimal" placeholder="Ex.: 50000,00">
+      </div>
+    </div>
+    <div id="goalProgressArea"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div><div class="card-title">Projeção do Mês</div><div class="card-sub">Estimativa baseada na média dos dias já lançados</div></div></div>
+    <div class="projection-grid" id="projectionGrid"></div>
+  </div>
+</section>
         </div>
       </main>
     </div>

@@ -1,8 +1,9 @@
-const { withTransaction, queryOne, queryAll } = require("../db");
+const { withTransaction } = require("../db");
 const platformsRepo = require("../db/repositories/platforms.repo");
 const salesRepo = require("../db/repositories/sales.repo");
 const returnsRepo = require("../db/repositories/returns.repo");
 const settingsRepo = require("../db/repositories/settings.repo");
+const goalsRepo = require("../db/repositories/goals.repo");
 const { nowIso } = require("../utils/dates");
 
 async function getBusinessState(userId) {
@@ -50,10 +51,19 @@ async function getBusinessState(userId) {
     });
   });
 
+  // ─── Goals ───
+  const goalsRows = await goalsRepo.listByUser(userId);
+  const goals = {};
+  for (const g of goalsRows) {
+    const target = Number(g.target || 0);
+    if (target > 0) goals[g.month] = { target };
+  }
+
   const settings = await settingsRepo.get(userId);
   return {
     platforms,
     db: dbState,
+    goals,
     currentMonth: settings?.current_month || Object.keys(dbState)[0] || "",
     currentScreen: settings?.current_screen || "hub",
     pricing: settings?.pricing_json ? JSON.parse(settings.pricing_json) : null,
@@ -64,12 +74,12 @@ async function getBusinessState(userId) {
 async function replaceBusinessState(userId, state) {
   const timestamp = nowIso();
   return withTransaction(async (tx) => {
-    // Deletar tudo do usuário
     await tx.execute({ sql: "DELETE FROM sales WHERE user_id = ?", args: [userId] });
     await tx.execute({ sql: "DELETE FROM returns WHERE user_id = ?", args: [userId] });
     await tx.execute({ sql: "DELETE FROM platforms WHERE user_id = ?", args: [userId] });
+    await tx.execute({ sql: "DELETE FROM goals WHERE user_id = ?", args: [userId] });
 
-    // Inserir plataformas
+    // Plataformas
     const platformIds = new Map();
     const platforms = state.platforms || [];
     for (let i = 0; i < platforms.length; i++) {
@@ -84,7 +94,7 @@ async function replaceBusinessState(userId, state) {
       platformIds.set(p.key, Number(res.lastInsertRowid));
     }
 
-    // Inserir vendas
+    // Vendas
     for (const [month, monthData] of Object.entries(state.db || {})) {
       for (const day of monthData.days || []) {
         for (const platform of platforms) {
@@ -103,7 +113,7 @@ async function replaceBusinessState(userId, state) {
       }
     }
 
-    // Inserir devoluções
+    // Devoluções
     for (const [month, monthData] of Object.entries(state.db || {})) {
       for (const platform of platforms) {
         const platformId = platformIds.get(platform.key);
@@ -117,6 +127,17 @@ async function replaceBusinessState(userId, state) {
           args: [userId, platformId, month, amount, timestamp, timestamp]
         });
       }
+    }
+
+    // Goals
+    for (const [month, value] of Object.entries(state.goals || {})) {
+      const target = Number(value?.target ?? value ?? 0);
+      if (!Number.isFinite(target) || target <= 0) continue;
+      await tx.execute({
+        sql: `INSERT INTO goals (user_id, month, target, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?)`,
+        args: [userId, month, target, timestamp, timestamp]
+      });
     }
 
     // Settings
@@ -137,12 +158,25 @@ async function replaceBusinessState(userId, state) {
 
 function normalizeBusinessPayload(body) {
   const payload = body?.state || body || {};
+
+  // Normaliza goals (aceita { target } ou número direto)
+  const rawGoals = payload.goals && typeof payload.goals === "object" ? payload.goals : {};
+  const goals = {};
+  for (const [month, value] of Object.entries(rawGoals)) {
+    const target = Number(value?.target ?? value ?? 0);
+    if (Number.isFinite(target) && target > 0) {
+      goals[month] = { target };
+    }
+  }
+
   return {
     platforms: Array.isArray(payload.platforms) ? payload.platforms : [],
     db: payload.db && typeof payload.db === "object" ? payload.db : {},
+    goals,
     currentMonth: String(payload.currentMonth || ""),
-    currentScreen: payload.currentScreen === "dashboard" || payload.currentScreen === "calculator"
-      ? payload.currentScreen : "hub",
+    currentScreen: ["dashboard", "calculator", "dailyClose", "hub"].includes(payload.currentScreen)
+      ? payload.currentScreen
+      : "hub",
     pricing: payload.pricing && typeof payload.pricing === "object" ? payload.pricing : null
   };
 }

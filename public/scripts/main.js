@@ -87,6 +87,7 @@ export function renderScreen() {
     initSales();
     initReports();
     initBackup();
+    switchDashboardTab(state.activeTab || "overview");
     return;
   }
 
@@ -157,6 +158,7 @@ async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
       },
       MARKETPLACE_PRICING_PRESETS
     );
+    state.goals = normalized.goals || {}; 
     state.platforms = normalized.platforms;
     state.db = normalized.db;
     state.currentMonth = normalized.currentMonth;
@@ -223,17 +225,7 @@ function bindSidebarActions() {
     const tab = event.target.closest(".sidebar-item[data-dashboard-tab]");
     if (!tab) return;
     event.preventDefault();
-    const name = tab.dataset.dashboardTab;
-    document.querySelectorAll(".sidebar-item[data-dashboard-tab]").forEach((b) =>
-      b.classList.toggle("active", b === tab)
-    );
-    document.querySelectorAll(".dashboard-panel").forEach((p) => {
-      const active = p.dataset.dashboardPanel === name;
-      p.classList.toggle("active", active);
-      p.hidden = !active;
-    });
-    const k = document.getElementById("kpiRow");
-    if (k) k.hidden = name !== "overview";
+    switchDashboardTab(tab.dataset.dashboardTab);
   });
 
   // 3. Relatório
@@ -387,6 +379,27 @@ function bindSidebarActions() {
   });  
 }
 
+export function switchDashboardTab(name) {
+  const valid = ["overview", "daily", "weekly", "platforms", "entries", "projection"];
+  const target = valid.includes(name) ? name : "overview";
+
+  // Salva no state + persistência
+  state.activeTab = target;
+  saveState();
+
+  // UI
+  document.querySelectorAll(".sidebar-item[data-dashboard-tab]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.dashboardTab === target);
+  });
+  document.querySelectorAll(".dashboard-panel").forEach((p) => {
+    const active = p.dataset.dashboardPanel === target;
+    p.classList.toggle("active", active);
+    p.hidden = !active;
+  });
+  const k = document.getElementById("kpiRow");
+  if (k) k.hidden = target !== "overview";
+}
+
 /* ═══ BOOT ═══ */
 async function init() {
   showGlobalLoader();
@@ -461,14 +474,15 @@ window.dashboard = {
   saveNow,
   scheduleServerSave,
   exportBackup,
+  switchDashboardTab,
   handleLogout,
   openImportBackupModal,
   openSetupScreen,
   openReport,
   renderAll,
-  setThemeMode,          // ⬅️ ADICIONE
-  getThemeMode,          // ⬅️ ADICIONE
-  getEffectiveTheme,     // ⬅️ ADICIONE
+  setThemeMode,          
+  getThemeMode,          
+  getEffectiveTheme,     
   state
 };
 

@@ -121,6 +121,7 @@ async function loadRemoteState() {
     Object.assign(state, {
       platforms: normalized.platforms,
       db: normalized.db,
+      goals: normalized.goals || {},  
       currentMonth: normalized.currentMonth,
       pricing: normalized.pricing,
       currentScreen: normalized.currentScreen
