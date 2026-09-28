@@ -380,14 +380,12 @@ function bindSidebarActions() {
 }
 
 export function switchDashboardTab(name) {
-  const valid = ["overview", "daily", "weekly", "platforms", "entries", "projection"];
+  const valid = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection"];
   const target = valid.includes(name) ? name : "overview";
 
-  // Salva no state + persistência
   state.activeTab = target;
   saveState();
 
-  // UI
   document.querySelectorAll(".sidebar-item[data-dashboard-tab]").forEach((b) => {
     b.classList.toggle("active", b.dataset.dashboardTab === target);
   });
@@ -398,6 +396,11 @@ export function switchDashboardTab(name) {
   });
   const k = document.getElementById("kpiRow");
   if (k) k.hidden = target !== "overview";
+
+  // Renderiza a tendência quando a aba é aberta
+  if (target === "trends") {
+    import("./features/trends/trends.ui.js").then((m) => m.init?.()).catch(console.error);
+  }
 }
 
 /* ═══ BOOT ═══ */

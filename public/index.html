@@ -100,6 +100,7 @@
             <button class="sidebar-item" data-dashboard-tab="daily" type="button"><span class="sidebar-label">Vendas Diárias</span></button>
             <button class="sidebar-item" data-dashboard-tab="weekly" type="button"><span class="sidebar-label">Semanas</span></button>
             <button class="sidebar-item" data-dashboard-tab="platforms" type="button"><span class="sidebar-label">Plataformas</span></button>
+            <button class="sidebar-item" data-dashboard-tab="trends" type="button"><span class="sidebar-label">Tendência</span></button>
             <button class="sidebar-item" id="reportButton" type="button"><span class="sidebar-label">Relatório</span></button>
           </div>
           <div class="sidebar-section">
@@ -121,22 +122,22 @@
 
       <main id="dashboardMain" class="dashboard-main">
         <div class="kpi-row" id="kpiRow">
-        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-        <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-      </div>
+          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+        </div>
         <div class="dashboard-panels">
           <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
-  <div class="goal-alert-banner" id="goalAlertBanner" hidden></div>
-  <div class="card">
-    <div class="card-header">
-      <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">% do faturamento líquido</div></div>
-    </div>
-    <div class="platform-bars" id="platformBars"></div>
-  </div>
-</section>
+            <div class="goal-alert-banner" id="goalAlertBanner" hidden></div>
+            <div class="card">
+              <div class="card-header">
+                <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">% do faturamento líquido</div></div>
+              </div>
+              <div class="platform-bars" id="platformBars"></div>
+            </div>
+          </section>
           <section class="dashboard-panel" id="dashboard-panel-daily" data-dashboard-panel="daily" hidden>
             <div class="grid2">
               <div class="card daily-card">
@@ -186,6 +187,36 @@
               <table class="ptable platform-summary-table" id="platformTable"></table>
             </div>
           </section>
+          <section class="dashboard-panel" id="dashboard-panel-trends" data-dashboard-panel="trends" hidden>
+            <div class="card">
+              <div class="card-header trends-header">
+                <div>
+                  <div class="card-title">Tendência por Plataforma</div>
+                  <div class="card-sub">Evolução dos últimos meses</div>
+                </div>
+                <div class="trends-controls">
+                  <div class="trends-control">
+                    <label class="flabel" for="trendsMetric">Métrica</label>
+                    <select class="finput" id="trendsMetric">
+                      <option value="gross">Vendas</option>
+                      <option value="net">Após devoluções</option>
+                      <option value="orders">Pedidos</option>
+                      <option value="ticket">Ticket médio</option>
+                    </select>
+                  </div>
+                  <div class="trends-control">
+                    <label class="flabel" for="trendsMonths">Período</label>
+                    <select class="finput" id="trendsMonths">
+                      <option value="6">6 meses</option>
+                      <option value="12">12 meses</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="chart-box trends-chart-box"><canvas id="trendsChart"></canvas></div>
+              <div class="trends-table-wrap" id="trendsTable"></div>
+            </div>
+          </section>
           <section class="dashboard-panel" id="dashboard-panel-entries" data-dashboard-panel="entries" hidden>
             <div class="card">
               <div class="sec-label">Lançamento de Dados</div>
@@ -219,24 +250,24 @@
             </div>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-projection" data-dashboard-panel="projection" hidden>
-  <div class="card goal-card" id="goalCard">
-    <div class="card-header">
-      <div>
-        <div class="card-title">Meta do Mês</div>
-        <div class="card-sub">Defina uma meta sobre o faturamento bruto</div>
-      </div>
-      <div class="goal-input-wrap">
-        <label class="flabel" for="goalInput">Meta R$</label>
-        <input class="finput" id="goalInput" type="text" inputmode="decimal" placeholder="Ex.: 50000,00">
-      </div>
-    </div>
-    <div id="goalProgressArea"></div>
-  </div>
-  <div class="card">
-    <div class="card-header"><div><div class="card-title">Projeção do Mês</div><div class="card-sub">Estimativa baseada na média dos dias já lançados</div></div></div>
-    <div class="projection-grid" id="projectionGrid"></div>
-  </div>
-</section>
+            <div class="card goal-card" id="goalCard">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Meta do Mês</div>
+                  <div class="card-sub">Defina uma meta sobre o faturamento bruto</div>
+                </div>
+                <div class="goal-input-wrap">
+                  <label class="flabel" for="goalInput">Meta R$</label>
+                  <input class="finput" id="goalInput" type="text" inputmode="decimal" placeholder="Ex.: 50000,00">
+                </div>
+              </div>
+              <div id="goalProgressArea"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div><div class="card-title">Projeção do Mês</div><div class="card-sub">Estimativa baseada na média dos dias já lançados</div></div></div>
+              <div class="projection-grid" id="projectionGrid"></div>
+            </div>
+          </section>
         </div>
       </main>
     </div>
