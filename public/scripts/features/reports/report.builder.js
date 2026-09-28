@@ -4,6 +4,8 @@ import { DASH_HTML as dash } from "../../core/constants.js";
 import { platformBadge } from "../../ui/icons.js";
 import { openModal, closeModal } from "../../ui/modal.js";
 import { calcTotals, getComparisonPeriod } from "../sales/sales.calc.js";
+import { exportReportCsv, exportReportXlsx } from "./report.export.js";
+import { toast, toastSuccess, toastError } from "../../ui/toast.js";
 
 let bound = false;
 
@@ -103,9 +105,54 @@ export async function exportReportPNG() {
   }
 }
 
+/* ═══ EXPORTAR CSV ═══ */
+async function handleExportCsv() {
+  const b = document.getElementById("exportReportCsvButton");
+  const oldLabel = b?.textContent || "";
+  if (b) { b.disabled = true; b.textContent = "Exportando..."; }
+
+  try {
+    await exportReportCsv(state.currentMonth, state);
+    toastSuccess("CSV exportado com sucesso");
+  } catch (e) {
+    console.error("Falha ao exportar CSV:", e);
+    toastError("Não foi possível exportar o CSV");
+  } finally {
+    if (b) { b.disabled = false; b.textContent = oldLabel; }
+  }
+}
+
+/* ═══ EXPORTAR EXCEL ═══ */
+async function handleExportXlsx() {
+  const b = document.getElementById("exportReportXlsxButton");
+  const oldLabel = b?.textContent || "";
+  if (b) { b.disabled = true; b.textContent = "Exportando..."; }
+
+  try {
+    await exportReportXlsx(state.currentMonth, state);
+    toastSuccess("Excel exportado com sucesso");
+  } catch (e) {
+    console.error("Falha ao exportar Excel:", e);
+
+    // Fallback para CSV + aviso
+    toastError("Não foi possível exportar em Excel. Gerando CSV...");
+    try {
+      await exportReportCsv(state.currentMonth, state);
+      toastSuccess("CSV exportado (fallback)");
+    } catch (e2) {
+      console.error("Falha no fallback de CSV:", e2);
+      toastError("Não foi possível exportar o relatório");
+    }
+  } finally {
+    if (b) { b.disabled = false; b.textContent = oldLabel; }
+  }
+}
+
 function bindEvents() {
   document.getElementById("reportButton")?.addEventListener("click", openReport);
   document.getElementById("exportReportButton")?.addEventListener("click", exportReportPNG);
+  document.getElementById("exportReportCsvButton")?.addEventListener("click", handleExportCsv);
+  document.getElementById("exportReportXlsxButton")?.addEventListener("click", handleExportXlsx);
 }
 
 function varH(current, previous) {

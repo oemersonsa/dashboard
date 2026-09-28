@@ -1,10 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════
    main.js — entrypoint do frontend
    ═══════════════════════════════════════════════════════════════ */
-// no topo do main.js
 const DEBUG = false;
 const log = (...args) => { if (DEBUG) console.log(...args); };
-//console.log("🔥 main.js CARREGOU");
 
 // ─── Core ───────────────────────────────────────────────────────────────────
 import {
@@ -41,8 +39,6 @@ import { init as initCalculator } from "./features/calculator/pricing.ui.js";
 import { init as initDailyClose } from "./features/daily-close/daily-close.ui.js";
 import { init as initBackup, exportBackup } from "./features/backup/backup.export.js";
 import { init as initReports, openReport } from "./features/reports/report.builder.js";
-
-//console.log("🔥 main.js: TODOS os imports passaram");
 
 // ─── Roteador ───────────────────────────────────────────────────────────────
 const KNOWN_SCREENS = ["hub", "dashboard", "calculator", "dailyClose"];
@@ -148,9 +144,6 @@ window.addEventListener("dashboard:reload", () => renderScreen());
 /* ═══ LOAD FROM SERVER ═══ */
 async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
   if (!loadSession()) return false;
-
-  showGlobalLoader();
-
   try {
     const result = await apiRequest("/api/state");
     const remote = result?.state || {};
@@ -176,40 +169,8 @@ async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
     if (error.status === 401) { clearSession(); return false; }
     toastError("Não foi possível carregar os dados do servidor");
     return false;
-  } finally {
-    hideGlobalLoader();
   }
 }
-
-// async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
-//   if (!loadSession()) return false;
-//   try {
-//     const result = await apiRequest("/api/state");
-//     const remote = result?.state || {};
-//     const normalized = normalizeState(
-//       {
-//         ...remote,
-//         auth: state.auth,
-//         currentMonth: remote.currentMonth || state.currentMonth,
-//         currentScreen: remote.currentScreen || state.currentScreen || "hub",
-//         pricing: remote.pricing || state.pricing
-//       },
-//       MARKETPLACE_PRICING_PRESETS
-//     );
-//     state.platforms = normalized.platforms;
-//     state.db = normalized.db;
-//     state.currentMonth = normalized.currentMonth;
-//     state.pricing = normalized.pricing;
-//     state.currentScreen = normalized.currentScreen;
-//     activeScreen = state.currentScreen || "hub";
-//     return true;
-//   } catch (error) {
-//     console.error("Falha ao carregar dados do servidor:", error);
-//     if (error.status === 401) { clearSession(); return false; }
-//     toastError("Não foi possível carregar os dados do servidor");
-//     return false;
-//   }
-// }
 
 /* ═══ AÇÕES GLOBAIS ═══ */
 export async function saveNow() {
@@ -341,11 +302,7 @@ function bindSidebarActions() {
         sidebar.classList.remove("open");
         overlay.classList.remove("visible");
       });
-      // ⬇️ FIX: precisa entrar no stacking context do .app (que tem z-index
-      // próprio). Anexado no <body> ele ficava por cima do sidebar inteiro,
-      // mesmo o sidebar tendo z-index maior — porque esse z-index só é
-      // comparado dentro do contexto de empilhamento do .app.
-      (document.querySelector(".app") || document.body).appendChild(overlay);
+      document.body.appendChild(overlay);
     }
     sidebar.classList.toggle("open");
     overlay.classList.toggle("visible");
@@ -395,59 +352,57 @@ function bindSidebarActions() {
       event.preventDefault(); openSetupScreen(); return;
     }
   });
+
+    // 8. Relatório (bind direto — report.builder pode não ter rodado ainda)
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#reportButton")) return;
+    event.preventDefault();
+    if (typeof window.dashboard?.openReport === "function") {
+      window.dashboard.openReport();
+    } else {
+      import("./features/reports/report.builder.js")
+        .then((m) => m.openReport?.())
+        .catch((e) => console.error("Falha ao abrir relatório:", e));
+    }
+  });
+
+  //   // 10. Relatório (fallback)
+  // document.addEventListener("click", (event) => {
+  //   if (event.target.closest("#reportButton")) {
+  //     event.preventDefault();
+  //     if (typeof window.dashboard?.openReport === "function") {
+  //       window.dashboard.openReport();
+  //     } else {
+  //       // Importa dinamicamente e abre
+  //       import("./features/reports/report.builder.js").then((m) => m.openReport?.());
+  //     }
+  //   }
+  // });
 }
 
 /* ═══ BOOT ═══ */
-// async function init() {
-//   //console.log("🔥 main.js: init() começou");
-
-//   bindModalDismiss();
-//   bindSidebarActions();
-//   setupPlatformIconFallbacks();
-//   initSaveIndicator();
-
-//   initTheme();
-
-//   // const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-//   // document.body.classList.toggle("dark-theme", prefersDark);
-//   // document.body.classList.toggle("light-theme", !prefersDark);
-
-//   // window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
-//   //   document.body.classList.toggle("dark-theme", e.matches);
-//   //   document.body.classList.toggle("light-theme", !e.matches);
-//   // });
-
-//   if (loadSession()) {
-//     await loadBusinessStateFromServer({ migrateLocal: true });
-//   }
-
-//   setActiveScreen(state.currentScreen || "hub");
-//   renderScreen();
-
-//   window.addEventListener("beforeunload", () => {
-//     try { saveState({ localOnly: true }); } catch {}
-//   });
-
-//   //console.log("🔥 main.js: init() concluído");
-// }
-
 async function init() {
-  console.log("🔥 main.js: init() começou");
-
-  // Mostra loader global durante o boot
   showGlobalLoader();
-
   bindModalDismiss();
-  bindSidebarActions();          // ⬅️ CORRIGIDO
+  bindSidebarActions();
   setupPlatformIconFallbacks();
   initSaveIndicator();
-
   initTheme();
 
-  // Se tem sessão, carrega state do servidor
+  const reportBtn = document.getElementById("reportButton");
+  if (reportBtn) {
+    reportBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.dashboard?.openReport?.();
+    });
+    console.log("[boot] #reportButton ligado");
+  } else {
+    console.warn("[boot] #reportButton não existe ainda — será ligado pelo dashboard");
+  }
+
   if (loadSession()) {
     try {
-      renderKpiSkeleton();          // mostra esqueleto antes
+      renderKpiSkeleton();
       await loadBusinessStateFromServer({ migrateLocal: true });
     } catch (e) {
       console.error("Falha ao carregar:", e);
@@ -461,10 +416,28 @@ async function init() {
     try { saveState({ localOnly: true }); } catch {}
   });
 
-  // Esconde o loader global
   hideGlobalLoader();
-
   console.log("🔥 main.js: init() concluído");
+
+  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  document.body.classList.toggle("dark-theme", prefersDark);
+  document.body.classList.toggle("light-theme", !prefersDark);
+
+  window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+    document.body.classList.toggle("dark-theme", e.matches);
+    document.body.classList.toggle("light-theme", !e.matches);
+  });
+
+  if (loadSession()) {
+    await loadBusinessStateFromServer({ migrateLocal: true });
+  }
+
+  setActiveScreen(state.currentScreen || "hub");
+  renderScreen();
+
+  window.addEventListener("beforeunload", () => {
+    try { saveState({ localOnly: true }); } catch {}
+  });
 }
 
 /* ═══ API GLOBAL ═══ */
@@ -486,12 +459,10 @@ window.dashboard = {
   openSetupScreen,
   openReport,
   renderAll,
-  setThemeMode,
-  getThemeMode,
-  getEffectiveTheme,
+  setThemeMode,          // ⬅️ ADICIONE
+  getThemeMode,          // ⬅️ ADICIONE
+  getEffectiveTheme,     // ⬅️ ADICIONE
   state
 };
-
-//console.log("🔥 main.js: window.dashboard definido");
 
 void init();
