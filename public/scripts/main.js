@@ -366,18 +366,25 @@ function bindSidebarActions() {
     }
   });
 
-  //   // 10. Relatório (fallback)
-  // document.addEventListener("click", (event) => {
-  //   if (event.target.closest("#reportButton")) {
-  //     event.preventDefault();
-  //     if (typeof window.dashboard?.openReport === "function") {
-  //       window.dashboard.openReport();
-  //     } else {
-  //       // Importa dinamicamente e abre
-  //       import("./features/reports/report.builder.js").then((m) => m.openReport?.());
-  //     }
-  //   }
-  // });
+    // 10. Relatório (fallback)
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("#reportButton")) {
+      event.preventDefault();
+      if (typeof window.dashboard?.openReport === "function") {
+        window.dashboard.openReport();
+      } else {
+        // Importa dinamicamente e abre
+        import("./features/reports/report.builder.js").then((m) => m.openReport?.());
+      }
+    }
+  });
+
+  // 8. Relatório — delegação (sobrevive a re-render)
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#reportButton")) return;
+    event.preventDefault();
+    window.dashboard?.openReport?.();
+  });  
 }
 
 /* ═══ BOOT ═══ */
