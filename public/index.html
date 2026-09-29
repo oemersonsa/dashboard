@@ -35,6 +35,17 @@
     </div>
   </section>
 
+  <section class="screen auth-screen" id="serverLoadErrorScreen" hidden>
+    <div class="auth-card" role="alert">
+      <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
+      <div class="auth-copy">
+        <div class="card-title">Não foi possível carregar seus dados</div>
+        <div class="card-sub">A conexão com o servidor falhou. Seus dados podem estar intactos; tente novamente antes de continuar.</div>
+      </div>
+      <div class="actions-row"><button class="btn btn-primary" id="retryServerLoadButton" type="button">Tentar novamente</button></div>
+    </div>
+  </section>
+
   <!-- SETUP -->
   <section class="screen setup-screen" id="setupScreen" hidden>
     <div class="setup-shell">
@@ -147,6 +158,7 @@
             <div class="sidebar-submenu-popover" id="sidebarMenuData" hidden>
               <div class="sidebar-submenu-title">Dados</div>
               <button class="sidebar-item" id="sidebarSaveButton" type="button">Salvar</button>
+              <button class="sidebar-item" id="sidebarImportSalesSheetButton" type="button">Importar planilha de vendas</button>
               <button class="sidebar-item" id="sidebarImportBackupButton" type="button">Importar</button>
               <button class="sidebar-item" id="sidebarExportBackupButton" type="button">Exportar</button>
             </div>
@@ -172,7 +184,7 @@
         </div>
         <div class="dashboard-panels">
           <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
-            <div class="goal-alert-banner" id="goalAlertBanner" hidden></div>
+            <div class="goal-alert-banner" id="goalAlertBanner" aria-live="polite" hidden></div>
             <div class="card overview-trend-card">
               <div class="card-header overview-trend-header">
                 <div><div class="card-title">Tendência de vendas</div><div class="card-sub">Vendas brutas nos últimos 30 dias corridos</div></div>
@@ -486,6 +498,29 @@
       <button class="btn btn-primary" id="confirmImportBackupButton" type="button">Escolher Arquivo</button>
       <button class="btn btn-secondary" data-close-modal="importBackupModal" type="button">Cancelar</button>
       <input id="backupFileInputModal" type="file" accept=".json,application/json" hidden>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="salesSheetImportModal">
+  <div class="modal sales-import-modal">
+    <div class="mheader">
+      <div><div class="mtitle">Importar vendas</div><div class="card-sub modal-subtitle">Use um relatório CSV ou Excel exportado pelo sistema.</div></div>
+      <button class="mclose" data-close-modal="salesSheetImportModal" type="button" aria-label="Fechar">X</button>
+    </div>
+    <div class="sales-import-destination">Destino: <strong id="salesSheetPeriod"></strong></div>
+    <label class="fg sales-import-file"><span class="flabel">Arquivo de vendas (.csv, .xlsx ou .xls)</span><input class="finput" id="salesSheetFileInput" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></label>
+    <div class="sales-import-conflict">
+      <div class="flabel">Se a plataforma já tiver dados nessa data</div>
+      <div class="modal-stack">
+        <button class="mode-card active" type="button" data-sales-import-mode="ignore" aria-pressed="true"><span class="mode-card-title">Ignorar valores existentes</span><span class="mode-card-sub">Evita duplicar vendas já lançadas. Importa os demais dados.</span></button>
+        <button class="mode-card" type="button" data-sales-import-mode="replace" aria-pressed="false"><span class="mode-card-title">Substituir valores existentes</span><span class="mode-card-sub">Usa os valores da planilha para aquela plataforma e data.</span></button>
+      </div>
+    </div>
+    <div id="salesSheetPreview" class="sales-import-preview" aria-live="polite"><p class="card-sub">Selecione uma planilha para conferir os dados antes de importar.</p></div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="salesSheetImportButton" type="button" disabled>Importar vendas</button>
+      <button class="btn btn-secondary" data-close-modal="salesSheetImportModal" type="button">Cancelar</button>
     </div>
   </div>
 </div>

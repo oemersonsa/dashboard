@@ -9,7 +9,7 @@ import { calcTotals } from "../sales/sales.calc.js";
 
 export const METRICS = {
   gross:  { key: "gross",  label: "Vendas" },
-  net:    { key: "net",    label: "Após devoluções" },
+  net:    { key: "net",    label: "Vendas líquidas" },
   orders: { key: "orders", label: "Pedidos" },
   ticket: { key: "ticket", label: "Ticket médio" }
 };
@@ -112,9 +112,9 @@ export function getTrendSeries(stateData, options = {}) {
   // ─── Série do Total ───
   const totalData = periods.map((period) => computeMetric(period, null));
 
-  // ─── Série de meta (só quando o metric é gross, pra fazer sentido) ───
+  // ─── Meta mensal é líquida; só aparece na série de vendas líquidas. ───
   const goalData = periods.map((period) => {
-    if (metric !== "gross") return null;
+    if (metric !== "net") return null;
     const g = goals?.[period]?.target;
     return Number.isFinite(g) && g > 0 ? g : null;
   });

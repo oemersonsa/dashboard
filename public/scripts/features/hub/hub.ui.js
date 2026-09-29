@@ -55,7 +55,7 @@ function render() {
     goalBlock = `
       <div class="hub-goal-line">
         <div class="hub-goal-line-info">
-          <span class="hub-goal-line-label">Meta do mês</span>
+          <span class="hub-goal-line-label">Meta líquida do mês</span>
           <strong>${RS(goalTarget)}</strong>
         </div>
         <div class="hub-goal-line-progress">

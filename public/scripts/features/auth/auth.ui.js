@@ -70,6 +70,10 @@ async function handleSubmit() {
       });
       if (!r?.sessionToken) return toastError("Erro ao criar acesso");
 
+      // A conta nova começa sem dados de negócio herdados da sessão anterior.
+      state.platforms = [];
+      state.db = {};
+      state.goals = {};
       state.auth = { provider: "local", username, password: "" };
       saveSession(username, "local", r.sessionToken);
       saveState({ localOnly: true });
@@ -101,7 +105,8 @@ async function handleSubmit() {
     saveSession(username, "local", r.sessionToken);
     saveState({ localOnly: true });
 
-    await loadRemoteState();
+    const loaded = await loadRemoteState();
+    if (!loaded) return;
 
     window.dashboard.setActiveScreen("hub");
     window.dashboard.renderScreen();
@@ -126,8 +131,11 @@ async function loadRemoteState() {
       pricing: normalized.pricing,
       currentScreen: normalized.currentScreen
     });
+    return true;
   } catch (e) {
     console.error("Falha ao carregar state:", e);
+    toastError("Não foi possível carregar seus dados. Verifique a conexão e tente entrar novamente.");
+    return false;
   }
 }
 
@@ -144,6 +152,7 @@ export async function handleLogout() {
   state.auth = null;
   state.platforms = [];
   state.db = {};
+  state.goals = {};
   window.dashboard.setActiveScreen("hub");
   window.dashboard.renderScreen();
 }

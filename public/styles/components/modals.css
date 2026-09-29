@@ -30,6 +30,20 @@
 .modal-small { max-width: 440px; }
 .rmodal { max-width: 1100px; }
 
+.sales-import-modal { max-width: 760px; }
+.sales-import-destination { margin: calc(var(--space-3) * -1) 0 var(--space-4); color: var(--muted); font-size: var(--text-sm); }
+.sales-import-destination strong { color: var(--text); }
+.sales-import-file { margin-bottom: var(--space-5); }
+.sales-import-conflict .modal-stack { margin-top: var(--space-2); }
+.sales-import-preview { margin: var(--space-4) 0 var(--space-5); }
+.sales-import-summary { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-2); font-size: var(--text-sm); }
+.sales-import-summary strong { color: var(--text); font-size: var(--text-md); }
+.sales-import-summary span { color: var(--muted); }
+.sales-import-table-wrap { margin-top: var(--space-3); overflow-x: auto; }
+.sales-import-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.sales-import-table th, .sales-import-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); text-align: left; }
+.sales-import-table th { color: var(--muted); font-weight: 600; }
+
 .mheader {
   display: flex;
   align-items: flex-start;

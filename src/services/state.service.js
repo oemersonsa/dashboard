@@ -154,16 +154,6 @@ async function replaceBusinessState(userId, state) {
              JSON.stringify(state.pricing || null), timestamp]
     });
   }).then(() => getBusinessState(userId));
-
-  for (const [month, value] of Object.entries(state.goals || {})) {
-  const target = Number(value?.target ?? value ?? 0);
-  if (!Number.isFinite(target) || target <= 0) continue;
-  await tx.execute({
-    sql: `INSERT INTO goals (user_id, month, target, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?)`,
-    args: [userId, month, target, timestamp, timestamp]
-  });
-}
 }
 
 function normalizeBusinessPayload(body) {

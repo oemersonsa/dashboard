@@ -16,15 +16,6 @@ async function getState(req, res, user) {
 
 async function saveState(req, res, user) {
   const body = await readJsonBody(req);
-  const saved = await stateService.replaceBusinessState(
-    user,
-    stateService.normalizeBusinessPayload(body)
-  );
-  sendJson(res, 200, { ok: true, state: saved });
-}
-
-async function saveState(req, res, user) {
-  const body = await readJsonBody(req);
   const payload = stateService.normalizeBusinessPayload(body);
 
   // Protege contra um estado vazio (ex.: falha de carregamento) apagar tudo
@@ -32,8 +23,8 @@ async function saveState(req, res, user) {
     return sendJson(res, 409, { error: "refusing_to_wipe_data" });
   }
 
-  await stateService.replaceBusinessState(user, payload);
-  sendJson(res, 200, { ok: true });
+  const saved = await stateService.replaceBusinessState(user, payload);
+  sendJson(res, 200, { ok: true, state: saved });
 }
 
 module.exports = { getState, saveState };

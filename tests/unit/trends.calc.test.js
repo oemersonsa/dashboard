@@ -142,10 +142,13 @@ describe("trends.calc.js", () => {
       expect(s.total.data[0]).toBe(100);
     });
 
-    it("inclui série de meta apenas em metric gross", () => {
-      const s1 = getTrendSeries(state, { months: 6, metric: "gross" });
+    it("inclui série de meta apenas em metric net", () => {
+      const s1 = getTrendSeries(state, { months: 6, metric: "net" });
       expect(s1.total.goal).not.toBeNull();
       expect(s1.total.goal.data).toEqual([null, null, 5000, 8000]);
+
+      const gross = getTrendSeries(state, { months: 6, metric: "gross" });
+      expect(gross.total.goal).toBeNull();
 
       const s2 = getTrendSeries(state, { months: 6, metric: "orders" });
       expect(s2.total.goal).toBeNull();

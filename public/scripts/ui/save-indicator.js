@@ -31,14 +31,21 @@ function injectAll() {
   topbars.forEach((topbar) => {
     if (topbar.querySelector(".save-indicator")) return;
 
-    const el = document.createElement("div");
+    const el = document.createElement("button");
+    el.type = "button";
     el.className = "save-indicator";
     el.dataset.status = "idle";
+    el.title = "Clique para salvar ou tentar novamente";
+    el.setAttribute("aria-label", "Status da sincronização. Clique para salvar ou tentar novamente.");
     el.innerHTML = `
       <span class="save-indicator-dot"></span>
       <span class="save-indicator-text">Pronto</span>
       <span class="save-indicator-time"></span>
     `;
+    el.addEventListener("click", () => {
+      if (currentStatus === "saving") return;
+      void window.dashboard?.saveNow?.();
+    });
 
     let right = topbar.querySelector(".header-right");
     if (!right) {
@@ -86,6 +93,7 @@ function updateUi() {
 
   els.forEach((el) => {
     el.dataset.status = currentStatus;
+    el.setAttribute("aria-label", `${currentMessage || state.label}. Clique para salvar ou tentar novamente.`);
 
     const textEl = el.querySelector(".save-indicator-text");
     const timeEl = el.querySelector(".save-indicator-time");

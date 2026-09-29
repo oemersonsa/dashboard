@@ -68,7 +68,7 @@ describe("goals.calc.js", () => {
 
     it("retorna realized mesmo sem meta", () => {
       const p = computeGoalProgress("2026-Setembro", 0, state);
-      expect(p.realized).toBe(4500);
+      expect(p.realized).toBe(4400);
     });
   });
 
@@ -76,19 +76,19 @@ describe("goals.calc.js", () => {
     it("meta atingida", () => {
       const p = computeGoalProgress("2026-Setembro", 3000, state);
       expect(p.hasGoal).toBe(true);
-      expect(p.realized).toBe(4500);
+      expect(p.realized).toBe(4400);
       expect(p.status).toBe(GOAL_STATUS.ATINGIDA);
       expect(p.percent).toBeGreaterThanOrEqual(100);
     });
 
     it("no ritmo (projeção ≥ meta)", () => {
-      // realizado 4500 em 3 dias → média 1500/dia → projeção 45000/mês
+      // realizado líquido 4400 em 3 dias → projeção 44000/mês
       const p = computeGoalProgress("2026-Setembro", 40000, state);
       expect(p.status).toBe(GOAL_STATUS.NO_RITMO);
     });
 
     it("atenção (projeção entre 90% e 100% da meta)", () => {
-      // projeção ~45000 → meta 47000 cai em atenção
+      // projeção líquida ~44000 → meta 47000 cai em atenção
       const p = computeGoalProgress("2026-Setembro", 47000, state);
       expect(p.status).toBe(GOAL_STATUS.ATENCAO);
     });
@@ -100,19 +100,19 @@ describe("goals.calc.js", () => {
 
     it("percentual correto", () => {
       const p = computeGoalProgress("2026-Setembro", 9000, state);
-      expect(p.percent).toBeCloseTo(50, 1);
+      expect(p.percent).toBeCloseTo(48.9, 1);
     });
 
     it("remaining correto", () => {
       const p = computeGoalProgress("2026-Setembro", 10000, state);
-      expect(p.remaining).toBe(5500);
+      expect(p.remaining).toBe(5600);
     });
 
     it("dailyNeeded quando há dias restantes", () => {
       // mês 30 dias, último lançado dia 3 → 27 dias restantes
       const p = computeGoalProgress("2026-Setembro", 10000, state);
       expect(p.daysLeft).toBe(27);
-      expect(p.dailyNeeded).toBeCloseTo(5500 / 27, 2);
+      expect(p.dailyNeeded).toBeCloseTo(5600 / 27, 2);
     });
 
     it("dailyNeeded = 0 quando mês encerrado", () => {

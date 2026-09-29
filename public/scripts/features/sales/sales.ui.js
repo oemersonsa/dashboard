@@ -57,7 +57,7 @@ export function init() {
 /* ═══ RENDER ALL ═══ */
 export function renderAll() {
   if (!state.platforms.length || !state.db[state.currentMonth]) return;
-  renderGoalAlert();
+  renderTrackingAlerts();
   renderKPIs();
   renderOverviewTrend();
   renderComparePicker();
@@ -71,36 +71,51 @@ export function renderAll() {
   initProjection();
 }
 
-function renderGoalAlert() {
+function renderTrackingAlerts() {
   const el = document.getElementById("goalAlertBanner");
   if (!el) return;
 
+  const alerts = [];
   const target = getGoal(state.currentMonth);
   const p = computeGoalProgress(state.currentMonth, target, state);
 
-  if (!p.hasGoal) {
-    el.hidden = true;
-    el.innerHTML = "";
-    return;
-  }
-
-  if (p.status === GOAL_STATUS.ATENCAO || p.status === GOAL_STATUS.RISCO) {
+  if (p.hasGoal && (p.status === GOAL_STATUS.ATENCAO || p.status === GOAL_STATUS.RISCO)) {
     const diff = p.target > 0 ? ((p.projected - p.target) / p.target) * 100 : 0;
     const colorVar = `var(${getStatusColorVar(p.status)})`;
-    el.hidden = false;
-    el.innerHTML = `
+    alerts.push(`
       <div class="goal-alert" style="border-color:${colorVar}44;background:${colorVar}0F">
         <div class="goal-alert-icon" style="color:${colorVar}">⚠</div>
         <div class="goal-alert-text">
           <strong>${escapeHtml(STATUS_LABEL[p.status])}:</strong>
-          projeção de ${R(p.projected)} está ${Math.abs(diff).toFixed(1)}% ${diff < 0 ? "abaixo" : "acima"} da meta (${R(p.target)}).
+          projeção líquida de ${R(p.projected)} está ${Math.abs(diff).toFixed(1)}% ${diff < 0 ? "abaixo" : "acima"} da meta líquida (${R(p.target)}).
         </div>
       </div>
-    `;
-  } else {
-    el.hidden = true;
-    el.innerHTML = "";
+    `);
   }
+
+  // O alerta só dispara quando a taxa sobe pelo menos 1 p.p. no comparativo equivalente.
+  const comparison = getComparisonPeriod(state.currentMonth);
+  const current = comparison.previousTotals ? comparison.currentComparisonTotals : null;
+  const previous = comparison.previousTotals;
+  if (current?.gross > 0 && previous?.gross > 0) {
+    const currentRate = (current.totalRet / current.gross) * 100;
+    const previousRate = (previous.totalRet / previous.gross) * 100;
+    const delta = currentRate - previousRate;
+    if (delta >= 1) {
+      alerts.push(`
+        <div class="goal-alert return-rate-alert" role="status">
+          <div class="goal-alert-icon" aria-hidden="true">⚠</div>
+          <div class="goal-alert-text">
+            <strong>A taxa de devoluções aumentou ${delta.toFixed(1).replace(".", ",")} p.p.</strong>
+            (${previousRate.toFixed(1).replace(".", ",")}% para ${currentRate.toFixed(1).replace(".", ",")}%) em relação a ${escapeHtml(getPeriodLabel(comparison.previousName))}, considerando os mesmos dias do mês.
+          </div>
+        </div>
+      `);
+    }
+  }
+
+  el.innerHTML = alerts.join("");
+  el.hidden = alerts.length === 0;
 }
 
 /* ═══ KPIs ═══ */

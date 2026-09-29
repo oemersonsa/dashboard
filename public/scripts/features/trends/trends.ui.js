@@ -104,10 +104,10 @@ function renderChart(series) {
     order: 1
   });
 
-  // Meta como linha pontilhada (só em métrica gross e se houver metas)
+  // Meta líquida como linha pontilhada (só na série líquida).
   if (series.total.goal) {
     datasets.push({
-      label: "Meta",
+      label: "Meta líquida",
       data: series.total.goal.data,
       borderColor: css.getPropertyValue("--accent").trim() || "#0071e3",
       backgroundColor: "transparent",

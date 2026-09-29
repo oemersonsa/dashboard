@@ -40,6 +40,7 @@ import {
 import { init as initCalculator } from "./features/calculator/pricing.ui.js";
 import { init as initDailyClose } from "./features/daily-close/daily-close.ui.js";
 import { init as initBackup, exportBackup } from "./features/backup/backup.export.js";
+import { init as initSalesImport, openSalesSheetImport } from "./features/sales/sales-import.ui.js";
 import { init as initReports, openReport } from "./features/reports/report.builder.js";
 import {
   init as initAccount,
@@ -64,6 +65,7 @@ export function setActiveScreen(screen) {
 export function renderScreen() {
   const screens = {
     auth: document.getElementById("authScreen"),
+    serverLoadError: document.getElementById("serverLoadErrorScreen"),
     setup: document.getElementById("setupScreen"),
     hub: document.getElementById("hubScreen"),
     dashboard: document.getElementById("dashboardScreen"),
@@ -100,6 +102,7 @@ export function renderScreen() {
     initSales();
     initReports();
     initBackup();
+    initSalesImport();
     switchDashboardTab(state.activeTab || "overview");
     return;
   }
@@ -125,6 +128,7 @@ export function renderScreen() {
   screens.hub.hidden = false;
   initHub();
   initBackup();
+  initSalesImport();
   refreshSaveIndicator();
 }
 
@@ -201,7 +205,10 @@ let serverSaveQueued = false;
 function scheduleServerSave() {
   clearTimeout(serverSaveTimer);
   setSaveStatus("saving");
-  serverSaveTimer = setTimeout(() => void persistToServer(), 200);
+  serverSaveTimer = setTimeout(() => {
+    serverSaveTimer = null;
+    void persistToServer();
+  }, 200);
 }
 
 /* ═══ SERVER PERSISTENCE (incremental) ═══ */
@@ -224,9 +231,10 @@ function markSynced() {
 }
 
 async function persistToServer() {
-  if (!loadSession()) { setSaveStatus("idle"); return; }
-  if (serverSaveInFlight) { serverSaveQueued = true; return; }
+  if (!loadSession()) { setSaveStatus("idle"); return false; }
+  if (serverSaveInFlight) { serverSaveQueued = true; return false; }
   serverSaveInFlight = true;
+  setSaveStatus("saving");
 
   try {
     const platformsJson = jsonOf(state.platforms);
@@ -276,11 +284,12 @@ async function persistToServer() {
     }
 
     setSaveStatus("saved");
-    setTimeout(() => setSaveStatus("idle"), 2000);
+    return true;
   } catch (error) {
     console.error("Falha ao salvar no servidor:", error);
     setSaveStatus("error", "Erro ao salvar");
     toastError("Não foi possível salvar no servidor");
+    return false;
   } finally {
     serverSaveInFlight = false;
     if (serverSaveQueued) {
@@ -293,8 +302,28 @@ async function persistToServer() {
 window.addEventListener("dashboard:save-request", scheduleServerSave);
 window.addEventListener("dashboard:reload", () => renderScreen());
 
+async function retryServerStateLoad(button) {
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  const originalLabel = button.textContent;
+  button.textContent = "Conectando…";
+  showGlobalLoader();
+  const loaded = await loadBusinessStateFromServer({ quiet: true });
+  hideGlobalLoader();
+  button.disabled = false;
+  button.textContent = originalLabel;
+  if (loaded) {
+    setActiveScreen(state.currentScreen || "hub");
+    renderScreen();
+  } else if (!loadSession()) {
+    renderScreen();
+  } else {
+    toastError("O servidor ainda não respondeu. Tente novamente em alguns instantes.");
+  }
+}
+
 /* ═══ LOAD FROM SERVER ═══ */
-async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
+async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false } = {}) {
   if (!loadSession()) return false;
   try {
     const result = await apiRequest("/api/state");
@@ -316,21 +345,25 @@ async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
     state.pricing = normalized.pricing;
     state.currentScreen = normalized.currentScreen;
     activeScreen = state.currentScreen || "hub";
-    markSynced(); 
+    markSynced();
+    setSaveStatus("idle");
     return true;
   } catch (error) {
     console.error("Falha ao carregar dados do servidor:", error);
     if (error.status === 401) { clearSession(); return false; }
-    toastError("Não foi possível carregar os dados do servidor");
+    setSaveStatus("error", "Falha ao carregar dados");
+    if (!quiet) toastError("Não foi possível carregar os dados do servidor");
     return false;
   }
 }
 
 /* ═══ AÇÕES GLOBAIS ═══ */
 export async function saveNow() {
+  clearTimeout(serverSaveTimer);
+  serverSaveTimer = null;
   saveState({ localOnly: true });
-  await persistToServer();
-  toastSuccess("Dados salvos no servidor");
+  const saved = await persistToServer();
+  if (saved) toastSuccess("Dados salvos no servidor");
 }
 
 export async function openImportBackupModal() {
@@ -483,6 +516,7 @@ function bindSidebarActions() {
     const target = event.target.closest(
       "#sidebarOpenHub, #sidebarOpenDailyClose, #sidebarOpenCalculator, " +
       "#sidebarSaveButton, #sidebarImportBackupButton, #sidebarExportBackupButton"
+      + ", #sidebarImportSalesSheetButton"
     );
     if (!target) return;
     event.preventDefault();
@@ -493,6 +527,7 @@ function bindSidebarActions() {
       case "sidebarOpenCalculator": setActiveScreen("calculator"); renderScreen(); break;
       case "sidebarSaveButton": saveNow(); break;
       case "sidebarImportBackupButton": openImportBackupModal(); break;
+      case "sidebarImportSalesSheetButton": openSalesSheetImport(); break;
       case "sidebarExportBackupButton": exportBackup(); break;
     }
   });
@@ -681,6 +716,9 @@ async function init() {
   showGlobalLoader();
   bindModalDismiss();
   bindSidebarActions();
+  document.getElementById("retryServerLoadButton")?.addEventListener("click", (event) => {
+    void retryServerStateLoad(event.currentTarget);
+  });
   setupPlatformIconFallbacks();
   initSaveIndicator();
   initTheme();
@@ -688,17 +726,25 @@ async function init() {
   const lastSaved = localStorage.getItem("dashboard-vendas-last-saved-v1");
   if (lastSaved) setLastSavedAt(lastSaved);
 
+  let serverStateReady = true;
   if (loadSession()) {
     try {
       renderKpiSkeleton();
-      await loadBusinessStateFromServer({ migrateLocal: true });
+      serverStateReady = await loadBusinessStateFromServer({ migrateLocal: true, quiet: true });
     } catch (e) {
       console.error("Falha ao carregar:", e);
+      serverStateReady = false;
     }
   }
 
-  setActiveScreen(state.currentScreen || "hub");
-  renderScreen();
+  if (serverStateReady || !loadSession()) {
+    setActiveScreen(state.currentScreen || "hub");
+    renderScreen();
+  } else {
+    document.querySelectorAll(".screen").forEach((screen) => { screen.hidden = true; });
+    const errorScreen = document.getElementById("serverLoadErrorScreen");
+    if (errorScreen) errorScreen.hidden = false;
+  }
 
   window.addEventListener("beforeunload", () => {
     try { saveState({ localOnly: true }); } catch {}
@@ -706,17 +752,6 @@ async function init() {
 
   hideGlobalLoader();
   console.log("🔥 main.js: init() concluído");
-
-  if (loadSession()) {
-    await loadBusinessStateFromServer({ migrateLocal: true });
-  }
-
-  setActiveScreen(state.currentScreen || "hub");
-  renderScreen();
-
-  window.addEventListener("beforeunload", () => {
-    try { saveState({ localOnly: true }); } catch {}
-  });
 }
 
 /* ═══ API GLOBAL ═══ */

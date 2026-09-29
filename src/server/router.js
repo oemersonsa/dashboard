@@ -4,6 +4,7 @@ const rateLimit = require("../middleware/rate-limit");
 const authMiddleware = require("../middleware/auth");
 const staticServer = require("./static");
 const { APP_ORIGIN } = require("../config/env");
+const { client } = require("../db");
 const logger = require("../utils/logger");
 
 const authRoutes = require("../routes/auth.routes");
@@ -48,6 +49,18 @@ async function handleRequest(req, res) {
     // ─── Healthcheck ───────────────────────────────────────────────────
     if (req.method === "GET" && url.pathname === "/health") {
       return sendJson(res, 200, { status: "ok" });
+    }
+    if (req.method === "GET" && url.pathname === "/health/database") {
+      try {
+        await client.execute("SELECT 1 AS ok");
+        return sendJson(res, 200, { status: "ok", database: "ok" });
+      } catch (error) {
+        logger.error("Database health check failed", {
+          code: error.code || "",
+          causeCode: error.cause?.code || ""
+        });
+        return sendJson(res, 503, { status: "degraded", database: "unavailable" });
+      }
     }
 
     // ─── Public auth routes ────────────────────────────────────────────
@@ -136,7 +149,12 @@ async function handleRequest(req, res) {
     sendText(res, 404, "Not found");
   } catch (error) {
     const statusCode = error.statusCode || 500;
-    logger.error("Unhandled error", { message: error.message, path: url.pathname });
+    logger.error("Unhandled error", {
+      message: error.message,
+      code: error.code || "",
+      causeCode: error.cause?.code || "",
+      path: url.pathname
+    });
     const safeMessage = statusCode === 500 ? "internal_server_error" : (error.code || error.message);
     sendJson(res, statusCode, { error: safeMessage });
   }

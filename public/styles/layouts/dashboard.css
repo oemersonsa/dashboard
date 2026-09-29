@@ -1571,6 +1571,14 @@ button.daily-platform-chip:active {
 
 .goal-alert-text strong { font-weight: 700; }
 
+.return-rate-alert {
+  margin-top: var(--space-2);
+  border-color: color-mix(in srgb, var(--red) 45%, var(--border));
+  background: color-mix(in srgb, var(--red) 7%, var(--surface));
+}
+
+.return-rate-alert .goal-alert-icon { color: var(--red); }
+
 /* ─── Hub ─── */
 .hub-goal-line {
   display: flex;
