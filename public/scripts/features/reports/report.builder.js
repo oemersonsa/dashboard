@@ -54,7 +54,7 @@ export function openReport() {
     </div>
     <div class="msection">
       <div class="msec-title">Detalhamento por Plataforma</div>
-      <table class="rtable"><thead><tr><th>Plataforma</th><th>Vendas</th><th>Devoluções</th><th>% Dev.</th><th>Após devoluções</th><th>vs. Mês Ant.</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td style="color:var(--accent)">Total</td><td>${R(t.gross)}</td><td class="neg">${R(t.totalRet)}</td><td style="color:var(--muted)">${t.gross > 0 ? ((t.totalRet / t.gross) * 100).toFixed(1) : 0}%</td><td style="color:var(--accent)">${R(t.net)}</td><td>${pt ? varH(t.net, pt.net) : "-"}</td></tr></tfoot></table>
+      <div class="report-table-wrap" role="region" aria-label="Detalhamento do relatório por plataforma" tabindex="0"><table class="rtable"><thead><tr><th>Plataforma</th><th>Vendas</th><th>Devoluções</th><th>% Dev.</th><th>Após devoluções</th><th>vs. Mês Ant.</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td style="color:var(--accent)">Total</td><td>${R(t.gross)}</td><td class="neg">${R(t.totalRet)}</td><td style="color:var(--muted)">${t.gross > 0 ? ((t.totalRet / t.gross) * 100).toFixed(1) : 0}%</td><td style="color:var(--accent)">${R(t.net)}</td><td>${pt ? varH(t.net, pt.net) : "-"}</td></tr></tfoot></table></div>
     </div>
     ${pt ? `<div class="msection">
       <div class="msec-title">Comparativo Visual - ${getPeriodLabel(month)} vs ${pl}</div>

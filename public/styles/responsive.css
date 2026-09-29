@@ -31,9 +31,13 @@
   .daily-close-grid { grid-template-columns: 1fr; }
   .hub-hero { grid-template-columns: 1fr; }
   .hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .projection-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 860px) {
+  .dashboard-panel,
+  .dashboard-panel > .card { min-width: 0; }
+
   /* ─── Layout: sem coluna para sidebar ─── */
   .dashboard-layout {
     grid-template-columns: 1fr;
@@ -107,6 +111,15 @@
   .hub-shell { min-height: auto; padding: var(--space-5); }
   .hub-copy { min-height: 220px; padding: var(--space-6); }
   .hub-summary-grid { grid-template-columns: 1fr; }
+  .projection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .projection-platform-row { grid-template-columns: minmax(0, 1fr); }
+  .projection-platform-head { flex-wrap: wrap; }
+  .projection-platform-total { white-space: normal; }
+  .rkpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pcname { width: 125px; }
+  .pcvals { width: 100px; flex: 0 0 100px; }
+  .trends-controls { width: 100%; }
+  .trends-control { flex: 1 1 160px; min-width: 0; }
   .calculator-main, .daily-close-main { padding: var(--space-4); }
   .daily-close-date { width: 100%; }
   .auth-card, .hub-shell, .modal { border-radius: var(--radius-lg); }
@@ -161,6 +174,27 @@
   .modal-small, .rmodal { max-width: none; }
   .moverlay { padding: var(--space-3); }
   .compare-grid { grid-template-columns: 1fr; }
+  .projection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  .projection-card { min-width: 0; padding: var(--space-4); }
+  .projection-value { font-size: var(--text-lg); overflow-wrap: anywhere; }
+  .projection-platform-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .projection-platform-row { min-width: 0; padding: var(--space-3); }
+  .projection-platform-main,
+  .projection-platform-stats > div { min-width: 0; }
+  .projection-platform-stats strong { overflow-wrap: anywhere; }
+  .goal-card > .card-header { width: 100%; }
+  .goal-card .goal-input-wrap { min-width: 0; width: 100%; }
+  .rkpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rkpi { min-width: 0; padding: var(--space-3); }
+  .rkpi-val { font-size: var(--text-lg); overflow-wrap: anywhere; }
+  .cvis { grid-template-columns: minmax(0, 1fr); }
+  .pcrow { align-items: flex-start; flex-wrap: wrap; }
+  .pcname { flex: 1 1 100%; width: auto; }
+  .pcbars { min-width: 0; }
+  .pcvals { width: auto; flex: 0 0 92px; }
+  .trends-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trends-control { min-width: 0; }
+  .trends-control .finput { width: 100%; min-width: 0; }
 }
 
 @media (max-width: 420px) {
@@ -177,5 +211,9 @@
   .card-title { font-size: var(--text-md); }
   .kpi-value { font-size: var(--text-lg); }
   .month-grid { grid-template-columns: repeat(2, 1fr); }
+  .projection-grid { grid-template-columns: minmax(0, 1fr); }
+  .projection-platform-stats { gap: var(--space-2); }
+  .rkpis { grid-template-columns: minmax(0, 1fr); }
+  .trends-controls { grid-template-columns: minmax(0, 1fr); }
   .toast { font-size: var(--text-sm); padding: var(--space-3); }
 }
