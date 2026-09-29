@@ -34,65 +34,11 @@ import { getGoal } from "../../core/state.js";
 
 let bound = false;
 let dailyChart = null;
+let overviewTrendChart = null;
+let overviewTrendBucketDays = 1;
 let newMonthSel = null;
 let compareMonthKey = "";   // ⬅️ NOVO
 let selectedPlatformKeys = null; // null = todas; array de keys = filtro ativo
-
-/* ═══ PLUGIN: linha de brilho no topo de cada stack ═══ */
-const topHighlightPlugin = {
-  id: "topHighlight",
-  afterDatasetsDraw(chart) {
-    const { ctx } = chart;
-    const datasets = chart.data.datasets;
-    if (!datasets.length) return;
-
-    const dayCount = chart.data.labels.length;
-
-    for (let dayIdx = 0; dayIdx < dayCount; dayIdx++) {
-      let topY = null;
-      let topX = null;
-      let topColor = null;
-      let topWidth = 22;
-
-      for (let dsIdx = 0; dsIdx < datasets.length; dsIdx++) {
-        const meta = chart.getDatasetMeta(dsIdx);
-        const el = meta?.data?.[dayIdx];
-        if (!el) continue;
-
-        const value = Number(datasets[dsIdx].data[dayIdx] || 0);
-        if (value <= 0) continue;
-
-        if (topY === null || el.y < topY) {
-          topY = el.y;
-          topX = el.x;
-          topColor = datasets[dsIdx].hoverBackgroundColor
-            || datasets[dsIdx].borderColor
-            || "#000";
-          // largura da barra
-          const barWidth = el.width || (el.x + el.base) ? Math.abs(el.width || 20) : 20;
-          topWidth = Math.max(16, Math.min(barWidth - 4, 26));
-        }
-      }
-
-      if (topY !== null && topX !== null && topColor) {
-        ctx.save();
-        ctx.strokeStyle = topColor;
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(topX - topWidth / 2, topY);
-        ctx.lineTo(topX + topWidth / 2, topY);
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-  }
-};
-
-// Registra uma vez
-if (typeof Chart !== "undefined" && !Chart.registry.plugins.get("topHighlight")) {
-  Chart.register(topHighlightPlugin);
-}
 
 /* ═══ INIT ═══ */
 export function init() {
@@ -113,6 +59,7 @@ export function renderAll() {
   if (!state.platforms.length || !state.db[state.currentMonth]) return;
   renderGoalAlert();
   renderKPIs();
+  renderOverviewTrend();
   renderComparePicker();
   renderDailyChart();
   renderDailyTable();
@@ -193,6 +140,96 @@ function renderKPIs() {
       </div>
     </section>
   `;
+}
+
+/* ═══ TENDÊNCIA DO OVERVIEW — janela móvel de 30 dias ═══ */
+function renderOverviewTrend() {
+  const canvas = document.getElementById("overviewTrendChart");
+  const summary = document.getElementById("overviewTrendSummary");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  const selected = parsePeriodKey(state.currentMonth);
+  const monthIndex = ALL_MONTHS.indexOf(selected.month);
+  if (monthIndex < 0) return;
+  const lastLoggedDay = getLastLoggedDay(state.currentMonth);
+  const today = new Date();
+  const isCurrentMonth = selected.year === today.getFullYear() && monthIndex === today.getMonth();
+  const anchorDay = isCurrentMonth ? today.getDate() : (lastLoggedDay || getMonthDays(state.currentMonth));
+  const endDate = new Date(selected.year, monthIndex, anchorDay);
+  const dailyValues = [];
+
+  for (let offset = 29; offset >= 0; offset--) {
+    const date = new Date(endDate);
+    date.setDate(endDate.getDate() - offset);
+    const monthName = ALL_MONTHS[date.getMonth()];
+    const periodKey = `${date.getFullYear()}-${monthName}`;
+    const monthData = state.db[periodKey]
+      || Object.entries(state.db).find(([key]) => {
+        const parsed = parsePeriodKey(key);
+        return parsed.year === date.getFullYear() && parsed.month === monthName;
+      })?.[1];
+    const dayLabel = `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const row = monthData?.days?.find((item) => item.d === dayLabel);
+    const gross = row
+      ? state.platforms.reduce((total, platform) => total + Number(row[platform.key] || 0), 0)
+      : 0;
+    dailyValues.push({ date, label: dayLabel, gross });
+  }
+
+  const bucketSize = Math.max(1, Number(overviewTrendBucketDays) || 1);
+  const grouped = [];
+  for (let start = 0; start < dailyValues.length; start += bucketSize) {
+    const bucket = dailyValues.slice(start, start + bucketSize);
+    const first = bucket[0].label;
+    const last = bucket[bucket.length - 1].label;
+    grouped.push({
+      label: bucketSize === 1 ? first : bucketSize === 30 ? "30 dias" : `${first}–${last}`,
+      value: bucket.reduce((total, item) => total + item.gross, 0)
+    });
+  }
+
+  document.querySelectorAll("[data-overview-trend-range]").forEach((button) => {
+    const active = Number(button.dataset.overviewTrendRange) === bucketSize;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  if (summary) {
+    const total = dailyValues.reduce((sum, item) => sum + item.gross, 0);
+    summary.innerHTML = `<span>Vendas brutas no período</span><strong>${RS(total)}</strong><small>30 dias corridos até ${dailyValues.at(-1)?.label || ""}</small>`;
+  }
+
+  if (overviewTrendChart) overviewTrendChart.destroy();
+  const css = getComputedStyle(document.body);
+  const gridColor = css.getPropertyValue("--border").trim() || "rgba(128,128,128,.18)";
+  const mutedColor = css.getPropertyValue("--muted").trim() || "#86868b";
+  const accentColor = css.getPropertyValue("--accent").trim() || "#e8ff47";
+  overviewTrendChart = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: grouped.map((item) => item.label),
+      datasets: [{
+        label: "Vendas brutas",
+        data: grouped.map((item) => item.value),
+        backgroundColor: accentColor,
+        borderRadius: 5,
+        maxBarThickness: bucketSize === 1 ? 18 : 54
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (item) => `Vendas brutas: ${RS(Number(item.raw || 0))}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: mutedColor, maxTicksLimit: bucketSize === 1 ? 10 : 8, maxRotation: 0 }, border: { display: false } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: mutedColor, callback: (value) => R(value) }, border: { display: false } }
+      }
+    }
+  });
 }
 
 /* ═══ HEADER DO CARD (eyebrow + total + delta) ═══ */
@@ -285,6 +322,7 @@ function renderDailyChartLegend(platforms) {
     return `
       <button class="daily-chart-legend-item ${active ? "" : "is-inactive"}"
               type="button"
+              aria-pressed="${active}"
               data-legend-platform="${escapeAttribute(p.key)}">
         <span class="daily-chart-legend-dot" style="background:${getPlatformVisualColor(p)}"></span>
         <span>${escapeHtml(p.name)}</span>
@@ -336,24 +374,12 @@ function renderDailyChart() {
     return;
   }
 
-  // ─── Gradiente vertical ───
-  function makeGradient(color, maxHeight) {
-    const g = ctx.createLinearGradient(0, 0, 0, maxHeight);
-    g.addColorStop(0, alphaColor(color, 1));
-    g.addColorStop(0.5, alphaColor(color, 0.85));
-    g.addColorStop(1, alphaColor(color, 0.4));
-    return g;
-  }
-
   // ─── Ordem: maiores embaixo ───
   const totals = {};
   active.forEach((p) => {
     totals[p.key] = data.days.reduce((s, d) => s + Number(d[p.key] || 0), 0);
   });
   const sorted = [...active].sort((a, b) => totals[b.key] - totals[a.key]);
-
-  const chartHeight = c.parentElement?.clientHeight || 400;
-  const maxBarHeight = Math.max(60, chartHeight - 60);
 
   // ─── Detecta qual plataforma está no topo em cada dia ───
   // Assim aplicamos borderRadius só no segmento mais alto daquela barra.
@@ -381,14 +407,14 @@ function renderDailyChart() {
     return {
       label: p.name,
       data: data.days.map((d) => Number(d[p.key] || 0)),
-      backgroundColor: makeGradient(color, maxBarHeight),
+      backgroundColor: alphaColor(color, 0.88),
       hoverBackgroundColor: color,
       borderColor: "transparent",
       borderWidth: 0,
       borderRadius: 0, // arredondamento aplicado via scriptable abaixo
       borderSkipped: false,
-      barPercentage: 0.6,
-      categoryPercentage: 0.8,
+      barPercentage: 0.76,
+      categoryPercentage: 0.88,
       stack: "current",
       // Arredonda só o topo no dia em que essa plataforma está no topo
       borderRadiusScriptable: true
@@ -401,7 +427,7 @@ function renderDailyChart() {
     ds.borderRadius = (ctx) => {
       const dayKey = topPlatformByDay[ctx.dataIndex];
       if (dayKey === platformKey && Number(ctx.raw || 0) > 0) {
-        return { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 };
+        return { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 };
       }
       return 0;
     };
@@ -452,7 +478,7 @@ function renderDailyChart() {
   // ─── Cor da gridline dinâmica (respeita tema) ───
   const css = getComputedStyle(document.body);
   const gridColor = css.getPropertyValue("--border").trim() || "rgba(0,0,0,0.06)";
-  const mutedColor = css.getPropertyValue("--muted").trim() || "#86868b";
+  const mutedColor = css.getPropertyValue("--muted-2").trim() || "#6e6e73";
 
   dailyChart = new Chart(ctx, {
     type: "bar",
@@ -551,13 +577,12 @@ function renderDailyChart() {
             color: gridColor,
             drawTicks: false,
             drawBorder: false,
-            lineWidth: 1
+            lineWidth: 0.7
           },
           border: { display: false }
         }
       }
-    },
-    plugins: [topHighlightPlugin]
+    }
   });
 
   // ─── Legenda HTML ───
@@ -645,40 +670,30 @@ function renderPlatformBars() {
   const totalGross = rows.reduce((s, r) => s + r.gross, 0);
   const totalReturns = rows.reduce((s, r) => s + r.returns, 0);
 
-  c.innerHTML = rows.map(({ platform, gross, returns, net }) => {
+  c.innerHTML = `
+    <div class="pb-table-head" aria-hidden="true">
+      <span>Plataforma</span><span>Vendas</span><span>Devoluções</span><span>Receita líquida</span>
+    </div>
+    <div class="pb-list">${rows.map(({ platform, gross, returns, net }) => {
     const wp = max > 0 ? (net / max) * 100 : 0;
     const returnRate = gross > 0 ? (returns / gross) * 100 : 0;
     return `
-      <div class="pb-row">
-        <div class="pb-head">
+      <div class="pb-entry">
+        <div class="pb-row">
           <div class="pb-name">${platformIcon(platform)}<span>${escapeHtml(platform.name)}</span></div>
-          <div class="pb-meta">
-            <span class="pb-meta-item">
-              <span class="pb-meta-label">Vendas</span>
-              <span class="pb-meta-value">${R(gross)}</span>
-            </span>
-            ${returns > 0 ? `
-              <span class="pb-meta-item pb-meta-returns">
-                <span class="pb-meta-label">Dev.</span>
-                <span class="pb-meta-value">${R(returns)}</span>
-                <span class="pb-meta-rate">${returnRate.toFixed(1)}%</span>
-              </span>
-            ` : ""}
-            <span class="pb-meta-item pb-meta-net">
-              <span class="pb-meta-label">Líquido</span>
-              <span class="pb-meta-value">${R(net)}</span>
-            </span>
-          </div>
+          <div class="pb-cell pb-gross"><span class="pb-mobile-label">Vendas</span><span>${R(gross)}</span></div>
+          <div class="pb-cell pb-returns"><span class="pb-mobile-label">Devoluções</span><span>${returns > 0 ? R(returns) : "—"}</span>${returns > 0 ? `<em>${returnRate.toFixed(1)}%</em>` : ""}</div>
+          <div class="pb-cell pb-net"><span class="pb-mobile-label">Líquido</span><strong>${R(net)}</strong></div>
         </div>
-        <div class="pb-track"><div class="pb-fill" style="width:${wp.toFixed(1)}%;background:${getPlatformVisualColor(platform)}"></div></div>
+        <div class="pb-track" role="img" aria-label="Líquido equivalente a ${wp.toFixed(0)}% do maior valor entre plataformas"><div class="pb-fill" style="width:${wp.toFixed(1)}%;background:${getPlatformVisualColor(platform)}"></div></div>
       </div>
     `;
-  }).join("") + `
+  }).join("")}</div>
     <div class="pb-total">
-      <span>Total do mês</span>
-      <span><strong>${R(totalGross)}</strong> em vendas</span>
-      <span class="pb-total-returns"><strong>${R(totalReturns)}</strong> em devoluções</span>
-      <span class="pb-total-net"><strong>${R(totalGross - totalReturns)}</strong> líquido</span>
+      <span class="pb-total-label">Total do mês</span>
+      <span class="pb-total-gross"><strong>${R(totalGross)}</strong><small>em vendas</small></span>
+      <span class="pb-total-returns"><strong>${R(totalReturns)}</strong><small>em devoluções</small></span>
+      <span class="pb-total-net"><strong>${R(totalGross - totalReturns)}</strong><small>líquido</small></span>
     </div>
   `;
 }
@@ -806,14 +821,27 @@ export function renderSaleInputs() {
 
 /* ═══ TABS / PERÍODO ═══ */
 export function renderTabs() {
-  const am = sortPeriodKeys(Object.keys(state.db));
+  const am = sortPeriodKeys([...new Set([...Object.keys(state.db), state.currentMonth])]);
   const cy = getPeriodYear(state.currentMonth);
   const ys = [...new Set(am.map(getPeriodYear))].sort((a, b) => a - b);
 
-  const ye = document.getElementById("sidebarCurrentYear");
-  const me = document.getElementById("sidebarCurrentMonth");
-  if (ye) ye.textContent = String(cy);
-  if (me) me.textContent = getPeriodMonth(state.currentMonth);
+  const yearSelect = document.getElementById("dashboardYearSelect");
+  const monthSelect = document.getElementById("dashboardMonthSelect");
+  const sidebarYear = document.getElementById("sidebarCurrentYear");
+  const sidebarMonth = document.getElementById("sidebarCurrentMonth");
+  if (sidebarYear) sidebarYear.textContent = String(cy);
+  if (sidebarMonth) sidebarMonth.textContent = getPeriodMonth(state.currentMonth);
+  if (yearSelect) {
+    yearSelect.innerHTML = ys.map((year) => `<option value="${year}">${year}</option>`).join("");
+    yearSelect.value = String(cy);
+  }
+  if (monthSelect) {
+    const availableMonths = am.filter((period) => getPeriodYear(period) === cy);
+    monthSelect.innerHTML = availableMonths.map((period) =>
+      `<option value="${escapeAttribute(getPeriodMonth(period))}">${escapeHtml(getPeriodMonth(period))}</option>`
+    ).join("");
+    monthSelect.value = getPeriodMonth(state.currentMonth);
+  }
 
   const opts = ys.map((y) => {
     const yo = am.filter((m) => getPeriodYear(m) === y)
@@ -851,6 +879,12 @@ export function switchMonth(month) {
   if (im) im.value = month;
   syncDateWithMonth();
   renderAll();
+}
+
+export function switchDashboardPeriod(year, month) {
+  const period = `${Number(year)}-${month}`;
+  if (!state.db[period] && period !== state.currentMonth) return;
+  switchMonth(period);
 }
 
 /* ═══ MODAL DE MÊS ═══ */
@@ -920,6 +954,13 @@ function varH(current, previous, reverse = false) {
 
 /* ═══ BIND DE EVENTOS LOCAIS ═══ */
 function bindEvents() {
+  document.getElementById("dashboard-panel-overview")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-overview-trend-range]");
+    if (!button) return;
+    overviewTrendBucketDays = Number(button.dataset.overviewTrendRange) || 1;
+    renderOverviewTrend();
+  });
+
   const compareSel = document.getElementById("dailyCompareMonth");
   if (compareSel) {
     compareSel.addEventListener("change", (e) => {

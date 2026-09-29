@@ -95,6 +95,55 @@ async function logout(req, res) {
   sendJson(res, 200, { ok: true });
 }
 
+/* ═══ PROFILE ═══ */
+async function getProfile(req, res, authenticatedUser) {
+  const user = await auth.getUser(authenticatedUser);
+  if (!user) return sendJson(res, 404, { error: "user_not_found" });
+  sendJson(res, 200, {
+    profile: {
+      displayName: user.displayName || "",
+      avatarData: user.avatarData || ""
+    }
+  });
+}
+
+async function updateProfile(req, res, authenticatedUser) {
+  const body = await readJsonBody(req);
+  const rawName = String(body?.displayName ?? "").trim();
+  if (rawName.length > 60) {
+    return sendJson(res, 400, { error: "display_name_too_long" });
+  }
+
+  const rawAvatar = body?.avatarData == null ? "" : String(body.avatarData);
+  if (rawAvatar.length > 600_000) {
+    return sendJson(res, 413, { error: "avatar_too_large" });
+  }
+  if (rawAvatar && !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(rawAvatar)) {
+    return sendJson(res, 400, { error: "invalid_avatar_format" });
+  }
+  if (rawAvatar) {
+    const encoded = rawAvatar.slice(rawAvatar.indexOf(",") + 1);
+    if (Buffer.from(encoded, "base64").byteLength > 450_000) {
+      return sendJson(res, 413, { error: "avatar_too_large" });
+    }
+  }
+
+  const user = await auth.getUser(authenticatedUser);
+  if (!user) return sendJson(res, 404, { error: "user_not_found" });
+  await auth.saveUser(authenticatedUser, {
+    ...user,
+    displayName: rawName,
+    avatarData: rawAvatar,
+    updatedAt: new Date().toISOString()
+  });
+  sendJson(res, 200, {
+    profile: {
+      displayName: rawName,
+      avatarData: rawAvatar
+    }
+  });
+}
+
 /* ═══ CHANGE PASSWORD ═══ */
 async function changePassword(req, res, authenticatedUser) {
   const body = await readJsonBody(req);
@@ -141,4 +190,4 @@ async function session(req, res) {
   sendJson(res, 200, { username });
 }
 
-module.exports = { login, register, migrateLocal, logout, changePassword, session };
+module.exports = { login, register, migrateLocal, logout, getProfile, updateProfile, changePassword, session };

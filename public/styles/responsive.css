@@ -71,6 +71,10 @@
     padding: var(--space-4);
     width: 100%;
   }
+  .overview-trend-header { flex-direction: column; align-items: stretch; }
+  .overview-trend-controls { width: 100%; }
+  .overview-trend-range { flex: 1; padding-inline: var(--space-2); }
+  .overview-trend-chart-box { height: 220px; }
 
   /* ─── Overlay (fundo escuro) ─── */
   .sidebar-overlay {
@@ -121,6 +125,12 @@
 @media (max-width: 640px) {
   .logo { font-size: var(--text-md); }
   .header-left, .header-right { flex-wrap: wrap; }
+  .dashboard-screen { --topbar-h: 112px; }
+  .dashboard-screen .topbar { flex-wrap: wrap; gap: var(--space-2); }
+  .dashboard-screen .header-left { flex: 1 0 100%; }
+  .dashboard-screen .header-right { width: 100%; margin-left: 0; justify-content: space-between; }
+  .topbar-user { max-width: 120px; }
+  .topbar-user-name { max-width: 72px; }
   .kpi-group--volume .kpi-card { display: flex; min-height: 124px; }
   .kpi-group--volume .kpi-label { min-height: 20px; align-self: flex-start; }
   .kpi-group--volume .kpi-value { grid-column: auto; grid-row: auto; }
@@ -155,7 +165,13 @@
 
 @media (max-width: 420px) {
   .topbar { padding: var(--space-3) var(--space-3); }
+  .dashboard-period-select { min-height: 34px; padding-left: var(--space-2); }
+  .dashboard-period-year-field .dashboard-period-select { max-width: 72px; }
+  .dashboard-period-add { height: 34px; padding: 0 6px; }
   .dashboard-main, .calculator-main, .daily-close-main { padding: var(--space-3); }
+  .overview-trend-controls { gap: 1px; }
+  .overview-trend-range { min-height: 34px; padding-inline: 4px; font-size: var(--text-xs); }
+  .overview-trend-summary { gap: 4px 8px; }
   .auth-card, .hub-shell, .card, .kpi-card, .pricing-card, .modal { padding: var(--space-4); }
   .logo { font-size: var(--text-base); }
   .card-title { font-size: var(--text-md); }

@@ -78,44 +78,78 @@
         <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
       </div>
       <div class="header-right">
+        <div class="dashboard-period-controls" role="group" aria-label="Período do dashboard">
+          <label class="dashboard-period-field"><select id="dashboardMonthSelect" class="dashboard-period-select" aria-label="Selecionar mês"></select></label>
+          <label class="dashboard-period-field dashboard-period-year-field"><select id="dashboardYearSelect" class="dashboard-period-select" aria-label="Selecionar ano"></select></label>
+          <button class="dashboard-period-add" id="periodPickerButton" type="button" aria-label="Criar outro mês" title="Criar outro mês">+ Mês</button>
+        </div>
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
           <span data-theme-icon></span>
         </button>
+        <button class="topbar-user" id="dashboardUserMenuButton" type="button" aria-expanded="false" aria-controls="dashboardUserPopover" hidden>
+          <span class="topbar-user-avatar" id="dashboardUserAvatar" aria-hidden="true"><span id="dashboardUserInitial">?</span><img id="dashboardUserPhoto" alt="" hidden></span>
+          <span class="topbar-user-name" id="dashboardUserName"></span><span class="topbar-user-chevron" aria-hidden="true">▾</span>
+        </button>
+        <div class="user-popover" id="dashboardUserPopover" hidden>
+          <div class="user-popover-heading" id="dashboardUserPopoverName"></div>
+          <button type="button" class="user-popover-item" id="openAccountSettingsButton">Configurações da conta</button>
+          <div class="user-popover-divider"></div>
+          <button type="button" class="user-popover-item" id="dashboardLogoutButton">Sair</button>
+        </div>
       </div>
     </header>
 
     <div class="dashboard-layout">
       <aside class="sidebar" id="dashboardSidebar">
-        <div class="sidebar-top">
-          <button class="sidebar-period-btn" id="periodPickerButton" type="button">
-            <span class="sidebar-period-year" id="sidebarCurrentYear">2026</span>
-            <span class="sidebar-period-month" id="sidebarCurrentMonth">Setembro</span>
-            <span class="sidebar-period-chevron">▾</span>
-          </button>
+        <div class="sidebar-current-period" aria-label="Período atual do dashboard">
+          <span class="sidebar-current-period-label">Período atual</span>
+          <span class="sidebar-period-year" id="sidebarCurrentYear">2026</span>
+          <span class="sidebar-period-month" id="sidebarCurrentMonth">Setembro</span>
         </div>
-        <nav class="sidebar-nav">
-          <div class="sidebar-section">
-            <div class="sidebar-section-title">Visão</div>
-            <button class="sidebar-item active" data-dashboard-tab="overview" type="button"><span class="sidebar-label">Visão Geral</span></button>
-            <button class="sidebar-item" data-dashboard-tab="daily" type="button"><span class="sidebar-label">Vendas Diárias</span></button>
-            <button class="sidebar-item" data-dashboard-tab="weekly" type="button"><span class="sidebar-label">Semanas</span></button>
-            <button class="sidebar-item" data-dashboard-tab="platforms" type="button"><span class="sidebar-label">Plataformas</span></button>
-            <button class="sidebar-item" data-dashboard-tab="trends" type="button"><span class="sidebar-label">Tendência</span></button>
-            <button class="sidebar-item" id="reportButton" type="button"><span class="sidebar-label">Relatório</span></button>
+        <nav class="sidebar-nav" aria-label="Navegação principal">
+          <button class="sidebar-item sidebar-home-item" id="sidebarOpenHub" type="button"><span class="sidebar-label">Menu Inicial</span></button>
+          <div class="sidebar-menu-group">
+            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="sales" aria-expanded="false" aria-controls="sidebarMenuSales"><span>Vendas</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
+            <div class="sidebar-submenu-popover" id="sidebarMenuSales" hidden>
+              <div class="sidebar-submenu-title">Vendas</div>
+              <button class="sidebar-item active" data-dashboard-tab="overview" type="button">Visão geral</button>
+              <button class="sidebar-item" data-dashboard-tab="daily" type="button">Vendas diárias</button>
+              <button class="sidebar-item" data-dashboard-tab="weekly" type="button">Semanas</button>
+            </div>
           </div>
-          <div class="sidebar-section">
-            <div class="sidebar-section-title">Gestão</div>
-            <button class="sidebar-item" data-dashboard-tab="entries" type="button"><span class="sidebar-label">Lançamentos</span></button>
-            <button class="sidebar-item" data-dashboard-tab="projection" type="button"><span class="sidebar-label">Projeção</span></button>
+          <div class="sidebar-menu-group">
+            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="analysis" aria-expanded="false" aria-controls="sidebarMenuAnalysis"><span>Análises</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
+            <div class="sidebar-submenu-popover" id="sidebarMenuAnalysis" hidden>
+              <div class="sidebar-submenu-title">Análises</div>
+              <button class="sidebar-item" data-dashboard-tab="platforms" type="button">Plataformas</button>
+              <button class="sidebar-item" data-dashboard-tab="trends" type="button">Tendência</button>
+              <button class="sidebar-item" id="reportButton" type="button">Relatório</button>
+            </div>
           </div>
-          <div class="sidebar-section sidebar-section-bottom">
-            <button class="sidebar-item" id="sidebarOpenHub" type="button"><span class="sidebar-label">Menu Inicial</span></button>
-            <button class="sidebar-item" id="sidebarOpenDailyClose" type="button"><span class="sidebar-label">Fechamento</span></button>
-            <button class="sidebar-item" id="sidebarOpenCalculator" type="button"><span class="sidebar-label">Calculadora</span></button>
-            <div class="sidebar-divider"></div>
-            <button class="sidebar-item" id="sidebarSaveButton" type="button"><span class="sidebar-label">Salvar Dados</span></button>
-            <button class="sidebar-item" id="sidebarImportBackupButton" type="button"><span class="sidebar-label">Importar Backup</span></button>
-            <button class="sidebar-item" id="sidebarExportBackupButton" type="button"><span class="sidebar-label">Exportar Backup</span></button>
+          <div class="sidebar-menu-group">
+            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="management" aria-expanded="false" aria-controls="sidebarMenuManagement"><span>Gestão</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
+            <div class="sidebar-submenu-popover" id="sidebarMenuManagement" hidden>
+              <div class="sidebar-submenu-title">Gestão</div>
+              <button class="sidebar-item" data-dashboard-tab="entries" type="button">Lançamentos</button>
+              <button class="sidebar-item" data-dashboard-tab="projection" type="button">Projeção</button>
+            </div>
+          </div>
+          <div class="sidebar-menu-group">
+            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="tools" aria-expanded="false" aria-controls="sidebarMenuTools"><span>Ferramentas</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
+            <div class="sidebar-submenu-popover" id="sidebarMenuTools" hidden>
+              <div class="sidebar-submenu-title">Ferramentas</div>
+              <button class="sidebar-item" id="sidebarOpenCalculator" type="button">Calculadora</button>
+              <button class="sidebar-item" id="sidebarOpenDailyClose" type="button">Fechamento</button>
+            </div>
+          </div>
+          <div class="sidebar-menu-group">
+            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="data" aria-expanded="false" aria-controls="sidebarMenuData"><span>Dados</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
+            <div class="sidebar-submenu-popover" id="sidebarMenuData" hidden>
+              <div class="sidebar-submenu-title">Dados</div>
+              <button class="sidebar-item" id="sidebarSaveButton" type="button">Salvar</button>
+              <button class="sidebar-item" id="sidebarImportBackupButton" type="button">Importar</button>
+              <button class="sidebar-item" id="sidebarExportBackupButton" type="button">Exportar</button>
+            </div>
           </div>
         </nav>
       </aside>
@@ -139,9 +173,23 @@
         <div class="dashboard-panels">
           <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
             <div class="goal-alert-banner" id="goalAlertBanner" hidden></div>
+            <div class="card overview-trend-card">
+              <div class="card-header overview-trend-header">
+                <div><div class="card-title">Tendência de vendas</div><div class="card-sub">Vendas brutas nos últimos 30 dias corridos</div></div>
+                <div class="overview-trend-controls" role="group" aria-label="Agrupar tendência dos últimos 30 dias">
+                  <button type="button" class="overview-trend-range active" data-overview-trend-range="1" aria-pressed="true">Diária</button>
+                  <button type="button" class="overview-trend-range" data-overview-trend-range="7" aria-pressed="false">Semanal</button>
+                  <button type="button" class="overview-trend-range" data-overview-trend-range="15" aria-pressed="false">Quinzenal</button>
+                  <button type="button" class="overview-trend-range" data-overview-trend-range="30" aria-pressed="false">30 dias</button>
+                </div>
+              </div>
+              <div class="overview-trend-summary" id="overviewTrendSummary" aria-live="polite"></div>
+              <div class="chart-box overview-trend-chart-box"><canvas id="overviewTrendChart" aria-label="Gráfico de vendas brutas agrupadas no período selecionado"></canvas></div>
+            </div>
             <div class="card">
               <div class="card-header">
-                <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">% do faturamento líquido</div></div>
+                <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">Vendas, devoluções e receita líquida por plataforma</div></div>
+                <div class="pb-bar-note">A barra compara o líquido entre plataformas</div>
               </div>
               <div class="platform-bars" id="platformBars"></div>
             </div>
@@ -364,6 +412,50 @@
       </div>
     </main>
   </section>
+
+  <!-- ACCOUNT SETTINGS -->
+  <section class="screen account-screen" id="accountScreen" hidden>
+    <header class="topbar account-topbar">
+      <div class="header-left">
+        <button class="btn btn-secondary" id="accountBackButton" type="button">Voltar ao dashboard</button>
+      </div>
+      <div class="logo header-brand"><div class="logo-dot"></div>Configurações da conta</div>
+      <div class="header-right">
+        <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema"><span data-theme-icon></span></button>
+      </div>
+    </header>
+    <main class="account-main">
+      <div class="account-page-heading"><div><div class="card-title">Sua conta</div><div class="card-sub">Atualize seu perfil e as credenciais de acesso.</div></div></div>
+      <section class="card account-card" aria-labelledby="accountProfileHeading">
+        <div class="card-header"><div><h1 class="card-title" id="accountProfileHeading">Perfil</h1><div class="card-sub">O nome e a foto aparecem no menu do usuário.</div></div></div>
+        <div class="account-profile-layout">
+          <div class="account-photo-block">
+            <div class="account-photo-preview" id="accountPhotoPreview" aria-label="Prévia da foto do perfil"><span id="accountPhotoInitial">?</span><img id="accountPhotoImage" alt="Foto do perfil" hidden></div>
+            <div class="account-photo-actions">
+              <input id="accountPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+              <button class="btn btn-secondary" id="accountChoosePhotoButton" type="button">Trocar foto</button>
+              <button class="link-btn" id="accountRemovePhotoButton" type="button">Remover foto</button>
+            </div>
+            <div class="card-sub">PNG, JPG ou WebP. A imagem será reduzida para o perfil.</div>
+          </div>
+          <div class="account-profile-form">
+            <label class="fg"><span class="flabel">Nome de exibição</span><input class="finput" id="accountDisplayNameInput" type="text" maxlength="60" autocomplete="name" placeholder="Como quer aparecer no perfil?"></label>
+            <div class="card-sub">Seu usuário de acesso permanece o mesmo.</div>
+            <button class="btn btn-primary" id="accountSaveProfileButton" type="button">Salvar perfil</button>
+          </div>
+        </div>
+      </section>
+      <section class="card account-card" aria-labelledby="accountPasswordHeading">
+        <div class="card-header"><div><h2 class="card-title" id="accountPasswordHeading">Segurança</h2><div class="card-sub">Altere a senha usada para entrar no sistema.</div></div></div>
+        <div class="account-password-grid">
+          <label class="fg"><span class="flabel">Senha atual</span><input class="finput" id="accountCurrentPassword" type="password" autocomplete="current-password"></label>
+          <label class="fg"><span class="flabel">Nova senha</span><input class="finput" id="accountNewPassword" type="password" autocomplete="new-password" minlength="4"></label>
+          <label class="fg"><span class="flabel">Confirmar nova senha</span><input class="finput" id="accountConfirmPassword" type="password" autocomplete="new-password" minlength="4"></label>
+        </div>
+        <div class="account-password-footer"><div class="card-sub">A senha precisa ter pelo menos 4 caracteres.</div><button class="btn btn-primary" id="accountSavePasswordButton" type="button">Alterar senha</button></div>
+      </section>
+    </main>
+  </section>
 </div>
 
 <!-- MODAIS -->
@@ -394,21 +486,6 @@
       <button class="btn btn-primary" id="confirmImportBackupButton" type="button">Escolher Arquivo</button>
       <button class="btn btn-secondary" data-close-modal="importBackupModal" type="button">Cancelar</button>
       <input id="backupFileInputModal" type="file" accept=".json,application/json" hidden>
-    </div>
-  </div>
-</div>
-
-<div class="moverlay" id="changePasswordModal">
-  <div class="modal modal-small">
-    <div class="mheader"><div><div class="mtitle">Trocar Senha</div><div class="card-sub modal-subtitle">Atualize sua senha local sem alterar os dados salvos.</div></div><button class="mclose" data-close-modal="changePasswordModal" type="button">X</button></div>
-    <div class="modal-stack">
-      <div class="fg"><label class="flabel" for="currentPasswordInput">Senha Atual</label><input class="finput" id="currentPasswordInput" type="password"></div>
-      <div class="fg"><label class="flabel" for="newPasswordInput">Nova Senha</label><input class="finput" id="newPasswordInput" type="password"></div>
-      <div class="fg"><label class="flabel" for="confirmPasswordInput">Confirmar Nova Senha</label><input class="finput" id="confirmPasswordInput" type="password"></div>
-    </div>
-    <div class="actions-row">
-      <button class="btn btn-primary" id="savePasswordButton" type="button">Salvar Senha</button>
-      <button class="btn btn-secondary" data-close-modal="changePasswordModal" type="button">Cancelar</button>
     </div>
   </div>
 </div>

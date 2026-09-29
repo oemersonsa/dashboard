@@ -70,6 +70,15 @@ async function handleRequest(req, res) {
     // ─── Protected routes ──────────────────────────────────────────────
     const authenticatedUser = await authMiddleware.validate(req, url);   // ⬅️ await
 
+    if (req.method === "GET" && url.pathname === "/api/auth/profile") {
+      if (!authenticatedUser) return sendJson(res, 401, { error: "unauthorized" });
+      return await authRoutes.getProfile(req, res, authenticatedUser);
+    }
+    if (req.method === "PATCH" && url.pathname === "/api/auth/profile") {
+      if (!authenticatedUser) return sendJson(res, 401, { error: "unauthorized" });
+      return await authRoutes.updateProfile(req, res, authenticatedUser);
+    }
+
     if (req.method === "POST" && url.pathname === "/api/auth/change-password") {
       if (!authenticatedUser) return sendJson(res, 401, { error: "unauthorized" });
       return await authRoutes.changePassword(req, res, authenticatedUser);

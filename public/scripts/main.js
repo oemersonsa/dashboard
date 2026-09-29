@@ -9,7 +9,8 @@ import {
   state,
   saveState,
   normalizeState,
-  getBusinessSnapshot
+  getBusinessSnapshot,
+  sortPeriodKeys
 } from "./core/state.js";
 import { apiRequest, loadSession, saveSession, clearSession } from "./core/api.js";
 import { MARKETPLACE_PRICING_PRESETS } from "./core/constants.js";
@@ -33,15 +34,21 @@ import {
   openAddMonth,
   confirmAddMonth,
   refreshMonthPickerForYear,
-  selectMonth
+  selectMonth,
+  switchDashboardPeriod
 } from "./features/sales/sales.ui.js";
 import { init as initCalculator } from "./features/calculator/pricing.ui.js";
 import { init as initDailyClose } from "./features/daily-close/daily-close.ui.js";
 import { init as initBackup, exportBackup } from "./features/backup/backup.export.js";
 import { init as initReports, openReport } from "./features/reports/report.builder.js";
+import {
+  init as initAccount,
+  getCachedAccountProfile,
+  loadAccountProfile
+} from "./features/account/account.ui.js";
 
 // ─── Roteador ───────────────────────────────────────────────────────────────
-const KNOWN_SCREENS = ["hub", "dashboard", "calculator", "dailyClose"];
+const KNOWN_SCREENS = ["hub", "dashboard", "calculator", "dailyClose", "account"];
 let activeScreen = "hub";
 //let serverSaveTimer = null;
 // let serverSaveInFlight = false;
@@ -51,7 +58,7 @@ export function getActiveScreen() { return activeScreen; }
 
 export function setActiveScreen(screen) {
   activeScreen = KNOWN_SCREENS.includes(screen) ? screen : "hub";
-  state.currentScreen = activeScreen;
+  state.currentScreen = activeScreen === "account" ? "dashboard" : activeScreen;
 }
 
 export function renderScreen() {
@@ -61,7 +68,8 @@ export function renderScreen() {
     hub: document.getElementById("hubScreen"),
     dashboard: document.getElementById("dashboardScreen"),
     calculator: document.getElementById("calculatorScreen"),
-    dailyClose: document.getElementById("dailyCloseScreen")
+    dailyClose: document.getElementById("dailyCloseScreen"),
+    account: document.getElementById("accountScreen")
   };
 
   const hasAuth = Boolean(state.auth?.username);
@@ -69,6 +77,9 @@ export function renderScreen() {
   const isLoggedIn = Boolean(hasAuth && session && session.username === state.auth.username);
 
   Object.values(screens).forEach((s) => { if (s) s.hidden = true; });
+  closeSidebarSubmenus();
+  closeUserPopover();
+  closeMobileSidebar();
 
   if (!isLoggedIn) {
     screens.auth.hidden = false;
@@ -84,6 +95,8 @@ export function renderScreen() {
 
   if (activeScreen === "dashboard") {
     screens.dashboard.hidden = false;
+    syncDashboardUserProfile();
+    void loadAccountProfile().then(syncDashboardUserProfile);
     initSales();
     initReports();
     initBackup();
@@ -103,11 +116,41 @@ export function renderScreen() {
     return;
   }
 
+  if (activeScreen === "account") {
+    screens.account.hidden = false;
+    initAccount();
+    return;
+  }
+
   screens.hub.hidden = false;
   initHub();
   initBackup();
   refreshSaveIndicator();
 }
+
+function syncDashboardUserProfile() {
+  const username = String(state.auth?.username || "Usuário").trim() || "Usuário";
+  const profile = document.getElementById("dashboardUserMenuButton");
+  const name = document.getElementById("dashboardUserName");
+  const avatar = document.getElementById("dashboardUserAvatar");
+  const initial = document.getElementById("dashboardUserInitial");
+  const photo = document.getElementById("dashboardUserPhoto");
+  const popoverName = document.getElementById("dashboardUserPopoverName");
+  if (!profile || !name || !avatar || !initial || !photo || !popoverName) return;
+  const accountProfile = getCachedAccountProfile(username);
+  const displayName = accountProfile.displayName.trim() || username;
+  name.textContent = displayName;
+  popoverName.textContent = displayName;
+  initial.textContent = Array.from(displayName)[0]?.toLocaleUpperCase("pt-BR") || "U";
+  photo.hidden = !accountProfile.avatarData;
+  if (accountProfile.avatarData) photo.src = accountProfile.avatarData;
+  else photo.removeAttribute("src");
+  initial.hidden = Boolean(accountProfile.avatarData);
+  profile.setAttribute("aria-label", `Conta de ${displayName}`);
+  profile.hidden = false;
+}
+
+window.addEventListener("dashboard:account-profile-updated", syncDashboardUserProfile);
 
 // /* ═══ SERVER PERSISTENCE ═══ */
 // function scheduleServerSave() {
@@ -309,7 +352,132 @@ export function openSetupScreen() {
 }
 
 /* ═══ BINDS GLOBAIS ═══ */
+function closeSidebarSubmenus(restoreFocus = false) {
+  const triggers = [...document.querySelectorAll("[data-sidebar-menu-trigger]")];
+  const activeTrigger = triggers.find((trigger) => trigger.getAttribute("aria-expanded") === "true");
+  triggers.forEach((trigger) => {
+    trigger.setAttribute("aria-expanded", "false");
+    const menu = document.getElementById(trigger.getAttribute("aria-controls"));
+    if (menu) {
+      menu.hidden = true;
+      menu.style.removeProperty("top");
+      menu.style.removeProperty("left");
+    }
+  });
+  if (restoreFocus) activeTrigger?.focus();
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById("dashboardSidebar");
+  const overlay = document.querySelector(".sidebar-overlay");
+  sidebar?.classList.remove("open");
+  overlay?.classList.remove("visible");
+}
+
+function openSidebarSubmenu(trigger, menu) {
+  menu.hidden = false;
+  const anchor = trigger.getBoundingClientRect();
+  const popup = menu.getBoundingClientRect();
+  const top = Math.max(8, Math.min(anchor.top, window.innerHeight - popup.height - 8));
+  let left = anchor.right + 8;
+  if (left + popup.width > window.innerWidth - 8) left = anchor.left - popup.width - 8;
+  left = Math.max(8, left);
+  menu.style.top = `${top}px`;
+  menu.style.left = `${left}px`;
+  trigger.setAttribute("aria-expanded", "true");
+  menu.querySelector(".sidebar-item")?.focus();
+}
+
+function closeUserPopover(restoreFocus = false) {
+  const button = document.getElementById("dashboardUserMenuButton");
+  const popover = document.getElementById("dashboardUserPopover");
+  if (!button || !popover) return;
+  button.setAttribute("aria-expanded", "false");
+  popover.hidden = true;
+  if (restoreFocus) button.focus();
+}
+
 function bindSidebarActions() {
+  document.querySelectorAll(".sidebar-submenu-popover").forEach((menu) => {
+    document.body.appendChild(menu);
+  });
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-sidebar-menu-trigger]");
+    if (trigger) {
+      event.preventDefault();
+      const menu = document.getElementById(trigger.getAttribute("aria-controls"));
+      if (!menu) return;
+      const shouldOpen = menu.hidden;
+      closeSidebarSubmenus();
+      if (shouldOpen) openSidebarSubmenu(trigger, menu);
+      return;
+    }
+
+    if (event.target.closest(".sidebar-submenu-popover")) {
+      if (event.target.closest(".sidebar-item")) {
+        setTimeout(() => {
+          closeSidebarSubmenus();
+          closeMobileSidebar();
+        }, 0);
+      }
+    } else {
+      closeSidebarSubmenus();
+    }
+
+    const userButton = event.target.closest("#dashboardUserMenuButton");
+    const userPopover = document.getElementById("dashboardUserPopover");
+    if (userButton && userPopover) {
+      event.preventDefault();
+      const shouldOpen = userPopover.hidden;
+      closeUserPopover();
+      userPopover.hidden = !shouldOpen;
+      userButton.setAttribute("aria-expanded", String(shouldOpen));
+      if (shouldOpen) document.getElementById("openAccountSettingsButton")?.focus();
+      return;
+    }
+    if (event.target.closest("#openAccountSettingsButton")) {
+      event.preventDefault();
+      closeUserPopover();
+      setActiveScreen("account");
+      renderScreen();
+      return;
+    }
+    if (event.target.closest("#dashboardLogoutButton")) {
+      event.preventDefault();
+      closeUserPopover();
+      handleLogout();
+      return;
+    }
+    if (!event.target.closest("#dashboardUserPopover")) closeUserPopover();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const openMenu = document.querySelector("[data-sidebar-menu-trigger][aria-expanded='true']");
+    if (openMenu) {
+      event.preventDefault();
+      closeSidebarSubmenus(true);
+    }
+    const userButton = document.getElementById("dashboardUserMenuButton");
+    if (userButton?.getAttribute("aria-expanded") === "true") {
+      event.preventDefault();
+      closeUserPopover(true);
+    }
+  });
+
+  document.addEventListener("focusin", (event) => {
+    if (!event.target.closest("[data-sidebar-menu-trigger], .sidebar-submenu-popover")) {
+      closeSidebarSubmenus();
+    }
+    if (!event.target.closest("#dashboardUserMenuButton, #dashboardUserPopover")) {
+      closeUserPopover();
+    }
+  });
+
+  window.addEventListener("resize", () => closeSidebarSubmenus());
+  window.addEventListener("scroll", () => closeSidebarSubmenus(), true);
+
   // 1. Sidebar
   document.addEventListener("click", (event) => {
     const target = event.target.closest(
@@ -335,14 +503,6 @@ function bindSidebarActions() {
     if (!tab) return;
     event.preventDefault();
     switchDashboardTab(tab.dataset.dashboardTab);
-  });
-
-  // 3. Relatório
-  document.addEventListener("click", (event) => {
-    if (event.target.closest("#reportButton")) {
-      event.preventDefault();
-      openReport();
-    }
   });
 
   // 4. Seletor de período (modal de mês)
@@ -385,6 +545,26 @@ function bindSidebarActions() {
   document.addEventListener("input", (event) => {
     if (event.target.id === "periodYearInput") {
       refreshMonthPickerForYear();
+    }
+  });
+
+  // 4c. Seletores rápidos de mês e ano do dashboard
+  document.addEventListener("change", (event) => {
+    if (event.target.id === "dashboardMonthSelect") {
+      const year = document.getElementById("dashboardYearSelect")?.value;
+      if (year && event.target.value) switchDashboardPeriod(year, event.target.value);
+      return;
+    }
+    if (event.target.id === "dashboardYearSelect") {
+      const year = event.target.value;
+      const month = document.getElementById("dashboardMonthSelect")?.value;
+      if (!year) return;
+      const sameMonthPeriod = `${year}-${month}`;
+      const availablePeriods = sortPeriodKeys(Object.keys(state.db).filter((period) => period.startsWith(`${year}-`)));
+      const targetPeriod = state.db[sameMonthPeriod]
+        ? sameMonthPeriod
+        : availablePeriods.at(-1);
+      if (targetPeriod) switchDashboardPeriod(year, targetPeriod.slice(5));
     }
   });
 
@@ -454,38 +634,12 @@ function bindSidebarActions() {
     }
   });
 
-    // 8. Relatório (bind direto — report.builder pode não ter rodado ainda)
+  // Relatório
   document.addEventListener("click", (event) => {
     if (!event.target.closest("#reportButton")) return;
     event.preventDefault();
-    if (typeof window.dashboard?.openReport === "function") {
-      window.dashboard.openReport();
-    } else {
-      import("./features/reports/report.builder.js")
-        .then((m) => m.openReport?.())
-        .catch((e) => console.error("Falha ao abrir relatório:", e));
-    }
+    openReport();
   });
-
-    // 10. Relatório (fallback)
-  document.addEventListener("click", (event) => {
-    if (event.target.closest("#reportButton")) {
-      event.preventDefault();
-      if (typeof window.dashboard?.openReport === "function") {
-        window.dashboard.openReport();
-      } else {
-        // Importa dinamicamente e abre
-        import("./features/reports/report.builder.js").then((m) => m.openReport?.());
-      }
-    }
-  });
-
-  // 8. Relatório — delegação (sobrevive a re-render)
-  document.addEventListener("click", (event) => {
-    if (!event.target.closest("#reportButton")) return;
-    event.preventDefault();
-    window.dashboard?.openReport?.();
-  });  
 }
 
 export function switchDashboardTab(name) {
@@ -496,7 +650,17 @@ export function switchDashboardTab(name) {
   saveState();
 
   document.querySelectorAll(".sidebar-item[data-dashboard-tab]").forEach((b) => {
-    b.classList.toggle("active", b.dataset.dashboardTab === target);
+    const active = b.dataset.dashboardTab === target;
+    b.classList.toggle("active", active);
+    if (active) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  const menuByTab = {
+    overview: "sales", daily: "sales", weekly: "sales",
+    platforms: "analysis", trends: "analysis", entries: "management", projection: "management"
+  };
+  document.querySelectorAll("[data-sidebar-menu-trigger]").forEach((trigger) => {
+    trigger.classList.toggle("active", trigger.dataset.sidebarMenuTrigger === menuByTab[target]);
   });
   document.querySelectorAll(".dashboard-panel").forEach((p) => {
     const active = p.dataset.dashboardPanel === target;
@@ -524,17 +688,6 @@ async function init() {
   const lastSaved = localStorage.getItem("dashboard-vendas-last-saved-v1");
   if (lastSaved) setLastSavedAt(lastSaved);
 
-  const reportBtn = document.getElementById("reportButton");
-  if (reportBtn) {
-    reportBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.dashboard?.openReport?.();
-    });
-    console.log("[boot] #reportButton ligado");
-  } else {
-    console.warn("[boot] #reportButton não existe ainda — será ligado pelo dashboard");
-  }
-
   if (loadSession()) {
     try {
       renderKpiSkeleton();
@@ -553,15 +706,6 @@ async function init() {
 
   hideGlobalLoader();
   console.log("🔥 main.js: init() concluído");
-
-  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  document.body.classList.toggle("dark-theme", prefersDark);
-  document.body.classList.toggle("light-theme", !prefersDark);
-
-  window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
-    document.body.classList.toggle("dark-theme", e.matches);
-    document.body.classList.toggle("light-theme", !e.matches);
-  });
 
   if (loadSession()) {
     await loadBusinessStateFromServer({ migrateLocal: true });

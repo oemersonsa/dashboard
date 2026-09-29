@@ -3,20 +3,19 @@
 .daily-chart-box { flex: 1; height: auto; min-height: 260px; }
 
 .platform-bars {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  display: block;
   padding: var(--space-1) 0;
 }
 
-.pb-row { display: flex; flex-direction: column; gap: var(--space-2); }
-
-.pb-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
+.pb-table-head,
+.pb-row,
+.pb-total { display: grid; grid-template-columns: minmax(210px, 1.2fr) minmax(130px, .8fr) minmax(150px, .9fr) minmax(165px, .9fr); align-items: center; column-gap: var(--space-5); }
+.pb-table-head { padding: 0 var(--space-3) var(--space-2); border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.pb-table-head span:not(:first-child) { text-align: right; }
+.pb-bar-note { color: var(--muted); font-size: var(--text-xs); white-space: nowrap; }
+.pb-list { display: flex; flex-direction: column; }
+.pb-entry { padding: var(--space-3); border-bottom: 1px solid var(--border); }
+.pb-row { min-height: 28px; }
 
 .pb-name {
   display: flex;
@@ -24,20 +23,30 @@
   gap: var(--space-3);
   min-width: 0;
   font-size: var(--text-base);
-  font-weight: 500;
+  font-weight: 550;
   color: var(--text);
 }
+.pb-name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.pb-value {
-  font-weight: 650;
-  font-size: var(--text-md);
-  color: var(--text);
-  white-space: nowrap;
+.pb-cell {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-base);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
+.pb-gross { color: var(--text); }
+.pb-returns { color: var(--red); }
+.pb-returns em { color: var(--muted); font-size: var(--text-xs); font-style: normal; }
+.pb-net { color: var(--accent); font-size: var(--text-md); font-weight: 700; }
+.pb-mobile-label { display: none; }
 
 .pb-track {
-  height: 6px;
+  height: 4px;
+  margin: var(--space-2) 0 0 calc(31px + var(--space-3));
   border-radius: var(--radius-full);
   background: var(--surface-2);
   overflow: hidden;
@@ -46,8 +55,23 @@
 .pb-fill {
   height: 100%;
   border-radius: inherit;
-  transition: width 0.8s var(--ease-out);
+  transition: width 0.45s var(--ease-out);
 }
+
+.pb-total {
+  margin-top: var(--space-3);
+  padding: var(--space-4) var(--space-3) 0;
+  border-top: 1px solid var(--border-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.pb-total-label { color: var(--text); font-size: var(--text-xs); font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
+.pb-total > span:not(.pb-total-label) { display: flex; align-items: baseline; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }
+.pb-total strong { color: var(--text); font-weight: 700; }
+.pb-total small { color: var(--muted); font-size: var(--text-xs); }
+.pb-total-returns strong { color: var(--red); }
+.pb-total-net strong { color: var(--accent); }
 
 .pb-empty {
   padding: var(--space-6);
@@ -59,113 +83,28 @@
   background: var(--surface-2);
 }
 
-/* ═══ MIX DE PLATAFORMAS — meta info ═══ */
-.pb-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
+@media (max-width: 900px) {
+  .pb-table-head, .pb-row, .pb-total { grid-template-columns: minmax(150px, 1.15fr) minmax(95px, .8fr) minmax(120px, .95fr) minmax(125px, .95fr); column-gap: var(--space-3); }
 }
 
-.pb-name {
-  flex: 0 1 auto;
-  min-width: 140px;
-}
-
-.pb-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  margin-left: auto;
-}
-
-.pb-meta-item {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.pb-meta-label {
-  font-size: var(--text-xs);
-  color: var(--muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.pb-meta-value {
-  font-weight: 650;
-  font-size: var(--text-base);
-  color: var(--text);
-}
-
-.pb-meta-returns .pb-meta-value {
-  color: var(--red);
-}
-
-.pb-meta-rate {
-  font-size: var(--text-xs);
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.pb-meta-net .pb-meta-value {
-  color: var(--accent);
-  font-size: var(--text-md);
-}
-
-/* ─── Total do mês ─── */
-.pb-total {
-  display: grid;
-  grid-template-columns: auto repeat(3, auto);
-  gap: var(--space-3) var(--space-6);
-  align-items: center;
-  margin-top: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-2);
-  font-size: var(--text-sm);
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.pb-total > span:first-child {
-  font-weight: 600;
-  color: var(--text);
-  text-transform: uppercase;
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-}
-
-.pb-total strong {
-  color: var(--text);
-  font-weight: 650;
-}
-
-.pb-total-returns strong {
-  color: var(--red);
-}
-
-.pb-total-net strong {
-  color: var(--accent);
-}
-
-/* ─── Responsivo ─── */
-@media (max-width: 720px) {
-  .pb-meta {
-    gap: var(--space-3);
-    justify-content: flex-start;
-    width: 100%;
-  }
-
-  .pb-total {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-  }
+@media (max-width: 640px) {
+  .pb-table-head { display: none; }
+  .pb-row { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-2); row-gap: 4px; }
+  .pb-entry { padding: var(--space-3) var(--space-1); }
+  .pb-name { grid-column: 1; grid-row: 1; gap: var(--space-2); font-size: var(--text-sm); }
+  .pb-name .picon, .pb-name .platform-icon { flex: 0 0 auto; }
+  .pb-net { grid-column: 2; grid-row: 1; font-size: var(--text-base); }
+  .pb-gross { grid-column: 1; grid-row: 2; justify-content: flex-start; }
+  .pb-returns { grid-column: 2; grid-row: 2; flex-direction: column; align-items: flex-end; gap: 0; white-space: normal; }
+  .pb-cell { gap: 4px; font-size: var(--text-xs); }
+  .pb-mobile-label { display: inline; color: var(--muted); font-size: 10px; }
+  .pb-net .pb-mobile-label { color: var(--muted); font-weight: 500; }
+  .pb-track { margin-left: 0; }
+  .pb-total { grid-template-columns: 1fr 1fr; gap: var(--space-3); padding: var(--space-3) var(--space-1) 0; }
+  .pb-total-label { grid-column: 1 / -1; }
+  .pb-total-gross, .pb-total-returns, .pb-total-net { display: flex; flex-direction: column; align-items: flex-start !important; gap: 2px; text-align: left; }
+  .pb-total-net { align-items: flex-end !important; text-align: right; }
+  .pb-bar-note { white-space: normal; }
 }
 
 /* ═══ DASHBOARD DAILY CHART ═══ */
