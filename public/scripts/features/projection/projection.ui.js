@@ -57,7 +57,7 @@ function renderGoalCard() {
       <div class="goal-progress-head">
         <div>
           <div class="goal-progress-realized">${R(p.realized)}</div>
-          <div class="goal-progress-label">realizado de ${R(p.target)}</div>
+          <div class="goal-progress-label">líquido de ${R(p.target)}</div>
         </div>
         <div class="goal-badge" style="background:${colorVar}1A;color:${colorVar};border-color:${colorVar}44">
           ${escapeHtml(statusLabel)}

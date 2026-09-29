@@ -77,11 +77,15 @@ export function getComparisonPeriod(month) {
   const sm = sortPeriodKeys(Object.keys(state.db));
   const ci = sm.indexOf(month);
   const pn = ci > 0 ? sm[ci - 1] : null;
-  const cd = getLastLoggedDay(month);
+  const lastLoggedDay = getLastLoggedDay(month);
+  const cd = pn && lastLoggedDay > 0
+    ? Math.min(lastLoggedDay, getMonthDays(month), getMonthDays(pn))
+    : lastLoggedDay;
   return {
     previousName: pn,
     cutoffDay: cd,
     currentTotals: calcTotals(month),
+    currentComparisonTotals: cd > 0 ? calcTotals(month, { cutoffDay: cd }) : calcTotals(month),
     previousTotals: pn ? calcTotals(pn, { cutoffDay: cd || 0 }) : null
   };
 }

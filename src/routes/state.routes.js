@@ -23,4 +23,17 @@ async function saveState(req, res, user) {
   sendJson(res, 200, { ok: true, state: saved });
 }
 
+async function saveState(req, res, user) {
+  const body = await readJsonBody(req);
+  const payload = stateService.normalizeBusinessPayload(body);
+
+  // Protege contra um estado vazio (ex.: falha de carregamento) apagar tudo
+  if (!payload.platforms.length && await stateService.hasPlatforms(user)) {
+    return sendJson(res, 409, { error: "refusing_to_wipe_data" });
+  }
+
+  await stateService.replaceBusinessState(user, payload);
+  sendJson(res, 200, { ok: true });
+}
+
 module.exports = { getState, saveState };

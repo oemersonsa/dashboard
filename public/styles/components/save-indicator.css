@@ -1,29 +1,29 @@
+/* ═══════════════════════════════════════════════════════════════
+   SAVE INDICATOR — topbar (múltiplas instâncias via classe)
+   ═══════════════════════════════════════════════════════════════ */
+
 .save-indicator {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: 8px;
+  padding: 5px 12px 5px 10px;
   border-radius: var(--radius-full);
   background: var(--surface-2);
   border: 1px solid var(--border);
   font-size: var(--text-xs);
   color: var(--muted);
-  transition: all var(--duration-base) var(--ease-out);
-}
-
-.save-indicator[data-status="saving"] {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.save-indicator[data-status="saved"] {
-  color: var(--green);
-  border-color: var(--green);
-}
-
-.save-indicator[data-status="error"] {
-  color: var(--red);
-  border-color: var(--red);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition:
+    background var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 240px;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .save-indicator-dot {
@@ -31,8 +31,99 @@
   height: 6px;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
+  transition: background var(--duration-base) var(--ease-out);
+}
+
+.save-indicator-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.save-indicator-time {
+  color: var(--muted-2);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  margin-left: -2px;
+}
+
+.save-indicator[data-status="idle"] { color: var(--muted); }
+
+.save-indicator[data-status="saving"] {
+  color: var(--accent);
+  border-color: rgba(55, 138, 221, 0.35);
+  background: rgba(55, 138, 221, 0.08);
 }
 
 .save-indicator[data-status="saving"] .save-indicator-dot {
-  animation: pulse 1s ease infinite;
+  animation: save-pulse 1s ease-in-out infinite;
+}
+
+.save-indicator[data-status="saved"] {
+  color: var(--green);
+  border-color: rgba(29, 158, 117, 0.35);
+  background: rgba(29, 158, 117, 0.08);
+}
+
+.save-indicator[data-status="error"] {
+  color: var(--red);
+  border-color: rgba(255, 59, 48, 0.35);
+  background: rgba(255, 59, 48, 0.08);
+}
+
+.save-indicator[data-status="saving"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px; width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    currentColor 40%,
+    currentColor 60%,
+    transparent 100%
+  );
+  animation: save-bar 1.2s linear infinite;
+  opacity: 0.7;
+}
+
+.save-indicator[data-status="saved"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px; width: 100%;
+  background: currentColor;
+  opacity: 0.35;
+  animation: save-shrink 4s linear forwards;
+}
+
+@keyframes save-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(0.7); }
+}
+
+@keyframes save-bar {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes save-shrink {
+  0%   { transform: scaleX(1); transform-origin: left; }
+  100% { transform: scaleX(0); transform-origin: left; }
+}
+
+body.dark-theme .save-indicator[data-status="saving"] {
+  background: rgba(71, 212, 255, 0.08);
+  border-color: rgba(71, 212, 255, 0.35);
+}
+
+body.dark-theme .save-indicator[data-status="saved"] {
+  background: rgba(74, 222, 128, 0.08);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+@media (max-width: 640px) {
+  .save-indicator { max-width: 140px; padding: 4px 10px 4px 8px; }
+  .save-indicator-time { display: none; }
 }

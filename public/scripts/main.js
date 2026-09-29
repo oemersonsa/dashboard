@@ -18,7 +18,7 @@ import { MARKETPLACE_PRICING_PRESETS } from "./core/constants.js";
 import { toast, toastSuccess, toastError } from "./ui/toast.js";
 import { bindModalDismiss, openModal, closeModal } from "./ui/modal.js";
 import { setupPlatformIconFallbacks } from "./ui/icons.js";
-import { initSaveIndicator, setSaveStatus } from "./ui/save-indicator.js";
+import { initSaveIndicator, setSaveStatus, refreshSaveIndicator, setLastSavedAt } from "./ui/save-indicator.js";
 import { initTheme, setMode as setThemeMode, getMode as getThemeMode, getEffectiveTheme } from "./ui/theme.js";
 import { showGlobalLoader, hideGlobalLoader, renderKpiSkeleton } from "./ui/skeleton.js";
 
@@ -43,9 +43,9 @@ import { init as initReports, openReport } from "./features/reports/report.build
 // ─── Roteador ───────────────────────────────────────────────────────────────
 const KNOWN_SCREENS = ["hub", "dashboard", "calculator", "dailyClose"];
 let activeScreen = "hub";
-let serverSaveTimer = null;
-let serverSaveInFlight = false;
-let serverSaveQueued = false;
+//let serverSaveTimer = null;
+// let serverSaveInFlight = false;
+// let serverSaveQueued = false;
 
 export function getActiveScreen() { return activeScreen; }
 
@@ -106,24 +106,132 @@ export function renderScreen() {
   screens.hub.hidden = false;
   initHub();
   initBackup();
+  refreshSaveIndicator();
 }
 
-/* ═══ SERVER PERSISTENCE ═══ */
+// /* ═══ SERVER PERSISTENCE ═══ */
+// function scheduleServerSave() {
+//   clearTimeout(serverSaveTimer);
+//   setSaveStatus("saving");
+//   serverSaveTimer = setTimeout(() => void persistToServer(), 800);
+// }
+
+// async function persistToServer() {
+//   if (!loadSession()) { setSaveStatus("idle"); return; }
+//   if (serverSaveInFlight) { serverSaveQueued = true; return; }
+//   serverSaveInFlight = true;
+
+//   // ⬇️ Timeout de 15s
+//   const controller = new AbortController();
+//   const timeoutId = setTimeout(() => controller.abort(), 15_000);
+
+//   try {
+//     await apiRequest("/api/state", {
+//       method: "POST",
+//       body: JSON.stringify({ state: getBusinessSnapshot() })
+//     });
+//     const iso = new Date().toISOString();
+//     localStorage.setItem("dashboard-vendas-last-saved-v1", iso);
+//     setLastSavedAt(iso);
+//     setSaveStatus("saved");
+//     setTimeout(() => setSaveStatus("idle"), 2000);
+//   } catch (error) {
+//     console.error("Falha ao salvar no servidor:", error);
+//     setSaveStatus("error", "Erro ao salvar");
+//     toastError("Não foi possível salvar no servidor");
+//   } finally {
+//     serverSaveInFlight = false;
+//     if (serverSaveQueued) {
+//       serverSaveQueued = false;
+//       void persistToServer();
+//     }
+//   }
+// }
+
+// window.addEventListener("dashboard:save-request", scheduleServerSave);
+// window.addEventListener("dashboard:reload", () => renderScreen());
+
+let serverSaveTimer = null;
+let serverSaveInFlight = false;
+let serverSaveQueued = false;
+
 function scheduleServerSave() {
   clearTimeout(serverSaveTimer);
   setSaveStatus("saving");
   serverSaveTimer = setTimeout(() => void persistToServer(), 200);
 }
 
+/* ═══ SERVER PERSISTENCE (incremental) ═══ */
+// Último estado confirmado pelo servidor. null = desconhecido → força salvamento completo.
+const synced = { platforms: null, months: new Map(), settings: null };
+
+const jsonOf = (v) => JSON.stringify(v ?? null);
+const settingsOf = () => ({
+  currentMonth: state.currentMonth,
+  currentScreen: state.currentScreen,
+  pricing: state.pricing
+});
+
+function markSynced() {
+  synced.platforms = jsonOf(state.platforms);
+  synced.months = new Map(
+    Object.entries(state.db).map(([m, d]) => [m, jsonOf(d)])
+  );
+  synced.settings = jsonOf(settingsOf());
+}
+
 async function persistToServer() {
   if (!loadSession()) { setSaveStatus("idle"); return; }
   if (serverSaveInFlight) { serverSaveQueued = true; return; }
   serverSaveInFlight = true;
+
   try {
-    await apiRequest("/api/state", {
-      method: "POST",
-      body: JSON.stringify({ state: getBusinessSnapshot() })
-    });
+    const platformsJson = jsonOf(state.platforms);
+
+    if (synced.platforms !== platformsJson) {
+      // Plataformas mudaram (ou 1º save): salvamento completo, raro
+      await apiRequest("/api/state", {
+        method: "POST",
+        body: JSON.stringify({ state: getBusinessSnapshot() })
+      });
+      markSynced();
+    } else {
+      const tasks = [];
+      const nextMonths = new Map(synced.months);
+
+      for (const [month, data] of Object.entries(state.db)) {
+        const json = jsonOf(data);
+        if (synced.months.get(month) === json) continue;
+        tasks.push(
+          apiRequest(`/api/month/${encodeURIComponent(month)}`, {
+            method: "POST",
+            body: JSON.stringify({ days: data.days, returns: data.returns })
+          }).then(() => nextMonths.set(month, json))
+        );
+      }
+
+      for (const month of synced.months.keys()) {
+        if (state.db[month]) continue;
+        tasks.push(
+          apiRequest(`/api/month/${encodeURIComponent(month)}`, { method: "DELETE" })
+            .then(() => nextMonths.delete(month))
+        );
+      }
+
+      const settingsJson = jsonOf(settingsOf());
+      let nextSettings = synced.settings;
+      if (settingsJson !== synced.settings) {
+        tasks.push(
+          apiRequest("/api/settings", { method: "POST", body: settingsJson })
+            .then(() => { nextSettings = settingsJson; })
+        );
+      }
+
+      await Promise.all(tasks);
+      synced.months = nextMonths;
+      synced.settings = nextSettings;
+    }
+
     setSaveStatus("saved");
     setTimeout(() => setSaveStatus("idle"), 2000);
   } catch (error) {
@@ -165,6 +273,7 @@ async function loadBusinessStateFromServer({ migrateLocal = false } = {}) {
     state.pricing = normalized.pricing;
     state.currentScreen = normalized.currentScreen;
     activeScreen = state.currentScreen || "hub";
+    markSynced(); 
     return true;
   } catch (error) {
     console.error("Falha ao carregar dados do servidor:", error);
@@ -412,6 +521,9 @@ async function init() {
   initSaveIndicator();
   initTheme();
 
+  const lastSaved = localStorage.getItem("dashboard-vendas-last-saved-v1");
+  if (lastSaved) setLastSavedAt(lastSaved);
+
   const reportBtn = document.getElementById("reportButton");
   if (reportBtn) {
     reportBtn.addEventListener("click", (e) => {
@@ -476,16 +588,13 @@ window.dashboard = {
   saveState,
   saveNow,
   scheduleServerSave,
+  markSynced,
   exportBackup,
-  switchDashboardTab,
   handleLogout,
   openImportBackupModal,
   openSetupScreen,
   openReport,
   renderAll,
-  setThemeMode,          
-  getThemeMode,          
-  getEffectiveTheme,     
   state
 };
 

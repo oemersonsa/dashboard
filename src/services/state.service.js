@@ -1,4 +1,4 @@
-const { withTransaction } = require("../db");
+const { client, withTransaction, queryOne, queryAll } = require("../db");
 const platformsRepo = require("../db/repositories/platforms.repo");
 const salesRepo = require("../db/repositories/sales.repo");
 const returnsRepo = require("../db/repositories/returns.repo");
@@ -154,6 +154,16 @@ async function replaceBusinessState(userId, state) {
              JSON.stringify(state.pricing || null), timestamp]
     });
   }).then(() => getBusinessState(userId));
+
+  for (const [month, value] of Object.entries(state.goals || {})) {
+  const target = Number(value?.target ?? value ?? 0);
+  if (!Number.isFinite(target) || target <= 0) continue;
+  await tx.execute({
+    sql: `INSERT INTO goals (user_id, month, target, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?)`,
+    args: [userId, month, target, timestamp, timestamp]
+  });
+}
 }
 
 function normalizeBusinessPayload(body) {
@@ -174,11 +184,76 @@ function normalizeBusinessPayload(body) {
     db: payload.db && typeof payload.db === "object" ? payload.db : {},
     goals,
     currentMonth: String(payload.currentMonth || ""),
-    currentScreen: ["dashboard", "calculator", "dailyClose", "hub"].includes(payload.currentScreen)
-      ? payload.currentScreen
-      : "hub",
+    currentScreen: ["dashboard", "calculator", "dailyClose"].includes(payload.currentScreen)
+    ? payload.currentScreen : "hub",
     pricing: payload.pricing && typeof payload.pricing === "object" ? payload.pricing : null
   };
 }
 
-module.exports = { getBusinessState, replaceBusinessState, normalizeBusinessPayload };
+//const { client, withTransaction, queryOne, queryAll } = require("../db");
+// (ajuste o require existente para incluir `client`)
+
+async function replaceMonth(userId, month, monthData) {
+  const ts = nowIso();
+  const rows = await queryAll(
+    "SELECT platform_key FROM platforms WHERE user_id = ?", [userId]
+  );
+  const keys = rows.map((r) => r.platform_key);
+
+  const stmts = [
+    { sql: "DELETE FROM sales WHERE user_id = ? AND month = ?", args: [userId, month] },
+    { sql: "DELETE FROM returns WHERE user_id = ? AND month = ?", args: [userId, month] }
+  ];
+
+  for (const day of monthData.days || []) {
+    if (!day?.d) continue;
+    for (const key of keys) {
+      const amount = Number(day[key] || 0);
+      const orders = Math.max(0, Math.round(Number(day[`orders_${key}`] || 0)));
+      if (amount <= 0 && orders <= 0) continue;
+      stmts.push({
+        sql: `INSERT INTO sales
+              (user_id, platform_id, month, date, amount, orders_count, created_at, updated_at)
+              SELECT ?, id, ?, ?, ?, ?, ?, ? FROM platforms
+              WHERE user_id = ? AND platform_key = ?`,
+        args: [userId, month, day.d, amount, orders, ts, ts, userId, key]
+      });
+    }
+  }
+
+  for (const key of keys) {
+    const amount = Number(monthData.returns?.[key] || 0);
+    if (amount <= 0) continue;
+    stmts.push({
+      sql: `INSERT INTO returns (user_id, platform_id, month, amount, created_at, updated_at)
+            SELECT ?, id, ?, ?, ?, ? FROM platforms
+            WHERE user_id = ? AND platform_key = ?`,
+      args: [userId, month, amount, ts, ts, userId, key]
+    });
+  }
+
+  await client.batch(stmts, "write");
+}
+
+async function deleteMonth(userId, month) {
+  await client.batch([
+    { sql: "DELETE FROM sales WHERE user_id = ? AND month = ?", args: [userId, month] },
+    { sql: "DELETE FROM returns WHERE user_id = ? AND month = ?", args: [userId, month] }
+  ], "write");
+}
+
+async function hasPlatforms(userId) {
+  const row = await queryOne(
+    "SELECT COUNT(*) AS n FROM platforms WHERE user_id = ?", [userId]
+  );
+  return Number(row?.n || 0) > 0;
+}
+
+module.exports = {
+  getBusinessState,
+  replaceBusinessState,
+  normalizeBusinessPayload,
+  replaceMonth,
+  deleteMonth,
+  hasPlatforms
+};

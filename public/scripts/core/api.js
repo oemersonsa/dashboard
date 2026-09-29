@@ -51,6 +51,7 @@ export async function apiRequest(path, options = {}) {
     ? {} : { Authorization: `Bearer ${tok}` };
   const response = await fetch(path, {
     ...options,
+    signal: options.signal, 
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",

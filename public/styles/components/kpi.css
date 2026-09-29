@@ -1,11 +1,56 @@
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: minmax(150px, 0.8fr) minmax(0, 3.2fr);
+  gap: var(--space-4) var(--space-6);
   align-items: stretch;
 }
 
 .kpi-row[hidden] { display: none; }
+
+.kpi-period {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.kpi-period-current {
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+
+.kpi-period-comparison {
+  color: var(--muted-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.kpi-group { min-width: 0; }
+
+.kpi-group-title {
+  margin: 0 0 var(--space-2);
+  color: var(--muted-2);
+  font-size: var(--text-base);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.kpi-group-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+.kpi-group--financial .kpi-group-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.kpi-group--volume .kpi-card { max-width: 320px; min-height: 176px; }
+.kpi-group--financial .kpi-card { min-height: 176px; }
 
 .kpi-card {
   background: var(--surface);
@@ -26,10 +71,9 @@
 }
 
 .kpi-card:nth-child(1) { animation-delay: 0ms; }
-.kpi-card:nth-child(2) { animation-delay: 60ms; }
-.kpi-card:nth-child(3) { animation-delay: 120ms; }
-.kpi-card:nth-child(4) { animation-delay: 180ms; }
-.kpi-card:nth-child(5) { animation-delay: 240ms; }
+.kpi-group--financial .kpi-card:nth-child(2) { animation-delay: 60ms; }
+.kpi-group--financial .kpi-card:nth-child(3) { animation-delay: 120ms; }
+.kpi-group--financial .kpi-card:nth-child(4) { animation-delay: 180ms; }
 
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(12px); }
@@ -45,20 +89,16 @@
   height: 2px;
 }
 
-.kpi-card:nth-child(1)::before { background: var(--accent); }
-.kpi-card:nth-child(2)::before { background: var(--accent-2); }
-.kpi-card:nth-child(3)::before { background: var(--accent-3); }
-.kpi-card:nth-child(4)::before { background: var(--accent-4); }
-.kpi-card:nth-child(5)::before { background: var(--accent-2); }
+.kpi-card::before { background: var(--accent); }
 
 .kpi-label {
-  font-size: var(--text-xs);
+  font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 600;
   line-height: 1.35;
-  min-height: 28px;
+  min-height: 20px;
   display: flex;
   align-items: flex-start;
 }
@@ -72,8 +112,14 @@
   overflow-wrap: anywhere;
 }
 
+.kpi-context {
+  color: var(--muted-2);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .kpi-change {
-  font-size: var(--text-sm);
+  font-size: 12px;
   color: var(--muted);
   line-height: 1.4;
   margin-top: auto;

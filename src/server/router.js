@@ -11,6 +11,7 @@ const stateRoutes = require("../routes/state.routes");
 const platformsRoutes = require("../routes/platforms.routes");
 const salesRoutes = require("../routes/sales.routes");
 const returnsRoutes = require("../routes/returns.routes");
+const monthRoutes = require("../routes/month.routes");
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -100,6 +101,16 @@ async function handleRequest(req, res) {
       }
       if (req.method === "POST" && url.pathname === "/api/returns") {
         return await returnsRoutes.save(req, res, authenticatedUser);
+      }
+      if (req.method === "POST" && url.pathname === "/api/settings") {
+        return await monthRoutes.saveSettings(req, res, authenticatedUser);
+      }
+      const monthMatch = url.pathname.match(/^\/api\/month\/(.+)$/);
+      if (monthMatch && req.method === "POST") {
+        return await monthRoutes.saveMonth(req, res, authenticatedUser, monthMatch[1]);
+      }
+      if (monthMatch && req.method === "DELETE") {
+        return await monthRoutes.removeMonth(req, res, authenticatedUser, monthMatch[1]);
       }
 
       const dashboardMatch = url.pathname.match(/^\/api\/dashboard\/(.+)$/);

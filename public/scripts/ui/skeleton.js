@@ -7,13 +7,26 @@ export function renderKpiSkeleton(count = 5) {
   const el = document.getElementById("kpiRow");
   if (!el) return;
 
-  el.innerHTML = Array.from({ length: count }).map(() => `
+  const card = () => `
     <div class="kpi-card is-skeleton">
       <div class="kpi-label"></div>
       <div class="kpi-value"></div>
       <div class="kpi-change"></div>
     </div>
-  `).join("");
+  `;
+  const volumeCard = count > 0 ? card() : "";
+  const financialCards = Array.from({ length: Math.max(0, count - 1) }).map(card).join("");
+
+  el.innerHTML = `
+    <section class="kpi-group kpi-group--volume" aria-labelledby="kpiVolumeHeading">
+      <h2 class="kpi-group-title" id="kpiVolumeHeading">Volume</h2>
+      <div class="kpi-group-cards">${volumeCard}</div>
+    </section>
+    <section class="kpi-group kpi-group--financial" aria-labelledby="kpiFinancialHeading">
+      <h2 class="kpi-group-title" id="kpiFinancialHeading">Valores de vendas</h2>
+      <div class="kpi-group-cards">${financialCards}</div>
+    </section>
+  `;
 }
 
 /* ═══ Gráfico ═══ */

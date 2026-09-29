@@ -159,22 +159,39 @@ function renderGoalAlert() {
 /* ═══ KPIs ═══ */
 function renderKPIs() {
   const c = getComparisonPeriod(state.currentMonth);
-  const t = c.currentTotals;
+  // Valores e variações do resumo devem usar a mesma janela do período anterior.
+  const t = c.previousTotals ? c.currentComparisonTotals : c.currentTotals;
   const pn = c.previousName;
   const pt = c.previousTotals;
   const rp = t.gross > 0 ? (t.totalRet / t.gross) * 100 : 0;
-  const cl = pt
-    ? `${getPeriodLabel(pn)}${c.cutoffDay ? ` até dia ${c.cutoffDay}` : ""}`
-    : getPeriodLabel(state.currentMonth);
+  const comparisonContext = pt
+    ? c.cutoffDay
+      ? `Dias 1–${c.cutoffDay} · comparação com ${getPeriodLabel(pn)}`
+      : `Mês completo · comparação com ${getPeriodLabel(pn)}`
+    : `Período selecionado · ${getPeriodLabel(state.currentMonth)}`;
   const el = document.getElementById("kpiRow");
   if (!el) return;
 
   el.innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Vendas</div><div class="kpi-value">${RS(t.gross)}</div><div class="kpi-change">${pt ? `${varH(t.gross, pt.gross)} vs ${cl}` : getPeriodLabel(state.currentMonth)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Vendas após devoluções</div><div class="kpi-value">${RS(t.net)}</div><div class="kpi-change">${pt ? `${varH(t.net, pt.net)} vs ${cl}` : dash}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Pedidos</div><div class="kpi-value">${t.orders}</div><div class="kpi-change">${pt ? `${varH(t.orders, pt.orders)} vs ${cl}` : dash}</div><div class="kpi-change" style="color:var(--muted)">${t.orders > 0 ? `${RS(t.gross / t.orders)} por pedido` : "Sem pedidos lançados"}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Devoluções</div><div class="kpi-value">${RS(t.totalRet)}</div><div class="kpi-change">${pt ? `${varH(t.totalRet, pt.totalRet, true)} vs ${cl}` : dash}</div><div class="kpi-change" style="color:var(--muted)">${rp.toFixed(1)}% das vendas</div><div class="returns-bar"><div class="returns-fill" style="width:${Math.min(rp, 100)}%"></div></div></div>
-    <div class="kpi-card"><div class="kpi-label">Ticket Médio</div><div class="kpi-value">${t.orders > 0 ? RS(t.gross / t.orders) : RS(0)}</div><div class="kpi-change" style="color:var(--muted)">por pedido</div></div>
+    <div class="kpi-period" aria-label="${escapeAttribute(`${getPeriodLabel(state.currentMonth)}. ${comparisonContext}`)}">
+      <span class="kpi-period-current">${getPeriodLabel(state.currentMonth)}</span>
+      <span class="kpi-period-comparison">${pt ? comparisonContext : "Sem mês anterior para comparar"}</span>
+    </div>
+    <section class="kpi-group kpi-group--volume" aria-labelledby="kpiVolumeHeading">
+      <h2 class="kpi-group-title" id="kpiVolumeHeading">Volume</h2>
+      <div class="kpi-group-cards">
+        <div class="kpi-card kpi-card--volume"><div class="kpi-label">Pedidos</div><div class="kpi-value">${t.orders}</div><div class="kpi-change">${pt ? varH(t.orders, pt.orders) : "Sem mês anterior"}</div></div>
+      </div>
+    </section>
+    <section class="kpi-group kpi-group--financial" aria-labelledby="kpiFinancialHeading">
+      <h2 class="kpi-group-title" id="kpiFinancialHeading">Valores de vendas</h2>
+      <div class="kpi-group-cards">
+        <div class="kpi-card kpi-card--gross"><div class="kpi-label">Vendas brutas</div><div class="kpi-value">${RS(t.gross)}</div><div class="kpi-context">Total antes das devoluções</div><div class="kpi-change">${pt ? varH(t.gross, pt.gross) : "Sem mês anterior"}</div></div>
+        <div class="kpi-card kpi-card--returns"><div class="kpi-label">Devoluções</div><div class="kpi-value">${RS(t.totalRet)}</div><div class="kpi-context">${rp.toFixed(1)}% das vendas brutas</div><div class="kpi-change">${pt ? varH(t.totalRet, pt.totalRet, true) : "Sem mês anterior"}</div><div class="returns-bar"><div class="returns-fill" style="width:${Math.min(rp, 100)}%"></div></div></div>
+        <div class="kpi-card kpi-card--net"><div class="kpi-label">Vendas líquidas</div><div class="kpi-value">${RS(t.net)}</div><div class="kpi-context">Bruto menos devoluções</div><div class="kpi-change">${pt ? varH(t.net, pt.net) : "Sem mês anterior"}</div></div>
+        <div class="kpi-card kpi-card--ticket"><div class="kpi-label">Ticket médio</div><div class="kpi-value">${t.orders > 0 ? RS(t.gross / t.orders) : RS(0)}</div><div class="kpi-context">Vendas brutas por pedido</div></div>
+      </div>
+    </section>
   `;
 }
 

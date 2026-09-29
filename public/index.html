@@ -122,11 +122,19 @@
 
       <main id="dashboardMain" class="dashboard-main">
         <div class="kpi-row" id="kpiRow">
-          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
-          <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+          <section class="kpi-group kpi-group--volume" aria-labelledby="kpiVolumeHeading">
+            <h2 class="kpi-group-title" id="kpiVolumeHeading">Volume</h2>
+            <div class="kpi-group-cards"><div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div></div>
+          </section>
+          <section class="kpi-group kpi-group--financial" aria-labelledby="kpiFinancialHeading">
+            <h2 class="kpi-group-title" id="kpiFinancialHeading">Valores de vendas</h2>
+            <div class="kpi-group-cards">
+              <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+              <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+              <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+              <div class="kpi-card is-skeleton"><div class="kpi-label"></div><div class="kpi-value"></div><div class="kpi-change"></div></div>
+            </div>
+          </section>
         </div>
         <div class="dashboard-panels">
           <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
@@ -254,7 +262,7 @@
               <div class="card-header">
                 <div>
                   <div class="card-title">Meta do Mês</div>
-                  <div class="card-sub">Defina uma meta sobre o faturamento bruto</div>
+                  <div class="card-sub">Defina uma meta sobre o faturamento líquido (após devoluções)</div>
                 </div>
                 <div class="goal-input-wrap">
                   <label class="flabel" for="goalInput">Meta R$</label>

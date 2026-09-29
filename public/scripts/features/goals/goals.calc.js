@@ -25,8 +25,9 @@ export const STATUS_LABEL = {
 /* ═══ Progresso da meta ═══ */
 export function computeGoalProgress(month, target, stateData) {
   const t = Number(target || 0);
-  const totals = calcTotals(month, {}) || { gross: 0 };
-  const realized = Number(totals.gross || 0);
+  const totals = calcTotals(month, {}) || { gross: 0, net: 0 };
+  // Meta é sobre vendas pós-devoluções (líquido)
+  const realized = Number(totals.net || 0); 
 
   // Sem meta
   if (!Number.isFinite(t) || t <= 0) {
