@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { app, BrowserWindow, shell } = require("electron");
+const { PUBLIC_DIR } = require("../config/paths");
 
 process.env.PORT = process.env.PORT || "37171";
 process.env.HOST = "127.0.0.1";
@@ -35,7 +36,8 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 820, minWidth: 1024, minHeight: 700,
     show: false, autoHideMenuBar: true,
-    title: "Dashboard de Vendas",
+    title: "Kanri",
+    icon: path.join(PUBLIC_DIR, "assets", "kanri-icon.png"),
     webPreferences: { contextIsolation: true, nodeIntegration: false }
   });
   mainWindow.once("ready-to-show", () => mainWindow.show());

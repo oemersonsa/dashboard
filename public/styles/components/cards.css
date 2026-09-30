@@ -44,12 +44,13 @@
   letter-spacing: -0.01em;
 }
 
-.logo-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--accent);
-  border-radius: 50%;
-  animation: pulse 2s ease infinite;
+.kanri-app-icon {
+  display: block;
+  flex: 0 0 25px;
+  width: 25px;
+  height: 25px;
+  border-radius: 7px;
+  object-fit: cover;
 }
 
 .empty-state {

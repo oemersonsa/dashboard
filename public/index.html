@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard de Vendas</title>
-<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<title>Kanri</title>
+<link rel="icon" type="image/png" href="/assets/kanri-icon.png">
+<link rel="apple-touch-icon" href="/assets/kanri-icon.png">
 <link rel="stylesheet" href="/styles/main.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
@@ -15,7 +16,7 @@
   <!-- AUTH -->
   <section class="screen auth-screen" id="authScreen">
     <div class="auth-card">
-      <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
+      <div class="logo"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Kanri</div>
       <div class="auth-copy">
         <div class="card-title" id="authTitle">Entrar</div>
         <div class="card-sub" id="authSubtitle">Acesse seu dashboard local nesta maquina.</div>
@@ -37,7 +38,7 @@
 
   <section class="screen auth-screen" id="serverLoadErrorScreen" hidden>
     <div class="auth-card" role="alert">
-      <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
+      <div class="logo"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Kanri</div>
       <div class="auth-copy">
         <div class="card-title">Não foi possível carregar seus dados</div>
         <div class="card-sub">A conexão com o servidor falhou. Seus dados podem estar intactos; tente novamente antes de continuar.</div>
@@ -50,7 +51,7 @@
   <section class="screen setup-screen" id="setupScreen" hidden>
     <div class="setup-shell">
       <div class="auth-card setup-card">
-        <div class="logo"><div class="logo-dot"></div>Configurar Plataformas</div>
+        <div class="logo"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Kanri · Configurar Plataformas</div>
         <div class="auth-copy">
           <div class="card-title">Cadastre suas plataformas</div>
           <div class="card-sub">O dashboard será gerado com base nas plataformas que você usar.</div>
@@ -86,7 +87,7 @@
     <header class="topbar">
       <div class="header-left">
         <button class="icon-btn menu-toggle" id="menuToggleButton" type="button" aria-label="Menu">☰</button>
-        <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
+        <div class="logo"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Kanri</div>
       </div>
       <div class="header-right">
         <div class="dashboard-period-controls" role="group" aria-label="Período do dashboard">
@@ -356,7 +357,7 @@
         <button class="btn btn-secondary" id="calculatorBackToHubButton" type="button">Menu</button>
         <button class="btn btn-secondary" id="calculatorOpenDashboardButton" type="button">Dashboard</button>
       </div>
-      <div class="logo header-brand"><div class="logo-dot"></div><span id="calculatorTitle">Calculadora</span></div>
+      <div class="logo header-brand"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt=""><span id="calculatorTitle">Calculadora</span></div>
       <div class="header-right">
         <button class="btn btn-secondary" id="calculatorManagePlatformsButton" type="button">Plataformas</button>
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
@@ -404,7 +405,7 @@
         <button class="btn btn-secondary" id="dailyCloseBackToHubButton" type="button">Menu</button>
         <button class="btn btn-secondary" id="dailyCloseOpenDashboardButton" type="button">Dashboard</button>
       </div>
-      <div class="logo header-brand"><div class="logo-dot"></div><span id="dailyCloseTitle">Fechamento Diário</span></div>
+      <div class="logo header-brand"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt=""><span id="dailyCloseTitle">Fechamento Diário</span></div>
       <div class="header-right">
         <button class="btn btn-secondary" id="dailyCloseManagePlatformsButton" type="button">Plataformas</button>
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
@@ -439,7 +440,7 @@
       <div class="header-left">
         <button class="btn btn-secondary" id="accountBackButton" type="button">Voltar ao dashboard</button>
       </div>
-      <div class="logo header-brand"><div class="logo-dot"></div>Configurações da conta</div>
+      <div class="logo header-brand"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Configurações da conta</div>
       <div class="header-right">
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema"><span data-theme-icon></span></button>
       </div>

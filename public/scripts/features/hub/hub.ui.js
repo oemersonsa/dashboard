@@ -77,7 +77,7 @@ function render() {
 
   shell.innerHTML = `
     <div class="hub-topbar">
-      <div class="logo"><div class="logo-dot"></div>Dashboard de Vendas</div>
+      <div class="logo"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Kanri</div>
       <div class="hub-topbar-actions">
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
           <span data-theme-icon></span>
