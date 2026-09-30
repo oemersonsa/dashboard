@@ -220,28 +220,35 @@ function renderOverviewTrend() {
   const mutedColor = css.getPropertyValue("--muted").trim() || "#86868b";
   const accentColor = css.getPropertyValue("--accent").trim() || "#e8ff47";
   overviewTrendChart = new Chart(canvas.getContext("2d"), {
-    type: "bar",
+    type: "line",
     data: {
       labels: grouped.map((item) => item.label),
       datasets: [{
         label: "Vendas brutas",
         data: grouped.map((item) => item.value),
-        backgroundColor: accentColor,
-        borderRadius: 5,
-        maxBarThickness: bucketSize === 1 ? 18 : 54
+        borderColor: accentColor,
+        backgroundColor: `${accentColor}20`,
+        borderWidth: 2,
+        tension: 0.32,
+        fill: true,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointBackgroundColor: accentColor,
+        pointBorderColor: "transparent"
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 250 },
+      animation: { duration: 350 },
+      interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: (item) => `Vendas brutas: ${RS(Number(item.raw || 0))}` } }
       },
       scales: {
         x: { grid: { display: false }, ticks: { color: mutedColor, maxTicksLimit: bucketSize === 1 ? 10 : 8, maxRotation: 0 }, border: { display: false } },
-        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: mutedColor, callback: (value) => R(value) }, border: { display: false } }
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: mutedColor, callback: (value) => Number(value) >= 1000 ? `R$ ${(Number(value) / 1000).toLocaleString("pt-BR")}k` : `R$ ${Number(value).toLocaleString("pt-BR")}` }, border: { display: false } }
       }
     }
   });

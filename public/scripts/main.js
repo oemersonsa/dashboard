@@ -27,6 +27,7 @@ import { showGlobalLoader, hideGlobalLoader, renderKpiSkeleton } from "./ui/skel
 import { init as initAuth, handleLogout } from "./features/auth/auth.ui.js";
 import { init as initHub } from "./features/hub/hub.ui.js";
 import { init as initPlatforms } from "./features/platforms/platforms.ui.js";
+import { init as initPlatformAnalytics } from "./features/platforms/analytics.ui.js";
 import {
   init as initSales,
   renderAll,
@@ -709,6 +710,7 @@ export function switchDashboardTab(name) {
   if (target === "trends") {
     import("./features/trends/trends.ui.js").then((m) => m.init?.()).catch(console.error);
   }
+  if (target === "platforms") initPlatformAnalytics();
 }
 
 /* ═══ BOOT ═══ */

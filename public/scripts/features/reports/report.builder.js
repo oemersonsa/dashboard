@@ -72,9 +72,8 @@ export function openReport() {
 export async function exportReportPNG() {
   const b = document.getElementById("exportReportButton");
   const t = document.getElementById("reportTitle")?.textContent || "Relatório";
-  const s = document.querySelector("#reportModal .modal-subtitle")?.textContent || "";
-  const cc = document.getElementById("reportContent");
-  if (!cc || !window.html2canvas) {
+  const preview = document.querySelector("#reportModal .rmodal");
+  if (!preview || !window.html2canvas) {
     return window.dashboard?.toastError("Não foi possível exportar");
   }
 
@@ -83,12 +82,59 @@ export async function exportReportPNG() {
 
   const er = document.createElement("div");
   er.className = "pdf-export-root";
-  er.innerHTML = `<div class="modal rmodal pdf-export-modal"><div class="mheader"><div><div class="mtitle">${t}</div><div class="card-sub modal-subtitle">${s}</div></div></div><div>${cc.innerHTML}</div></div>`;
+  Object.assign(er.style, {
+    position: "fixed", left: "0", top: "0", zIndex: "-1", opacity: "0",
+    pointerEvents: "none", width: "1100px"
+  });
+  const exportPreview = preview.cloneNode(true);
+  exportPreview.classList.add("pdf-export-modal");
+  exportPreview.removeAttribute("id");
+  exportPreview.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+  exportPreview.querySelector(".header-actions")?.remove();
+  Object.assign(exportPreview.style, {
+    width: "1100px", maxWidth: "none", maxHeight: "none", height: "auto",
+    overflow: "visible", animation: "none", opacity: "1", transform: "none",
+    backdropFilter: "none", boxShadow: "none"
+  });
+  er.appendChild(exportPreview);
   document.body.appendChild(er);
 
   try {
-    const canvas = await window.html2canvas(er.querySelector(".pdf-export-modal"), {
-      backgroundColor: "#ffffff", scale: 2, useCORS: true
+    await document.fonts?.ready;
+    const images = [...exportPreview.querySelectorAll(".platform-icon-img")];
+    images.forEach((image) => {
+      image.loading = "eager";
+      image.crossOrigin = "anonymous";
+      const src = image.getAttribute("src");
+      if (src) { image.removeAttribute("src"); image.setAttribute("src", src); }
+      image.onerror = () => image.remove();
+    });
+    await Promise.race([
+      Promise.allSettled(images.map((image) => image.decode?.())),
+      new Promise((resolve) => setTimeout(resolve, 2500))
+    ]);
+    images.forEach((image) => {
+      if (!image.isConnected) return;
+      if (!image.complete || image.naturalWidth === 0) image.remove();
+    });
+
+    const canvas = await window.html2canvas(exportPreview, {
+      backgroundColor: getComputedStyle(preview).backgroundColor || null,
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (clonedDocument) => {
+        const root = clonedDocument.querySelector(".pdf-export-root");
+        const modal = clonedDocument.querySelector(".pdf-export-modal");
+        if (root) root.style.opacity = "1";
+        if (modal) {
+          modal.style.animation = "none";
+          modal.style.opacity = "1";
+          modal.style.transform = "none";
+        }
+      }
     });
     const u = canvas.toDataURL("image/png");
     const l = document.createElement("a");

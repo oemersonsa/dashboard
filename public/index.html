@@ -247,14 +247,20 @@
             </div>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-platforms" data-dashboard-panel="platforms" hidden>
-            <div class="card">
-              <div class="card-header">
-                <div><div class="card-title">Resumo por Plataforma</div><div class="card-sub">Vendas e devoluções vs. mês anterior</div></div>
+            <div class="platform-analytics">
+              <header class="platform-analytics-heading"><div class="platform-analytics-eyebrow">ANÁLISES / PLATAFORMAS</div><h1>Vendas por plataforma</h1><p>Compare o desempenho e acompanhe pedidos no período.</p></header>
+              <div class="card platform-analytics-filters">
+                <label class="platform-analytics-field"><span class="flabel">Período</span><select class="finput" id="platformRange"><option value="30">Últimos 30 dias</option><option value="90" selected>Últimos 90 dias</option><option value="180">Últimos 180 dias</option><option value="365">Últimos 12 meses</option><option value="custom">Personalizado</option></select></label>
+                <label class="platform-analytics-field"><span class="flabel">Plataforma</span><select class="finput" id="platformFilter"><option value="all">Todas as plataformas</option></select></label>
+                <div class="platform-custom-dates" id="platformCustomDates" hidden><label class="platform-analytics-field"><span class="flabel">De</span><input class="finput" type="date" id="platformDateFrom"></label><label class="platform-analytics-field"><span class="flabel">Até</span><input class="finput" type="date" id="platformDateTo"></label></div>
+                <div class="platform-analytics-period" id="platformPeriodLabel" aria-live="polite"></div><button type="button" class="btn btn-secondary platform-export-button" id="platformExportButton">Exportar CSV</button>
               </div>
-              <div id="monthCompareCards"></div>
-              <div class="platform-summary-table-wrap" role="region" aria-label="Resumo de vendas por plataforma" tabindex="0">
-                <table class="ptable platform-summary-table" id="platformTable"></table>
+              <div class="platform-analytics-kpis" id="platformAnalyticsKpis"></div>
+              <div class="platform-analytics-grid">
+                <section class="card platform-chart-card"><div class="platform-section-heading"><div><h2>Evolução das vendas e pedidos</h2><p id="platformChartSubtitle">Valores diários no período selecionado</p></div><div class="platform-metric-toggle" role="group" aria-label="Métrica do gráfico"><button type="button" class="active" data-platform-metric="sales" aria-pressed="true">Vendas</button><button type="button" data-platform-metric="orders" aria-pressed="false">Pedidos</button></div></div><div class="platform-analytics-chart-box"><canvas id="platformAnalyticsChart" aria-label="Gráfico de vendas no período selecionado"></canvas></div></section>
+                <section class="card platform-mix-card"><div class="platform-section-heading"><div><h2>Participação por plataforma</h2><p>Vendas brutas no período</p></div></div><div id="platformShare"></div></section>
               </div>
+              <section class="card platform-performance-card"><div class="platform-section-heading"><div><h2>Desempenho por plataforma</h2><p>Clique em uma linha para filtrar a página por essa plataforma.</p></div></div><div class="platform-performance-wrap" role="region" aria-label="Desempenho por plataforma" tabindex="0"><table class="platform-performance-table" id="platformPerformanceTable"></table></div></section>
             </div>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-trends" data-dashboard-panel="trends" hidden>
