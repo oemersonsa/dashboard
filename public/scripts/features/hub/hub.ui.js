@@ -29,17 +29,18 @@ function render() {
     sales: {}, ret: {}, gross: 0, totalRet: 0, net: 0, orders: 0
   };
   const platforms = state.platforms || [];
-  const activePlatforms = platforms.filter((p) => Number(totals.sales[p.key] || 0) > 0);
+  const activePlatforms = platforms.filter((p) => !p.archived && Number(totals.sales[p.key] || 0) > 0);
   const returnRate = totals.gross > 0 ? (totals.totalRet / totals.gross) * 100 : 0;
   const loggedDays = getLoggedDays(month);
   const monthDays = getMonthDays(month);
   const progress = monthDays > 0 ? Math.min((loggedDays / monthDays) * 100, 100) : 0;
   const username = state.auth?.username || "Usuário";
 
-  const preview = platforms.slice(0, 5)
+  const availablePlatforms = platforms.filter((platform) => !platform.archived);
+  const preview = availablePlatforms.slice(0, 5)
     .map((p) => `<span class="hub-platform-pill">${platformIcon(p)}${escapeHtml(p.name)}</span>`)
     .join("");
-  const overflow = Math.max(platforms.length - 5, 0);
+  const overflow = Math.max(availablePlatforms.length - 5, 0);
 
   // ─── Meta do mês ───
   const goalTarget = state.goals?.[month]?.target || 0;
@@ -70,7 +71,7 @@ function render() {
     goalBlock = `
       <div class="hub-goal-line hub-goal-line--empty">
         <span class="hub-goal-line-label">Sem meta definida</span>
-        <button type="button" class="link-btn" data-nav="dashboard" data-dashboard-tab-target="projection">Definir meta</button>
+        <button type="button" class="link-btn" data-dashboard-tab-target="projection">Definir meta</button>
       </div>
     `;
   }
@@ -189,12 +190,10 @@ function bindEvents() {
     if (goalBtn) {
       event.preventDefault();
       const tabName = goalBtn.dataset.dashboardTabTarget;
-      window.dashboard?.setActiveScreen?.("dashboard");
-      window.dashboard?.renderScreen?.();
-      // Aguarda o dashboard renderizar e troca a aba
-      setTimeout(() => {
-        window.dashboard?.switchDashboardTab?.(tabName);
-      }, 100);
+      window.dashboard.state.activeTab = tabName;
+      window.dashboard.saveState();
+      window.dashboard.setActiveScreen("dashboard");
+      window.dashboard.renderScreen();
       return;
     }
 

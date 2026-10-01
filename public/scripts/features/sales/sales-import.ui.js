@@ -9,12 +9,22 @@ const SHEETJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.ful
 let bound = false;
 let pendingRows = [];
 let pendingPeriod = "";
+let sourceMatrix = [];
+let sourceHeaders = [];
+let headerIndex = 0;
 
 export function init() {
   if (bound) return;
   bound = true;
   document.getElementById("salesSheetFileInput")?.addEventListener("change", handleFile);
   document.getElementById("salesSheetImportButton")?.addEventListener("click", applyImport);
+  document.getElementById("salesImportMapping")?.addEventListener("change", (event) => {
+    if (!event.target.matches("select")) return;
+    pendingRows = [];
+    document.getElementById("salesSheetImportButton").disabled = true;
+    const preview = document.getElementById("salesSheetPreview");
+    if (preview) preview.innerHTML = '<p class="card-sub">Mapeamento alterado. Clique em “Conferir dados” antes de importar.</p>';
+  });
   document.querySelectorAll("[data-sales-import-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       document.querySelectorAll("[data-sales-import-mode]").forEach((item) => {
@@ -29,6 +39,8 @@ export function init() {
 export function openSalesSheetImport() {
   if (!state.platforms.length) return toastError("Cadastre as plataformas antes de importar vendas");
   pendingRows = [];
+  sourceMatrix = [];
+  sourceHeaders = [];
   pendingPeriod = state.currentMonth;
   clearPreview();
   const period = document.getElementById("salesSheetPeriod");
@@ -40,16 +52,23 @@ async function handleFile(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (!file) return;
+  pendingRows = [];
+  sourceMatrix = [];
+  sourceHeaders = [];
+  const mapping = document.getElementById("salesImportMapping");
+  if (mapping) { mapping.hidden = true; mapping.replaceChildren(); }
+  document.getElementById("salesSheetImportButton").disabled = true;
   const status = document.getElementById("salesSheetPreview");
   if (status) status.innerHTML = '<p class="card-sub">Lendo planilha…</p>';
   try {
     if (file.size > 10 * 1024 * 1024) throw new Error("O arquivo deve ter no máximo 10 MB.");
     const XLSX = await loadSheetJs();
     const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
-    const rows = readDailyRows(XLSX, workbook);
-    pendingRows = validateAndGroup(rows);
-    if (!pendingRows.length) throw new Error("Não encontrei linhas de vendas válidas na aba Diário.");
-    renderPreview();
+    const parsed = findTable(XLSX, workbook);
+    sourceMatrix = parsed.matrix;
+    sourceHeaders = parsed.headers;
+    headerIndex = parsed.headerIndex;
+    renderMapping();
   } catch (error) {
     pendingRows = [];
     clearPreview();
@@ -57,37 +76,73 @@ async function handleFile(event) {
   }
 }
 
-function readDailyRows(XLSX, workbook) {
-  let matrix = null;
-  const dailySheet = workbook.Sheets[workbook.SheetNames.find((name) => normalize(name) === "diario")];
-  if (dailySheet) matrix = XLSX.utils.sheet_to_json(dailySheet, { header: 1, raw: false, defval: "" });
-  if (!matrix) {
-    const csvSheet = workbook.Sheets[workbook.SheetNames[0]];
-    matrix = XLSX.utils.sheet_to_json(csvSheet, { header: 1, raw: false, defval: "" });
-    const sectionIndex = matrix.findIndex((row) => normalize(row[0]) === "vendas diarias");
-    if (sectionIndex >= 0) matrix = matrix.slice(sectionIndex + 1);
+function findTable(XLSX, workbook) {
+  for (const name of workbook.SheetNames) {
+    const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" });
+    const candidates = matrix.slice(0, 30).map((row, index) => ({
+      index,
+      row,
+      score: row.reduce((score, cell) => {
+        const header = normalize(cell);
+        return score + (/data|date|dia|venda|valor|faturamento|pedido|order|sales|amount/.test(header) ? 1 : 0);
+      }, 0)
+    })).filter((item) => item.row.filter((cell) => String(cell || "").trim()).length >= 2);
+    const candidate = candidates.sort((a, b) => b.score - a.score)[0];
+    const index = candidate?.index ?? -1;
+    if (index >= 0 && matrix.length > index + 1) {
+      const headers = matrix[index].map((cell, column) => String(cell || "").trim() || `Coluna ${column + 1}`);
+      return { matrix, headers, headerIndex: index };
+    }
   }
-  const headerIndex = matrix.findIndex((row) => normalize(row[0]) === "data" && row.some((cell) => / - (vendas|pedidos)$/.test(normalize(cell))));
-  if (headerIndex < 0) throw new Error("A planilha precisa ter uma aba/ seção ‘Diário’ com Data e colunas ‘Plataforma - Vendas’ e ‘Plataforma - Pedidos’. Use o relatório exportado pelo sistema.");
-  const headers = matrix[headerIndex].map((cell) => String(cell || "").trim());
+  throw new Error("Não encontrei uma tabela com cabeçalho e linhas de dados.");
+}
+
+function renderMapping() {
+  const el = document.getElementById("salesImportMapping");
+  if (!el || !sourceHeaders.length) return;
+  const options = (selected, includeBlank = false) => `${includeBlank ? '<option value="">Não importar</option>' : ""}${sourceHeaders.map((header, index) => `<option value="${index}" ${Number(selected) === index ? "selected" : ""}>${escapeHtml(header)}</option>`).join("")}`;
+  const guessedDate = sourceHeaders.findIndex((header) => /data|date/i.test(header));
+  const rows = state.platforms.filter((platform) => !platform.archived).map((platform) => {
+    const platformMatch = normalize(platform.name);
+    const guess = (kind) => sourceHeaders.findIndex((header) => {
+      const h = normalize(header);
+      return h.includes(platformMatch) && (kind === "sales" ? /venda|valor|faturamento|total|sales|amount/.test(h) : /pedido|order|quantidade/.test(h));
+    });
+    return `<div class="sales-import-map-row"><strong>${escapeHtml(platform.name)}</strong><label class="fg"><span class="flabel">Vendas</span><select class="finput" data-map-platform="${escapeAttribute(platform.key)}" data-map-kind="sales"><option value="">Não importar</option>${sourceHeaders.map((header, index) => `<option value="${index}" ${index === guess("sales") ? "selected" : ""}>${escapeHtml(header)}</option>`).join("")}</select></label><label class="fg"><span class="flabel">Pedidos</span><select class="finput" data-map-platform="${escapeAttribute(platform.key)}" data-map-kind="orders">${options(guess("orders"), true)}</select></label></div>`;
+  }).join("");
+  el.hidden = false;
+  el.innerHTML = `<div class="sales-import-map-row"><strong>Data do lançamento</strong><label class="fg"><span class="flabel">Coluna de data</span><select class="finput" id="salesImportDateColumn">${sourceHeaders.map((header, index) => `<option value="${index}" ${index === guessedDate ? "selected" : ""}>${escapeHtml(header)}</option>`).join("")}</select></label></div>${rows}<button class="btn btn-secondary" id="salesImportPreviewButton" type="button">Conferir dados</button>`;
+  document.getElementById("salesImportPreviewButton")?.addEventListener("click", buildPreview);
+  document.getElementById("salesSheetImportButton").disabled = true;
+  const preview = document.getElementById("salesSheetPreview");
+  if (preview) preview.innerHTML = '<p class="card-sub">Associe as colunas e selecione “Conferir dados”.</p>';
+}
+
+function buildPreview() {
+  const dateColumn = Number(document.getElementById("salesImportDateColumn")?.value);
   const platformColumns = [];
-  const unknownPlatforms = new Set();
-  headers.forEach((header, index) => {
-    const match = header.match(/^(.+)\s+-\s+(vendas|pedidos)$/i);
-    if (!match) return;
-    const platform = state.platforms.find((item) => normalize(item.name) === normalize(match[1]));
-    if (platform) {
-      let column = platformColumns.find((item) => item.key === platform.key);
-      if (!column) {
-        column = { key: platform.key, sales: null, orders: null };
-        platformColumns.push(column);
-      }
-      column[normalize(match[2])] = index;
-    } else unknownPlatforms.add(match[1].trim());
+  document.querySelectorAll("[data-map-platform]").forEach((select) => {
+    const entry = platformColumns.find((item) => item.key === select.dataset.mapPlatform)
+      || { key: select.dataset.mapPlatform, sales: null, orders: null };
+    const raw = select.value;
+    entry[select.dataset.mapKind] = raw === "" ? null : Number(raw);
+    if (!platformColumns.includes(entry)) platformColumns.push(entry);
   });
-  if (unknownPlatforms.size) throw new Error(`Cadastre ou renomeie estas plataformas antes de importar: ${[...unknownPlatforms].join(", ")}.`);
-  if (!platformColumns.some((item) => item.sales !== null)) throw new Error("Nenhuma coluna de vendas corresponde às plataformas cadastradas.");
-  return matrix.slice(headerIndex + 1).filter((row) => row.some((cell) => String(cell || "").trim())).map((row, index) => ({ row, index: headerIndex + index + 2, platformColumns }));
+  if (!platformColumns.some((item) => item.sales !== null || item.orders !== null)) {
+    return showImportError("Associe pelo menos uma coluna de vendas ou pedidos.");
+  }
+  const dataRows = sourceMatrix.slice(headerIndex + 1).filter((row) => row.some((cell) => String(cell || "").trim()))
+    .map((row, index) => ({ row: Object.assign([], row, { date: row[dateColumn] }), index: headerIndex + index + 2, platformColumns }));
+  pendingRows = validateAndGroup(dataRows);
+  if (!pendingRows.length) return showImportError("Não encontrei linhas de vendas válidas para o período selecionado.");
+  renderPreview();
+}
+
+function showImportError(message) {
+  pendingRows = [];
+  const preview = document.getElementById("salesSheetPreview");
+  if (preview) preview.innerHTML = `<div class="empty-state" role="alert">${escapeHtml(message)}</div>`;
+  document.getElementById("salesSheetImportButton").disabled = true;
 }
 
 function validateAndGroup(sourceRows) {
@@ -96,7 +151,7 @@ function validateAndGroup(sourceRows) {
   const grouped = new Map();
   const issues = [];
   sourceRows.forEach(({ row, index, platformColumns }) => {
-    const parsedDate = parseDate(row[0]);
+    const parsedDate = parseDate(row.date);
     if (!parsedDate || parsedDate.month !== monthIndex + 1 || (parsedDate.year && parsedDate.year !== year)) {
       issues.push(`Linha ${index}: a data não pertence a ${getPeriodLabel(pendingPeriod)}.`);
       return;
@@ -176,6 +231,12 @@ function applyImport() {
 
 function parseDate(value) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return { day: value.getDate(), month: value.getMonth() + 1, year: value.getFullYear() };
+  const text = String(value || "").trim().slice(0, 10);
+  if (text.length === 10 && text[4] === "-" && text[7] === "-") {
+    const [year, month, day] = text.split("-").map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth ? { day, month, year } : null;
+  }
   const match = String(value || "").trim().match(/^(\d{1,2})[/.\-](\d{1,2})(?:[/.\-](\d{4}))?$/);
   if (!match) return null;
   const day = Number(match[1]);
@@ -189,7 +250,20 @@ function parseNumber(value) {
   if (typeof value === "number") return value;
   const text = String(value ?? "").trim().replace(/R\$\s?/gi, "").replace(/\s/g, "");
   if (!text) return 0;
-  const normalized = text.includes(",") ? text.replace(/\./g, "").replace(",", ".") : text;
+  const comma = text.lastIndexOf(",");
+  const dot = text.lastIndexOf(".");
+  let normalized = text;
+  if (comma >= 0 && dot >= 0) {
+    const decimal = comma > dot ? "," : ".";
+    const thousands = decimal === "," ? /\./g : /,/g;
+    normalized = text.replace(thousands, "").replace(decimal, ".");
+  } else if (comma >= 0) {
+    normalized = /,\d{3}$/.test(text)
+      ? text.replace(/,/g, "")
+      : text.replace(/\./g, "").replace(",", ".");
+  } else if (/\.\d{3}$/.test(text)) {
+    normalized = text.replace(/\./g, "");
+  }
   return Number(normalized);
 }
 

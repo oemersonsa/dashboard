@@ -18,7 +18,7 @@ function render() {
   const el = document.getElementById("returnInputs");
   if (!el) return;
 
-  el.innerHTML = state.platforms.map((p) => `
+  el.innerHTML = state.platforms.filter((p) => !p.archived).map((p) => `
     <div class="fg"><label class="flabel">${platformBadge(p)}</label><input type="number" class="finput" id="ret_${escapeAttribute(p.key)}" value="${Number(r[p.key] || 0).toFixed(2)}" step="0.01" min="0"></div>
   `).join("");
 }
@@ -33,7 +33,7 @@ function save() {
   const m = document.getElementById("returnMonth")?.value;
   if (!m) return;
   if (!state.db[m]) state.db[m] = { days: [], returns: {} };
-  state.platforms.forEach((p) => {
+  state.platforms.filter((p) => !p.archived).forEach((p) => {
     state.db[m].returns[p.key] = parseFloat(document.getElementById(`ret_${p.key}`)?.value || 0) || 0;
   });
   saveState();

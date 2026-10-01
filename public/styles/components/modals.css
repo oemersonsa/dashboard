@@ -40,6 +40,16 @@
 .sales-import-summary strong { color: var(--text); font-size: var(--text-md); }
 .sales-import-summary span { color: var(--muted); }
 .sales-import-table-wrap { margin-top: var(--space-3); overflow-x: auto; }
+.sales-import-mapping { display: grid; gap: var(--space-3); max-height: 34vh; overflow-y: auto; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-2); }
+.sales-import-map-row { display: grid; grid-template-columns: minmax(120px, .8fr) repeat(2, minmax(140px, 1fr)); align-items: end; gap: var(--space-3); }
+.sales-import-map-row > strong { padding-bottom: var(--space-3); font-size: var(--text-base); }
+.sales-import-map-row .finput { min-width: 0; width: 100%; }
+.sales-import-mapping > .sales-import-map-row:first-child { grid-template-columns: minmax(120px, .8fr) minmax(140px, 2fr); }
+.sales-import-mapping > .btn { justify-self: start; }
+@media (max-width: 640px) {
+  .sales-import-map-row, .sales-import-mapping > .sales-import-map-row:first-child { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .sales-import-map-row > strong { padding: 0; }
+}
 .sales-import-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 .sales-import-table th, .sales-import-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); text-align: left; }
 .sales-import-table th { color: var(--muted); font-weight: 600; }

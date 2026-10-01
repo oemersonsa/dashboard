@@ -35,8 +35,10 @@
   .topbar { padding: var(--space-3) var(--space-3); }
   .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid2, .grid2b { grid-template-columns: 1fr; }
-  .pricing-form-grid, .pricing-grid, .pricing-breakdown, .pricing-manual,
+  .pricing-form-grid, .pricing-grid, .pricing-breakdown, .pricing-manual, .pricing-product-manager,
   .pricing-rounding > div, .pricing-kpis { grid-template-columns: 1fr; }
+  .pricing-tier-row { grid-template-columns: 1fr 1fr; }
+  .pricing-product-actions { grid-column: auto; }
   .pigrid { grid-template-columns: 1fr 1fr; }
   .setup-grid { grid-template-columns: 1fr; }
   .commission-shell { flex-direction: column; }

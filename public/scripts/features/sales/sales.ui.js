@@ -131,12 +131,36 @@ function renderKPIs() {
       ? `Dias 1–${c.cutoffDay} · comparação com ${getPeriodLabel(pn)}`
       : `Mês completo · comparação com ${getPeriodLabel(pn)}`
     : `Período selecionado · ${getPeriodLabel(state.currentMonth)}`;
+  const selected = parsePeriodKey(state.currentMonth);
+  const today = new Date();
+  const isCurrentPeriod = selected.year === today.getFullYear() && ALL_MONTHS.indexOf(selected.month) === today.getMonth();
+  const elapsedDays = selected.year < today.getFullYear() || (selected.year === today.getFullYear() && ALL_MONTHS.indexOf(selected.month) < today.getMonth())
+    ? getMonthDays(state.currentMonth)
+    : isCurrentPeriod ? today.getDate() : 0;
+  const monthData = state.db[state.currentMonth];
+  const loggedDates = new Set((monthData?.days || []).filter((day) =>
+    state.platforms.some((platform) => Number(day[platform.key] || 0) > 0 || Number(day[`orders_${platform.key}`] || 0) > 0)
+  ).map((day) => Number(String(day.d || "").split("/")[0])));
+  const unloggedDays = Array.from({ length: elapsedDays }, (_, index) => index + 1)
+    .filter((day) => !loggedDates.has(day));
+  const missingDays = unloggedDays.length;
+  const periodStatus = isCurrentPeriod
+    ? `Mês em andamento · dia ${today.getDate()} de ${getMonthDays(state.currentMonth)}`
+    : elapsedDays > 0 ? `Período encerrado · dados lançados em ${loggedDates.size} dia(s)` : "Período futuro";
+  const trackingStatus = elapsedDays > 0
+    ? `${missingDays} dia(s) sem lançamento até ${String(elapsedDays).padStart(2, "0")}/${String(ALL_MONTHS.indexOf(selected.month) + 1).padStart(2, "0")}`
+    : "Nenhum dia do período disponível";
+  const missingDateLabels = unloggedDays.slice(0, 8).map((day) =>
+    `${String(day).padStart(2, "0")}/${String(ALL_MONTHS.indexOf(selected.month) + 1).padStart(2, "0")}`
+  );
+  const missingDateSummary = `${missingDateLabels.join(", ")}${missingDays > missingDateLabels.length ? ` e mais ${missingDays - missingDateLabels.length}` : ""}`;
   const el = document.getElementById("kpiRow");
   if (!el) return;
 
   el.innerHTML = `
     <div class="kpi-period" aria-label="${escapeAttribute(`${getPeriodLabel(state.currentMonth)}. ${comparisonContext}`)}">
       <span class="kpi-period-current">${getPeriodLabel(state.currentMonth)}</span>
+      <div class="kpi-period-details"><span class="kpi-period-status">${periodStatus}</span><span class="kpi-period-tracking" title="${escapeAttribute(missingDateSummary)}">${trackingStatus}${missingDays ? ` · ${missingDateSummary}` : ""}</span></div>
       <span class="kpi-period-comparison">${pt ? comparisonContext : "Sem mês anterior para comparar"}</span>
     </div>
     <section class="kpi-group kpi-group--volume" aria-labelledby="kpiVolumeHeading">
@@ -148,10 +172,10 @@ function renderKPIs() {
     <section class="kpi-group kpi-group--financial" aria-labelledby="kpiFinancialHeading">
       <h2 class="kpi-group-title" id="kpiFinancialHeading">Valores de vendas</h2>
       <div class="kpi-group-cards">
-        <div class="kpi-card kpi-card--gross"><div class="kpi-label">Vendas brutas</div><div class="kpi-value">${RS(t.gross)}</div><div class="kpi-context">Total antes das devoluções</div><div class="kpi-change">${pt ? varH(t.gross, pt.gross) : "Sem mês anterior"}</div></div>
-        <div class="kpi-card kpi-card--returns"><div class="kpi-label">Devoluções</div><div class="kpi-value">${RS(t.totalRet)}</div><div class="kpi-context">${rp.toFixed(1)}% das vendas brutas</div><div class="kpi-change">${pt ? varH(t.totalRet, pt.totalRet, true) : "Sem mês anterior"}</div><div class="returns-bar"><div class="returns-fill" style="width:${Math.min(rp, 100)}%"></div></div></div>
-        <div class="kpi-card kpi-card--net"><div class="kpi-label">Vendas líquidas</div><div class="kpi-value">${RS(t.net)}</div><div class="kpi-context">Bruto menos devoluções</div><div class="kpi-change">${pt ? varH(t.net, pt.net) : "Sem mês anterior"}</div></div>
-        <div class="kpi-card kpi-card--ticket"><div class="kpi-label">Ticket médio</div><div class="kpi-value">${t.orders > 0 ? RS(t.gross / t.orders) : RS(0)}</div><div class="kpi-context">Vendas brutas por pedido</div></div>
+        <div class="kpi-card kpi-card--gross"><div class="kpi-label">Vendas brutas</div><div class="kpi-value">${RS(t.gross)}</div><div class="kpi-context">Soma das vendas registradas, antes das devoluções.</div><div class="kpi-change">${pt ? varH(t.gross, pt.gross) : "Sem mês anterior"}</div></div>
+        <div class="kpi-card kpi-card--returns"><div class="kpi-label">Devoluções</div><div class="kpi-value">${RS(t.totalRet)}</div><div class="kpi-context">Valor devolvido · ${rp.toFixed(1)}% do bruto.</div><div class="kpi-change">${pt ? varH(t.totalRet, pt.totalRet, true) : "Sem mês anterior"}</div><div class="returns-bar"><div class="returns-fill" style="width:${Math.min(rp, 100)}%"></div></div></div>
+        <div class="kpi-card kpi-card--net"><div class="kpi-label">Vendas líquidas</div><div class="kpi-value">${RS(t.net)}</div><div class="kpi-context">Bruto − devoluções; não desconta taxas ou custos.</div><div class="kpi-change">${pt ? varH(t.net, pt.net) : "Sem mês anterior"}</div></div>
+        <div class="kpi-card kpi-card--ticket"><div class="kpi-label">Ticket médio</div><div class="kpi-value">${t.orders > 0 ? RS(t.gross / t.orders) : RS(0)}</div><div class="kpi-context">Vendas brutas ÷ pedidos registrados.</div></div>
       </div>
     </section>
   `;
@@ -829,7 +853,7 @@ function renderMonthCompare() {
 export function renderSaleInputs() {
   const el = document.getElementById("saleInputs");
   if (!el) return;
-  el.innerHTML = state.platforms.map((p) => `
+  el.innerHTML = state.platforms.filter((p) => !p.archived).map((p) => `
     <div class="fg">
       <label class="flabel">${platformBadge(p)}</label>
       <input type="number" class="finput" id="sale_${escapeAttribute(p.key)}" placeholder="0,00" step="0.01" min="0">

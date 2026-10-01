@@ -1,4 +1,14 @@
 .calculator-main { padding: var(--space-6) var(--space-8); display: grid; gap: var(--space-5); }
+.calculator-panel-heading { margin-bottom: calc(var(--space-2) * -1); }
+.pricing-product-manager { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.pricing-product-actions { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); grid-column: 1 / -1; }
+.pricing-help { color: var(--muted); font-size: var(--text-sm); line-height: 1.5; margin: var(--space-3) 0 0; }
+.pricing-tier-list { display: grid; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.pricing-tier-list h3 { font-size: var(--text-sm); margin: 0; }
+.pricing-tier-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; align-items: end; gap: var(--space-2); }
+.pricing-tier-tools { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pricing-validation { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); border-radius: var(--radius-md); padding: var(--space-3); font-size: var(--text-sm); }
+.pricing-source a { color: var(--accent); }
 
 .pricing-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
 
@@ -58,6 +68,7 @@
   color: var(--accent);
   text-align: right;
 }
+.pricing-result small { display: block; font-size: var(--text-xs); font-weight: 500; color: var(--muted); }
 
 .pricing-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
 

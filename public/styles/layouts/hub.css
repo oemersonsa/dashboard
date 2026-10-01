@@ -285,7 +285,7 @@
 .hub-card {
   position: relative;
   display: grid;
-  min-height: 200px;
+  min-height: 220px;
   grid-template-rows: auto auto auto 1fr;
   gap: var(--space-3);
   padding: var(--space-6);

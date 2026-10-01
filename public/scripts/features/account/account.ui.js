@@ -144,7 +144,7 @@ async function changePassword() {
   const confirmPassword = document.getElementById("accountConfirmPassword")?.value || "";
   const button = document.getElementById("accountSavePasswordButton");
   if (!currentPassword || !newPassword || !confirmPassword) return toastError("Preencha os três campos de senha.");
-  if (newPassword.length < 4) return toastError("A nova senha precisa ter pelo menos 4 caracteres.");
+  if (newPassword.length < 12) return toastError("A nova senha precisa ter pelo menos 12 caracteres.");
   if (newPassword !== confirmPassword) return toastError("A confirmação não corresponde à nova senha.");
   if (button) button.disabled = true;
 
@@ -165,7 +165,7 @@ async function changePassword() {
     const message = error?.message === "invalid_current_password"
       ? "A senha atual está incorreta."
       : error?.message === "password_too_short"
-        ? "A nova senha precisa ter pelo menos 4 caracteres."
+        ? "A nova senha precisa ter pelo menos 12 caracteres."
         : "Não foi possível alterar a senha.";
     toastError(message);
   } finally {

@@ -38,7 +38,7 @@ async function register(req, res) {
   if (!username || !password) {
     return sendJson(res, 400, { error: "username_and_password_required" });
   }
-  if (password.length < 4) {
+  if (password.length < 12) {
     return sendJson(res, 400, { error: "password_too_short" });
   }
 
@@ -66,6 +66,9 @@ async function migrateLocal(req, res) {
 
   if (!username || !password) {
     return sendJson(res, 400, { error: "username_and_password_required" });
+  }
+  if (password.length < 12) {
+    return sendJson(res, 400, { error: "password_too_short" });
   }
 
   const existing = await auth.getUser(username);
@@ -157,7 +160,7 @@ async function changePassword(req, res, authenticatedUser) {
   if (authenticatedUser !== username) {
     return sendJson(res, 403, { error: "forbidden" });
   }
-  if (newPassword.length < 4) {
+  if (newPassword.length < 12) {
     return sendJson(res, 400, { error: "password_too_short" });
   }
 

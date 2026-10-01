@@ -17,6 +17,7 @@ function render() {
   const sb = document.getElementById("authSubmitButton");
   const at = document.getElementById("authTitle");
   const as = document.getElementById("authSubtitle");
+  const hint = document.getElementById("authPasswordHint");
 
   const hasExisting = Boolean(state.auth?.username);
   if (!authMode || (hasExisting && authMode === "create")) {
@@ -39,6 +40,11 @@ function render() {
     u.placeholder = state.auth?.username || "Seu usuario";
   }
   if (p) p.value = "";
+  if (p) {
+    p.autocomplete = authMode === "create" ? "new-password" : "current-password";
+    p.minLength = authMode === "create" ? 12 : 0;
+  }
+  if (hint) hint.hidden = authMode !== "create";
 }
 
 function bindEvents() {
@@ -62,6 +68,7 @@ async function handleSubmit() {
   if (!username || !password) return toastError("Preencha usuário e senha");
 
   if (authMode === "create") {
+    if (password.length < 12) return toastError("Use uma senha com pelo menos 12 caracteres.");
     try {
       const r = await apiRequest("/api/auth/register", {
         method: "POST",

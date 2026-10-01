@@ -41,17 +41,18 @@ function render() {
   }
 
   l.innerHTML = getPlatforms().map((p) => `
-    <div class="setup-item">
+    <div class="setup-item${p.archived ? " setup-item-archived" : ""}">
       <div class="setup-item-main">
         ${platformIcon(p)}
         <div class="setup-item-copy">
           <strong>${escapeHtml(p.name)}</strong>
-          <span>Sigla ${escapeHtml(p.icon)} · ${escapeHtml(p.color)}</span>
+          <span>Sigla ${escapeHtml(p.icon)} · ${escapeHtml(p.color)}${p.archived ? " · Arquivada" : ""}</span>
         </div>
       </div>
       <div class="setup-item-actions">
-        <button class="btn btn-secondary" data-edit-platform="${escapeAttribute(p.key)}" type="button">Editar</button>
-        <button class="btn btn-secondary" data-remove-platform="${escapeAttribute(p.key)}" type="button">Remover</button>
+        ${p.archived
+          ? `<button class="btn btn-secondary" data-restore-platform="${escapeAttribute(p.key)}" type="button">Reativar</button>`
+          : `<button class="btn btn-secondary" data-edit-platform="${escapeAttribute(p.key)}" type="button">Editar</button><button class="btn btn-secondary" data-remove-platform="${escapeAttribute(p.key)}" type="button">Arquivar</button>`}
       </div>
     </div>
   `).join("");
@@ -59,6 +60,8 @@ function render() {
 
 function bindEvents() {
   document.getElementById("platformConfigList")?.addEventListener("click", (e) => {
+    const restoreBtn = e.target.closest("[data-restore-platform]");
+    if (restoreBtn) return restorePlatform(restoreBtn.dataset.restorePlatform);
     const editBtn = e.target.closest("[data-edit-platform]");
     if (editBtn) return startEdit(editBtn.dataset.editPlatform);
 
@@ -130,16 +133,31 @@ function addOrUpdate() {
 }
 
 function removePlatform(key) {
+  const platform = getPlatforms().find((p) => p.key === key);
+  if (!platform) return;
+  const hasHistory = Object.values(state.db).some((month) =>
+    Number(month?.returns?.[key] || 0) > 0 || (month?.days || []).some((day) =>
+      Number(day?.[key] || 0) > 0 || Number(day?.[`orders_${key}`] || 0) > 0
+    )
+  );
+  const impact = hasHistory
+    ? "Os dados históricos serão mantidos e continuarão nos totais e relatórios."
+    : "Nenhum lançamento foi encontrado para esta plataforma.";
+  if (!window.confirm(`Arquivar ${platform.name}?\n\nEla sairá dos novos lançamentos. ${impact}\nVocê poderá reativá-la depois.`)) return;
   if (editingKey === key) resetForm();
-  state.platforms = getPlatforms().filter((p) => p.key !== key);
-  Object.values(state.db).forEach((md) => {
-    if (!md) return;
-    if (md.returns) delete md.returns[key];
-    (md.days || []).forEach((day) => { delete day[key]; });
-  });
+  platform.archived = true;
   saveState();
   render();
-  toast("Plataforma removida");
+  toastSuccess("Plataforma arquivada; histórico preservado");
+}
+
+function restorePlatform(key) {
+  const platform = getPlatforms().find((item) => item.key === key);
+  if (!platform) return;
+  platform.archived = false;
+  saveState();
+  render();
+  toastSuccess(`${platform.name} reativada`);
 }
 
 function finish() {

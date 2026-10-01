@@ -24,6 +24,7 @@
 }
 
 .setup-item:hover { transform: translateX(2px); }
+.setup-item-archived { opacity: .72; border-style: dashed; }
 
 .setup-item-main { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .setup-item-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }

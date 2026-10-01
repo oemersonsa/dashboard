@@ -59,6 +59,10 @@ let activeScreen = "hub";
 export function getActiveScreen() { return activeScreen; }
 
 export function setActiveScreen(screen) {
+  if (screen === "calculator") {
+    state.activeTab = "calculator";
+    screen = "dashboard";
+  }
   activeScreen = KNOWN_SCREENS.includes(screen) ? screen : "hub";
   state.currentScreen = activeScreen === "account" ? "dashboard" : activeScreen;
 }
@@ -70,7 +74,6 @@ export function renderScreen() {
     setup: document.getElementById("setupScreen"),
     hub: document.getElementById("hubScreen"),
     dashboard: document.getElementById("dashboardScreen"),
-    calculator: document.getElementById("calculatorScreen"),
     dailyClose: document.getElementById("dailyCloseScreen"),
     account: document.getElementById("accountScreen")
   };
@@ -101,16 +104,11 @@ export function renderScreen() {
     syncDashboardUserProfile();
     void loadAccountProfile().then(syncDashboardUserProfile);
     initSales();
+    initCalculator();
     initReports();
     initBackup();
     initSalesImport();
     switchDashboardTab(state.activeTab || "overview");
-    return;
-  }
-
-  if (activeScreen === "calculator") {
-    screens.calculator.hidden = false;
-    initCalculator();
     return;
   }
 
@@ -220,6 +218,7 @@ const jsonOf = (v) => JSON.stringify(v ?? null);
 const settingsOf = () => ({
   currentMonth: state.currentMonth,
   currentScreen: state.currentScreen,
+  activeTab: state.activeTab || "overview",
   pricing: state.pricing
 });
 
@@ -335,6 +334,7 @@ async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false
         auth: state.auth,
         currentMonth: remote.currentMonth || state.currentMonth,
         currentScreen: remote.currentScreen || state.currentScreen || "hub",
+        activeTab: remote.activeTab || state.activeTab || "overview",
         pricing: remote.pricing || state.pricing
       },
       MARKETPLACE_PRICING_PRESETS
@@ -345,7 +345,8 @@ async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false
     state.currentMonth = normalized.currentMonth;
     state.pricing = normalized.pricing;
     state.currentScreen = normalized.currentScreen;
-    activeScreen = state.currentScreen || "hub";
+    state.activeTab = normalized.activeTab || state.activeTab || "overview";
+    setActiveScreen(state.currentScreen || "hub");
     markSynced();
     setSaveStatus("idle");
     return true;
@@ -377,7 +378,6 @@ export function openSetupScreen() {
     setup: document.getElementById("setupScreen"),
     hub: document.getElementById("hubScreen"),
     dashboard: document.getElementById("dashboardScreen"),
-    calculator: document.getElementById("calculatorScreen"),
     dailyClose: document.getElementById("dailyCloseScreen")
   };
   Object.values(screens).forEach((s) => { if (s) s.hidden = true; });
@@ -515,7 +515,7 @@ function bindSidebarActions() {
   // 1. Sidebar
   document.addEventListener("click", (event) => {
     const target = event.target.closest(
-      "#sidebarOpenHub, #sidebarOpenDailyClose, #sidebarOpenCalculator, " +
+      "#sidebarOpenHub, #sidebarOpenDailyClose, " +
       "#sidebarSaveButton, #sidebarImportBackupButton, #sidebarExportBackupButton"
       + ", #sidebarImportSalesSheetButton"
     );
@@ -525,7 +525,6 @@ function bindSidebarActions() {
     switch (target.id) {
       case "sidebarOpenHub": setActiveScreen("hub"); renderScreen(); break;
       case "sidebarOpenDailyClose": setActiveScreen("dailyClose"); renderScreen(); break;
-      case "sidebarOpenCalculator": setActiveScreen("calculator"); renderScreen(); break;
       case "sidebarSaveButton": saveNow(); break;
       case "sidebarImportBackupButton": openImportBackupModal(); break;
       case "sidebarImportSalesSheetButton": openSalesSheetImport(); break;
@@ -625,22 +624,18 @@ function bindSidebarActions() {
     overlay.classList.toggle("visible");
   });
 
-  // 6. Topbar das telas calculator/dailyClose
+  // 6. Topbar da tela de fechamento diário
   document.addEventListener("click", (event) => {
     const btn = event.target.closest(
-      "#calculatorBackToHubButton, #calculatorOpenDashboardButton, #calculatorManagePlatformsButton, " +
       "#dailyCloseBackToHubButton, #dailyCloseOpenDashboardButton, #dailyCloseManagePlatformsButton"
     );
     if (!btn) return;
     event.preventDefault();
     switch (btn.id) {
-      case "calculatorBackToHubButton":
       case "dailyCloseBackToHubButton":
         setActiveScreen("hub"); renderScreen(); break;
-      case "calculatorOpenDashboardButton":
       case "dailyCloseOpenDashboardButton":
         setActiveScreen("dashboard"); renderScreen(); break;
-      case "calculatorManagePlatformsButton":
       case "dailyCloseManagePlatformsButton":
         openSetupScreen(); break;
     }
@@ -679,7 +674,7 @@ function bindSidebarActions() {
 }
 
 export function switchDashboardTab(name) {
-  const valid = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection"];
+  const valid = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection", "calculator"];
   const target = valid.includes(name) ? name : "overview";
 
   state.activeTab = target;
@@ -693,7 +688,7 @@ export function switchDashboardTab(name) {
   });
   const menuByTab = {
     overview: "sales", daily: "sales", weekly: "sales",
-    platforms: "analysis", trends: "analysis", entries: "management", projection: "management"
+    platforms: "analysis", trends: "analysis", entries: "management", projection: "management", calculator: "tools"
   };
   document.querySelectorAll("[data-sidebar-menu-trigger]").forEach((trigger) => {
     trigger.classList.toggle("active", trigger.dataset.sidebarMenuTrigger === menuByTab[target]);

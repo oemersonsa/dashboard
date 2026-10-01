@@ -84,14 +84,17 @@ export const PLATFORM_DOMAINS = {
 
 export const PRICING_DEFAULTS = {
   productCost: 0, packagingCost: 0, extraCost: 0, shippingSubsidy: 0,
-  targetMargin: 20, targetProfit: 20, manualPrice: 0, mode: "margin", profiles: {}
+  taxRate: 0, returnReserveRate: 0,
+  targetMargin: 20, targetProfit: 20, manualPrice: 0, mode: "margin", profiles: {},
+  products: [], activeProductId: ""
 };
 
 export const MARKETPLACE_PRICING_PRESETS = {
   "mercado-livre": {
     label: "Mercado Livre", commissionRate: 12, transactionRate: 0,
-    fixedFee: 6.5, extraShippingCost: 0, sourceType: "official",
-    note: "Baseado nas tabelas publicas do Mercado Livre."
+    fixedFee: 6.5, extraShippingCost: 0, sourceType: "estimated",
+    sourceUrl: "https://vendedores.mercadolivre.com.br/nota/como-funcionam-as-taxas-do-mercado-livre",
+    note: "Estimativa inicial. A tarifa real varia por categoria, anúncio e logística; confira no simulador oficial."
   },
   shopee: {
     label: "Shopee", commissionRate: 20, transactionRate: 0, fixedFee: 4,
@@ -103,13 +106,13 @@ export const MARKETPLACE_PRICING_PRESETS = {
       { min: 100, max: 199.99, commissionRate: 14, fixedFee: 20 },
       { min: 200, max: null, commissionRate: 14, fixedFee: 26 }
     ],
-    sourceType: "estimated", note: "Referencia 2026 por faixa de preco."
+    sourceType: "estimated", note: "Faixas ilustrativas. Confira as condições vigentes da sua conta antes de usar o preço."
   },
-  shein: { label: "Shein", commissionRate: 16, transactionRate: 0, fixedFee: 0, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa inicial." },
-  magalu: { label: "Magalu", commissionRate: 16, transactionRate: 0, fixedFee: 0, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa inicial." },
-  "nuvem-shop": { label: "Nuvem Shop", commissionRate: 0.7, transactionRate: 0, fixedFee: 0, extraShippingCost: 0, sourceType: "official", note: "Referencia publica do plano Escala." },
-  tiktok: { label: "TikTok", commissionRate: 6, transactionRate: 6, fixedFee: 4, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa 2026." },
-  kwai: { label: "Kwai", commissionRate: 20, transactionRate: 0, fixedFee: 4, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa 2026." }
+  shein: { label: "Shein", commissionRate: 16, transactionRate: 0, fixedFee: 0, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa inicial; confira as tarifas vigentes da sua conta." },
+  magalu: { label: "Magalu", commissionRate: 16, transactionRate: 0, fixedFee: 0, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa inicial; confira as tarifas vigentes da sua conta." },
+  "nuvem-shop": { label: "Nuvem Shop", commissionRate: 0.7, transactionRate: 0, fixedFee: 0, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa inicial; a tarifa varia por plano e meio de pagamento." },
+  tiktok: { label: "TikTok", commissionRate: 6, transactionRate: 6, fixedFee: 4, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa inicial; confira as tarifas vigentes da sua conta." },
+  kwai: { label: "Kwai", commissionRate: 20, transactionRate: 0, fixedFee: 4, extraShippingCost: 0, sourceType: "estimated", note: "Estimativa inicial; confira as tarifas vigentes da sua conta." }
 };
 
 export const DASH_HTML = '<span style="color:var(--muted)">-</span>';

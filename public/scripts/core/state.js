@@ -90,7 +90,8 @@ export function normalizePlatform(platform = {}, index = 0) {
     key: String(canonicalizePlatformKey(platform.key || name || `plataforma-${index + 1}`)).slice(0, 30) || `plataforma-${index + 1}`,
     name: name || `Plataforma ${index + 1}`,
     color, icon: short || `P${index + 1}`,
-    iconText: platform.iconText || "#ffffff"
+    iconText: platform.iconText || "#ffffff",
+    archived: Boolean(platform.archived)
   };
 }
 
@@ -136,38 +137,80 @@ export function normalizePricingProfile(platform, profile = {}, presetMap) {
   const isCustom = profile.sourceType === "custom";
   const source = isCustom ? profile : { ...profile, ...preset };
   return {
-    commissionRate: Number(source.commissionRate ?? 0),
-    transactionRate: Number(source.transactionRate ?? 0),
-    fixedFee: Number(source.fixedFee ?? 0),
-    extraShippingCost: Number(source.extraShippingCost ?? 0),
+    commissionRate: safeNonNegative(source.commissionRate),
+    transactionRate: safeNonNegative(source.transactionRate),
+    fixedFee: safeNonNegative(source.fixedFee),
+    extraShippingCost: safeNonNegative(source.extraShippingCost),
+    sellerDiscountRate: Math.min(99.9, safeNonNegative(source.sellerDiscountRate)),
     feeTiers: normalizeFeeTiers(source.feeTiers),
     sourceType: String(source.sourceType || "custom"),
-    note: String(source.note || "Personalize com os custos reais da sua operação.")
+    note: String(source.note || "Informe as taxas da sua conta e revise as condições antes de publicar."),
+    sourceUrl: String(source.sourceUrl || ""),
+    lastReviewedAt: String(source.lastReviewedAt || "")
   };
 }
 
 function normalizeFeeTiers(tiers = []) {
   if (!Array.isArray(tiers)) return [];
   return tiers.map((t) => ({
-    min: Number(t.min ?? 0),
-    max: t.max === null || t.max === undefined || t.max === "" ? null : Number(t.max),
-    commissionRate: Number(t.commissionRate || 0),
-    fixedFee: Number(t.fixedFee || 0)
-  })).filter((t) => Number.isFinite(t.min) && Number.isFinite(t.commissionRate) && Number.isFinite(t.fixedFee))
+    min: safeNonNegative(t.min),
+    max: t.max === null || t.max === undefined || t.max === "" ? null : safeNonNegative(t.max),
+    commissionRate: safeNonNegative(t.commissionRate),
+    fixedFee: safeNonNegative(t.fixedFee)
+  })).filter((t) => Number.isFinite(t.min) && (t.max === null || Number.isFinite(t.max)) && Number.isFinite(t.commissionRate) && Number.isFinite(t.fixedFee))
     .sort((a, b) => a.min - b.min);
 }
 
+function safeNonNegative(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+}
+
 export function normalizePricing(pricing = {}, platforms, presetMap) {
+  const rawProducts = Array.isArray(pricing.products) ? pricing.products : [];
+  const products = rawProducts.filter((product) => product && typeof product === "object").map((product, index) => ({
+    id: String(product.id || `produto-${index + 1}`),
+    name: String(product.name || `Produto ${index + 1}`).slice(0, 80),
+    sku: String(product.sku || "").slice(0, 40),
+    productCost: safeNonNegative(product.productCost),
+    packagingCost: safeNonNegative(product.packagingCost),
+    extraCost: safeNonNegative(product.extraCost),
+    shippingSubsidy: safeNonNegative(product.shippingSubsidy),
+    taxRate: Math.min(100, safeNonNegative(product.taxRate)),
+    returnReserveRate: Math.min(100, safeNonNegative(product.returnReserveRate)),
+    manualPrice: safeNonNegative(product.manualPrice)
+  }));
+  if (!products.length) {
+    products.push({
+      id: "produto-principal",
+      name: "Produto principal",
+      sku: "",
+      productCost: safeNonNegative(pricing.productCost),
+      packagingCost: safeNonNegative(pricing.packagingCost),
+      extraCost: safeNonNegative(pricing.extraCost),
+      shippingSubsidy: safeNonNegative(pricing.shippingSubsidy),
+      taxRate: Math.min(100, safeNonNegative(pricing.taxRate)),
+      returnReserveRate: Math.min(100, safeNonNegative(pricing.returnReserveRate)),
+      manualPrice: safeNonNegative(pricing.manualPrice)
+    });
+  }
+  const activeProductId = products.some((product) => product.id === pricing.activeProductId)
+    ? pricing.activeProductId : products[0].id;
+  const activeProduct = products.find((product) => product.id === activeProductId);
   const next = {
-    productCost: Number(pricing.productCost || 0),
-    packagingCost: Number(pricing.packagingCost || 0),
-    extraCost: Number(pricing.extraCost || 0),
-    shippingSubsidy: Number(pricing.shippingSubsidy || 0),
-    targetMargin: Number(pricing.targetMargin || 0),
-    targetProfit: Number(pricing.targetProfit || 0),
-    manualPrice: Number(pricing.manualPrice || 0),
+    productCost: activeProduct.productCost,
+    packagingCost: activeProduct.packagingCost,
+    extraCost: activeProduct.extraCost,
+    shippingSubsidy: activeProduct.shippingSubsidy,
+    taxRate: activeProduct.taxRate,
+    returnReserveRate: activeProduct.returnReserveRate,
+    targetMargin: Math.min(99, safeNonNegative(pricing.targetMargin)),
+    targetProfit: safeNonNegative(pricing.targetProfit),
+    manualPrice: activeProduct.manualPrice,
     mode: pricing.mode === "profit" ? "profit" : "margin",
-    profiles: {}
+    profiles: {},
+    products,
+    activeProductId
   };
   platforms.forEach((p) => {
     next.profiles[p.key] = normalizePricingProfile(p, pricing.profiles?.[p.key] || {}, presetMap);
@@ -249,7 +292,7 @@ export function normalizeState(raw, presetMap) {
     }
   }
   next.pricing = normalizePricing(raw?.pricing || base.pricing, next.platforms, presetMap);
-  next.activeTab = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection"].includes(raw?.activeTab)
+  next.activeTab = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection", "calculator"].includes(raw?.activeTab)
   ? raw.activeTab
   : "overview";
   return next;

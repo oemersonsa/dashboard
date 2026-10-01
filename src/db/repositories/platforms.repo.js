@@ -2,7 +2,7 @@ const { queryAll, execute } = require("../index");
 
 async function listByUser(userId) {
   return queryAll(`
-    SELECT id, platform_key, name, icon, color, icon_text, sort_order
+    SELECT id, platform_key, name, icon, color, icon_text, sort_order, archived
     FROM platforms WHERE user_id = ?
     ORDER BY sort_order ASC, id ASC
   `, [userId]);
@@ -18,11 +18,11 @@ async function insertMany(userId, platforms, timestamp) {
     const p = platforms[i];
     const result = await execute(`
       INSERT INTO platforms
-        (user_id, platform_key, name, icon, color, icon_text, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (user_id, platform_key, name, icon, color, icon_text, sort_order, archived, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       userId, p.key, p.name, p.icon, p.color,
-      p.iconText || "#ffffff", i, timestamp, timestamp
+      p.iconText || "#ffffff", i, p.archived ? 1 : 0, timestamp, timestamp
     ]);
     ids.set(p.key, Number(result.lastInsertRowid));
   }

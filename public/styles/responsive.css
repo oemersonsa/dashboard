@@ -136,6 +136,12 @@
 }
 
 @media (max-width: 640px) {
+  .btn { min-height: 44px; }
+  .icon-btn, .menu-toggle { width: 44px; height: 44px; }
+  .dashboard-main { gap: var(--space-6); }
+  .dashboard-panel.active { gap: var(--space-6); }
+  .daily-wrap, .report-table-wrap, .platform-performance-wrap, .trends-table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .dtable, .ptable, .rtable, .platform-performance-table { min-width: 620px; }
   .logo { font-size: var(--text-md); }
   .header-left, .header-right { flex-wrap: wrap; }
   .dashboard-screen { --topbar-h: 112px; }

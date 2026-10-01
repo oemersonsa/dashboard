@@ -1,4 +1,5 @@
 .btn {
+  min-height: 40px;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   border: none;
@@ -54,8 +55,8 @@ body.dark-theme .btn-primary:hover { background: #d4e83f; }
 .btn-add:hover { background: rgba(0, 113, 227, 0.05); }
 
 .icon-btn, .menu-toggle {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-2);

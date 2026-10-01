@@ -28,7 +28,7 @@
       <div class="auth-form">
         <div class="auth-local-fields" id="authLocalFields">
           <div class="fg"><label class="flabel" for="authUsername">Usuario</label><input class="finput" id="authUsername" type="text" autocomplete="username" placeholder="Seu usuário"></div>
-          <div class="fg"><label class="flabel" for="authPassword">Senha</label><input class="finput" id="authPassword" type="password" autocomplete="current-password" placeholder="Sua senha"></div>
+          <div class="fg"><label class="flabel" for="authPassword">Senha</label><input class="finput" id="authPassword" type="password" autocomplete="current-password" placeholder="Sua senha"><small class="auth-password-hint" id="authPasswordHint" hidden>Use pelo menos 12 caracteres. Uma frase-senha é mais fácil de lembrar.</small></div>
         </div>
         <div class="actions-row"><button class="btn btn-primary" id="authSubmitButton" type="button">Entrar</button></div>
         <div class="auth-tip" id="authHint">Ao entrar, seus dados ficam salvos no servidor do app.</div>
@@ -150,7 +150,7 @@
             <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="tools" aria-expanded="false" aria-controls="sidebarMenuTools"><span>Ferramentas</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
             <div class="sidebar-submenu-popover" id="sidebarMenuTools" hidden>
               <div class="sidebar-submenu-title">Ferramentas</div>
-              <button class="sidebar-item" id="sidebarOpenCalculator" type="button">Calculadora</button>
+              <button class="sidebar-item" data-dashboard-tab="calculator" type="button">Calculadora</button>
               <button class="sidebar-item" id="sidebarOpenDailyClose" type="button">Fechamento</button>
             </div>
           </div>
@@ -345,59 +345,52 @@
               <div class="projection-grid" id="projectionGrid"></div>
             </div>
           </section>
-        </div>
-      </main>
-    </div>
-  </section>
-
-  <!-- CALCULATOR -->
-  <section class="screen calculator-screen" id="calculatorScreen" hidden>
-    <header class="topbar">
-      <div class="header-left">
-        <button class="btn btn-secondary" id="calculatorBackToHubButton" type="button">Menu</button>
-        <button class="btn btn-secondary" id="calculatorOpenDashboardButton" type="button">Dashboard</button>
-      </div>
-      <div class="logo header-brand"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt=""><span id="calculatorTitle">Calculadora</span></div>
-      <div class="header-right">
-        <button class="btn btn-secondary" id="calculatorManagePlatformsButton" type="button">Plataformas</button>
-        <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
-          <span data-theme-icon></span>
-        </button>
-      </div>
-    </header>
-    <main class="calculator-main">
+          <section class="dashboard-panel calculator-main" id="dashboard-panel-calculator" data-dashboard-panel="calculator" hidden>
+            <div class="card-header calculator-panel-heading"><div><div class="card-title">Calculadora de preços</div><div class="card-sub">Compare o preço recomendado e o lucro estimado em cada plataforma.</div></div></div>
       <div class="grid2">
         <div class="card">
-          <div class="card-header"><div><div class="card-title">Base do Produto</div><div class="card-sub">Informe os custos comuns antes de abrir o resultado por plataforma.</div></div></div>
-          <div class="pricing-form-grid">
-            <label class="fg"><span class="flabel">Custo do Produto</span><input class="finput" id="pricingProductCost" type="number" step="0.01" min="0"></label>
-            <label class="fg"><span class="flabel">Embalagem</span><input class="finput" id="pricingPackagingCost" type="number" step="0.01" min="0"></label>
-            <label class="fg"><span class="flabel">Custos Extras</span><input class="finput" id="pricingExtraCost" type="number" step="0.01" min="0"></label>
-            <label class="fg"><span class="flabel">Frete Bancado</span><input class="finput" id="pricingShippingSubsidy" type="number" step="0.01" min="0"></label>
+          <div class="card-header"><div><div class="card-title">Produto e custos por unidade</div><div class="card-sub">Salve um cenário por produto para comparar preços sem sobrescrever os demais.</div></div></div>
+          <div class="pricing-product-manager">
+            <label class="fg"><span class="flabel">Cenário de produto</span><select class="finput" id="pricingProductSelect"></select></label>
+            <label class="fg"><span class="flabel">Nome do produto</span><input class="finput" id="pricingProductName" type="text" maxlength="80" placeholder="Ex.: Camiseta básica"></label>
+            <label class="fg"><span class="flabel">SKU (opcional)</span><input class="finput" id="pricingProductSku" type="text" maxlength="40" placeholder="Ex.: CAM-PRE-M"></label>
+            <div class="pricing-product-actions"><button class="btn btn-secondary" id="pricingNewProduct" type="button">Novo produto</button><button class="btn btn-secondary" id="pricingSaveProductDetails" type="button">Salvar nome e SKU</button><button class="btn btn-secondary" id="pricingDeleteProduct" type="button">Excluir cenário</button></div>
           </div>
+          <div class="pricing-form-grid">
+            <label class="fg"><span class="flabel">Custo de compra/produção (R$)</span><input class="finput" id="pricingProductCost" type="number" step="0.01" min="0"></label>
+            <label class="fg"><span class="flabel">Embalagem por unidade (R$)</span><input class="finput" id="pricingPackagingCost" type="number" step="0.01" min="0"></label>
+            <label class="fg"><span class="flabel">Outros custos por unidade (R$)</span><input class="finput" id="pricingExtraCost" type="number" step="0.01" min="0"></label>
+            <label class="fg"><span class="flabel">Frete subsidiado pela loja (R$)</span><input class="finput" id="pricingShippingSubsidy" type="number" step="0.01" min="0"></label>
+            <label class="fg"><span class="flabel">Imposto sobre a venda (%)</span><input class="finput" id="pricingTaxRate" type="number" step="0.1" min="0" max="100"></label>
+            <label class="fg"><span class="flabel">Reserva para devoluções (%)</span><input class="finput" id="pricingReturnReserveRate" type="number" step="0.1" min="0" max="100"></label>
+          </div>
+          <p class="pricing-help">Imposto e reserva são percentuais estimados sobre o valor pago pelo cliente. O lucro considera somente os custos informados aqui e nas taxas de cada plataforma.</p>
           <div class="pricing-mode-row">
             <button class="mode-card" id="pricingModeMargin" type="button">Calcular por margem</button>
             <button class="mode-card" id="pricingModeProfit" type="button">Calcular por lucro</button>
           </div>
           <div class="pricing-form-grid">
-            <label class="fg" id="pricingTargetMarginWrap"><span class="flabel">Margem Desejada %</span><input class="finput" id="pricingTargetMargin" type="number" step="0.1" min="0"></label>
+            <label class="fg" id="pricingTargetMarginWrap"><span class="flabel">Margem desejada sobre o valor pago (%)</span><input class="finput" id="pricingTargetMargin" type="number" step="0.1" min="0" max="99"></label>
             <label class="fg" id="pricingTargetProfitWrap" hidden><span class="flabel">Lucro Desejado R$</span><input class="finput" id="pricingTargetProfit" type="number" step="0.01" min="0"></label>
             <label class="fg"><span class="flabel">Vender por R$</span><input class="finput" id="pricingManualPrice" type="number" step="0.01" min="0"></label>
           </div>
-          <div class="pricing-base-resume"><span>Custo base considerado</span><strong id="pricingBaseCost">R$ 0,00</strong></div>
+          <div class="pricing-base-resume"><span>Custos fixos por unidade considerados</span><strong id="pricingBaseCost">R$ 0,00</strong></div>
         </div>
         <div class="card">
-          <div class="card-header"><div><div class="card-title">Como Ler</div><div class="card-sub">As taxas podem ser ajustadas individualmente em cada plataforma.</div></div></div>
+          <div class="card-header"><div><div class="card-title">Como interpretar</div><div class="card-sub">O preço recomendado cobre os custos e busca atingir a meta escolhida.</div></div></div>
           <div class="calculator-tips">
-            <div class="empty-state">Use os valores como ponto de partida. Ajuste o card da plataforma antes de confiar no preço final.</div>
-            <div class="empty-state">Para marketplaces com frete variável, deixe o frete zerado na base e preencha o repasse extra no card da plataforma.</div>
+            <div class="empty-state">Preço anunciado é o valor exibido na oferta. Desconto bancado pela loja reduz o valor pago e é aplicado antes de calcular comissão, imposto, reserva e margem.</div>
+            <div class="empty-state">Faixas de tarifa e valores iniciais são estimativas editáveis. Confira a cobrança real da sua conta e registre a data da revisão.</div>
+            <div class="empty-state">“Frete subsidiado” na base vale para todos os canais; “frete adicional” no canal vale somente para aquela plataforma. Evite lançar o mesmo frete nos dois lugares.</div>
           </div>
         </div>
       </div>
       <div class="pricing-platform-grid" id="pricingPlatformGrid"></div>
-    </main>
+              </section>
+        </div>
+      </main>
+    </div>
   </section>
-
   <!-- DAILY CLOSE -->
   <section class="screen daily-close-screen" id="dailyCloseScreen" hidden>
     <header class="topbar">
@@ -470,10 +463,10 @@
         <div class="card-header"><div><h2 class="card-title" id="accountPasswordHeading">Segurança</h2><div class="card-sub">Altere a senha usada para entrar no sistema.</div></div></div>
         <div class="account-password-grid">
           <label class="fg"><span class="flabel">Senha atual</span><input class="finput" id="accountCurrentPassword" type="password" autocomplete="current-password"></label>
-          <label class="fg"><span class="flabel">Nova senha</span><input class="finput" id="accountNewPassword" type="password" autocomplete="new-password" minlength="4"></label>
-          <label class="fg"><span class="flabel">Confirmar nova senha</span><input class="finput" id="accountConfirmPassword" type="password" autocomplete="new-password" minlength="4"></label>
+          <label class="fg"><span class="flabel">Nova senha</span><input class="finput" id="accountNewPassword" type="password" autocomplete="new-password" minlength="12"></label>
+          <label class="fg"><span class="flabel">Confirmar nova senha</span><input class="finput" id="accountConfirmPassword" type="password" autocomplete="new-password" minlength="12"></label>
         </div>
-        <div class="account-password-footer"><div class="card-sub">A senha precisa ter pelo menos 4 caracteres.</div><button class="btn btn-primary" id="accountSavePasswordButton" type="button">Alterar senha</button></div>
+        <div class="account-password-footer"><div class="card-sub">A nova senha precisa ter pelo menos 12 caracteres. Uma frase-senha é mais fácil de lembrar.</div><button class="btn btn-primary" id="accountSavePasswordButton" type="button">Alterar senha</button></div>
       </section>
     </main>
   </section>
@@ -514,11 +507,12 @@
 <div class="moverlay" id="salesSheetImportModal">
   <div class="modal sales-import-modal">
     <div class="mheader">
-      <div><div class="mtitle">Importar vendas</div><div class="card-sub modal-subtitle">Use um relatório CSV ou Excel exportado pelo sistema.</div></div>
+      <div><div class="mtitle">Importar vendas</div><div class="card-sub modal-subtitle">Confira as colunas e associe os campos de data, vendas e pedidos.</div></div>
       <button class="mclose" data-close-modal="salesSheetImportModal" type="button" aria-label="Fechar">X</button>
     </div>
     <div class="sales-import-destination">Destino: <strong id="salesSheetPeriod"></strong></div>
     <label class="fg sales-import-file"><span class="flabel">Arquivo de vendas (.csv, .xlsx ou .xls)</span><input class="finput" id="salesSheetFileInput" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></label>
+    <div id="salesImportMapping" class="sales-import-mapping" hidden></div>
     <div class="sales-import-conflict">
       <div class="flabel">Se a plataforma já tiver dados nessa data</div>
       <div class="modal-stack">

@@ -6,17 +6,19 @@ async function get(userId) {
 
 async function save(userId, settings, timestamp) {
   await execute(`
-    INSERT INTO app_settings (user_id, current_month, current_screen, pricing_json, updated_at)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO app_settings (user_id, current_month, current_screen, active_tab, pricing_json, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET
       current_month = excluded.current_month,
       current_screen = excluded.current_screen,
+      active_tab = excluded.active_tab,
       pricing_json = excluded.pricing_json,
       updated_at = excluded.updated_at
   `, [
     userId,
     settings.currentMonth || "",
     settings.currentScreen || "hub",
+    settings.activeTab || "overview",
     JSON.stringify(settings.pricing || null),
     timestamp
   ]);

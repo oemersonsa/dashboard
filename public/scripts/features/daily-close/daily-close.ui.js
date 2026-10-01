@@ -36,7 +36,7 @@ function parseValues(raw) {
 }
 
 function getEntries() {
-  return state.platforms.map((p) => {
+  return state.platforms.filter((p) => !p.archived).map((p) => {
     const sales = parseValues(document.getElementById(`dailyCloseSales_${p.key}`)?.value || "");
     const returns = parseValues(document.getElementById(`dailyCloseReturns_${p.key}`)?.value || "");
     return { platform: p, sales, returns, net: sales - returns };
@@ -61,7 +61,7 @@ function render() {
   const g = document.getElementById("dailyClosePlatformGrid");
   if (!g) return;
 
-  g.innerHTML = state.platforms.map((p) => `
+  g.innerHTML = state.platforms.filter((p) => !p.archived).map((p) => `
     <article class="daily-close-platform">
       <div class="daily-close-platform-head">
         ${platformBadge(p)}

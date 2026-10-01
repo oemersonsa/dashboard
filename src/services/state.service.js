@@ -13,7 +13,8 @@ async function getBusinessState(userId) {
     name: row.name,
     icon: row.icon,
     color: row.color,
-    iconText: row.icon_text
+    iconText: row.icon_text,
+    archived: Boolean(row.archived)
   }));
 
   const keyById = new Map(platformRows.map((row) => [row.id, row.platform_key]));
@@ -66,6 +67,7 @@ async function getBusinessState(userId) {
     goals,
     currentMonth: settings?.current_month || Object.keys(dbState)[0] || "",
     currentScreen: settings?.current_screen || "hub",
+    activeTab: settings?.active_tab || "overview",
     pricing: settings?.pricing_json ? JSON.parse(settings.pricing_json) : null,
     updatedAt: settings?.updated_at || ""
   };
@@ -86,10 +88,10 @@ async function replaceBusinessState(userId, state) {
       const p = platforms[i];
       const res = await tx.execute({
         sql: `INSERT INTO platforms
-              (user_id, platform_key, name, icon, color, icon_text, sort_order, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              (user_id, platform_key, name, icon, color, icon_text, sort_order, archived, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [userId, p.key, p.name, p.icon, p.color,
-               p.iconText || "#ffffff", i, timestamp, timestamp]
+               p.iconText || "#ffffff", i, p.archived ? 1 : 0, timestamp, timestamp]
       });
       platformIds.set(p.key, Number(res.lastInsertRowid));
     }
@@ -143,14 +145,15 @@ async function replaceBusinessState(userId, state) {
     // Settings
     await tx.execute({
       sql: `INSERT INTO app_settings
-            (user_id, current_month, current_screen, pricing_json, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            (user_id, current_month, current_screen, active_tab, pricing_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
               current_month = excluded.current_month,
               current_screen = excluded.current_screen,
+              active_tab = excluded.active_tab,
               pricing_json = excluded.pricing_json,
               updated_at = excluded.updated_at`,
-      args: [userId, state.currentMonth || "", state.currentScreen || "hub",
+      args: [userId, state.currentMonth || "", state.currentScreen || "hub", state.activeTab || "overview",
              JSON.stringify(state.pricing || null), timestamp]
     });
   }).then(() => getBusinessState(userId));
@@ -176,6 +179,8 @@ function normalizeBusinessPayload(body) {
     currentMonth: String(payload.currentMonth || ""),
     currentScreen: ["dashboard", "calculator", "dailyClose"].includes(payload.currentScreen)
     ? payload.currentScreen : "hub",
+    activeTab: String(payload.activeTab || "overview"),
+    activeTab: String(payload.activeTab || "overview"),
     pricing: payload.pricing && typeof payload.pricing === "object" ? payload.pricing : null
   };
 }

@@ -28,10 +28,14 @@
   line-height: 1.4;
 }
 
+.kpi-period-details { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.kpi-period-status, .kpi-period-tracking { color: var(--muted-2); font-size: 12px; line-height: 1.4; }
+.kpi-period-status { color: var(--accent); font-weight: 650; }
+
 .kpi-group { min-width: 0; }
 
 .kpi-group-title {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-3);
   color: var(--muted-2);
   font-size: var(--text-base);
   font-weight: 650;
@@ -50,13 +54,13 @@
 }
 
 .kpi-group--volume .kpi-card { max-width: 320px; min-height: 176px; }
-.kpi-group--financial .kpi-card { min-height: 176px; }
+.kpi-group--financial .kpi-card { min-height: 190px; }
 
 .kpi-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-4) var(--space-4);
+  padding: var(--space-5);
   position: relative;
   overflow: hidden;
   backdrop-filter: var(--blur);
@@ -114,8 +118,8 @@
 
 .kpi-context {
   color: var(--muted-2);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .kpi-change {
