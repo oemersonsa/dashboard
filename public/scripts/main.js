@@ -748,7 +748,7 @@ async function init() {
   });
 
   hideGlobalLoader();
-  console.log("🔥 main.js: init() concluído");
+  //console.log("🔥 main.js: init() concluído");
 }
 
 /* ═══ API GLOBAL ═══ */
