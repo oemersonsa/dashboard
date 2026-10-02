@@ -212,7 +212,7 @@ function scheduleServerSave() {
 
 /* ═══ SERVER PERSISTENCE (incremental) ═══ */
 // Último estado confirmado pelo servidor. null = desconhecido → força salvamento completo.
-const synced = { platforms: null, months: new Map(), settings: null };
+const synced = { platforms: null, months: new Map(), goals: null, settings: null };
 
 const jsonOf = (v) => JSON.stringify(v ?? null);
 const settingsOf = () => ({
@@ -227,6 +227,7 @@ function markSynced() {
   synced.months = new Map(
     Object.entries(state.db).map(([m, d]) => [m, jsonOf(d)])
   );
+  synced.goals = jsonOf(state.goals || {});
   synced.settings = jsonOf(settingsOf());
 }
 
@@ -275,6 +276,19 @@ async function persistToServer() {
         tasks.push(
           apiRequest("/api/settings", { method: "POST", body: settingsJson })
             .then(() => { nextSettings = settingsJson; })
+        );
+      }
+
+      // Metas são persistidas pelo endpoint de estado completo. Quando apenas
+      // uma meta muda, as plataformas e os dados mensais permanecem iguais;
+      // comparar goals aqui garante que essa alteração também seja enviada.
+      const goalsJson = jsonOf(state.goals || {});
+      if (goalsJson !== synced.goals) {
+        tasks.push(
+          apiRequest("/api/state", {
+            method: "POST",
+            body: JSON.stringify({ state: getBusinessSnapshot() })
+          }).then(() => markSynced())
         );
       }
 
