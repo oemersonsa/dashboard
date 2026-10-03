@@ -10,6 +10,7 @@ import {
 } from "./pricing.calc.js";
 
 let bound = false;
+let selectedPlatformKey = "";
 const PRODUCT_FIELDS = ["productCost", "packagingCost", "extraCost", "shippingSubsidy", "taxRate", "returnReserveRate", "manualPrice"];
 
 export function init() {
@@ -39,6 +40,15 @@ function render() {
     select.innerHTML = state.pricing.products.map((p) => `<option value="${escapeAttribute(p.id)}">${escapeAttribute(p.name)}${p.sku ? ` · ${escapeAttribute(p.sku)}` : ""}</option>`).join("");
     select.value = product?.id || "";
   }
+  const platformSelect = document.getElementById("pricingPlatformSelect");
+  const platforms = state.platforms.filter((platform) => !platform.archived);
+  if (platformSelect) {
+    if (!platforms.some((platform) => platform.key === selectedPlatformKey)) selectedPlatformKey = platforms[0]?.key || "";
+    platformSelect.innerHTML = platforms.length
+      ? platforms.map((platform) => `<option value="${escapeAttribute(platform.key)}">${escapeAttribute(platform.name)}</option>`).join("")
+      : '<option value="">Nenhuma plataforma cadastrada</option>';
+    platformSelect.value = selectedPlatformKey;
+  }
   setVal("pricingProductName", product?.name || "");
   setVal("pricingProductSku", product?.sku || "");
   setVal("pricingProductCost", Number(state.pricing.productCost || 0).toFixed(2));
@@ -66,38 +76,43 @@ function render() {
 function renderCards() {
   const container = document.getElementById("pricingPlatformGrid");
   if (!container) return;
-  const platforms = state.platforms.filter((platform) => !platform.archived);
-  if (!platforms.length) {
-    container.innerHTML = '<div class="empty-state">Cadastre uma plataforma para calcular e comparar os preços.</div>';
+  const settingsOpen = container.querySelector("[data-pricing-settings]")?.open || false;
+  const breakdownOpen = container.querySelector("[data-pricing-breakdown]")?.open || false;
+  const platform = state.platforms.find((item) => item.key === selectedPlatformKey && !item.archived);
+  if (!platform) {
+    container.innerHTML = '<div class="empty-state">Cadastre uma plataforma para calcular o preço e as taxas.</div>';
     return;
   }
-  container.innerHTML = platforms.map((platform) => {
-    const profile = getProfile(platform);
-    const result = calculatePlatformPrice(profile);
-    const tiers = getProfileFeeTiersPublic(profile);
-    const issues = validateFeeTiers(profile);
-    const reviewed = profile.lastReviewedAt ? `Conferida em ${escapeAttribute(formatDate(profile.lastReviewedAt))}` : "Estimativa: confira as taxas da sua conta";
-    const sourceUrl = /^https?:\/\//i.test(profile.sourceUrl || "")
-      ? `<a href="${escapeAttribute(profile.sourceUrl)}" target="_blank" rel="noopener noreferrer">Abrir referência</a>` : "";
-    const tierMessage = issues.length
-      ? `<div class="pricing-validation" role="alert">${issues.map(escapeAttribute).join("<br>")}</div>`
-      : tiers.length && !result ? '<div class="pricing-validation" role="status">Nenhuma faixa cobre o preço calculado. Confira os limites e a tarifa para cada faixa.</div>'
-        : tiers.length ? `<div class="pricing-note">Faixa aplicada pelo valor pago pelo cliente: ${R(result.feeTier.min)}–${result.feeTier.max === null ? "sem limite" : R(result.feeTier.max)}.</div>` : "";
-    return `<article class="pricing-card" data-platform-card="${escapeAttribute(platform.key)}">
-      <div class="pricing-card-head"><div><div class="pricing-platform">${platformBadge(platform)}</div><div class="pricing-source">${reviewed}${sourceUrl ? ` · ${sourceUrl}` : ""}</div></div><div class="pricing-result">${result ? R(result.idealPrice) : "Revise taxas"}<small>preço anunciado recomendado</small></div></div>
+  const profile = getProfile(platform);
+  const result = calculatePlatformPrice(profile);
+  const tiers = getProfileFeeTiersPublic(profile);
+  const issues = validateFeeTiers(profile);
+  const reviewed = profile.lastReviewedAt ? `Conferida em ${escapeAttribute(formatDate(profile.lastReviewedAt))}` : "Taxas estimadas · confira os valores da sua conta";
+  const sourceUrl = /^https?:\/\//i.test(profile.sourceUrl || "")
+    ? `<a href="${escapeAttribute(profile.sourceUrl)}" target="_blank" rel="noopener noreferrer">Fonte das taxas</a>` : "";
+  const tierMessage = issues.length
+    ? `<div class="pricing-validation" role="alert">${issues.map(escapeAttribute).join("<br>")}</div>`
+    : tiers.length && !result ? '<div class="pricing-validation" role="status">Nenhuma faixa cobre o preço calculado. Confira os limites e as tarifas.</div>'
+      : tiers.length ? `<div class="pricing-note">Faixa aplicada: ${R(result.feeTier.min)}–${result.feeTier.max === null ? "sem limite" : R(result.feeTier.max)}.</div>` : "";
+  container.innerHTML = `<article class="pricing-card pricing-selected-card" data-platform-card="${escapeAttribute(platform.key)}">
+    <div class="pricing-card-head"><div><div class="pricing-platform">${platformBadge(platform)}</div><div class="pricing-source">${reviewed}${sourceUrl ? ` · ${sourceUrl}` : ""}</div></div><div class="pricing-result">${result ? R(result.idealPrice) : "Revise taxas"}<small>preço recomendado</small></div></div>
+    ${result ? `<div class="pricing-quick-results"><div><span>Lucro por unidade</span><strong>${R(result.profit)}</strong></div><div><span>Margem estimada</span><strong>${result.profitMargin.toFixed(1)}%</strong></div><div><span>Valor pago pelo cliente</span><strong>${R(result.paidPrice)}</strong></div></div>` : ""}
+    ${tierMessage}${renderRounding(profile, result)}${renderManual(profile)}
+    <details data-pricing-breakdown ${breakdownOpen ? "open" : ""}><summary>Ver composição do preço</summary>${renderBreakdown(result) || '<p class="pricing-help">Preencha os custos e as taxas para ver a composição.</p>'}</details>
+    <details data-pricing-settings ${settingsOpen ? "open" : ""}><summary>Configurar taxas de ${escapeAttribute(platform.name)}</summary>
       <div class="pricing-grid">
-        <label class="fg"><span class="flabel">Comissão %</span><input class="finput" type="number" step="0.1" min="0" max="100" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="commissionRate" value="${Number(profile.commissionRate || 0).toFixed(1)}" ${tiers.length ? "disabled" : ""}></label>
-        <label class="fg"><span class="flabel">Outra taxa da plataforma %</span><input class="finput" type="number" step="0.1" min="0" max="100" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="transactionRate" value="${Number(profile.transactionRate || 0).toFixed(1)}"></label>
-        <label class="fg"><span class="flabel">Taxa fixa por pedido (R$)</span><input class="finput" type="number" step="0.01" min="0" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="fixedFee" value="${Number(profile.fixedFee || 0).toFixed(2)}" ${tiers.length ? "disabled" : ""}></label>
-        <label class="fg"><span class="flabel">Frete adicional pago pela loja (R$)</span><input class="finput" type="number" step="0.01" min="0" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="extraShippingCost" value="${Number(profile.extraShippingCost || 0).toFixed(2)}"></label>
+        <label class="fg"><span class="flabel">Comissão (%)</span><input class="finput" type="number" step="0.1" min="0" max="100" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="commissionRate" value="${Number(profile.commissionRate || 0).toFixed(1)}" ${tiers.length ? "disabled" : ""}></label>
+        <label class="fg"><span class="flabel">Outra taxa percentual</span><input class="finput" type="number" step="0.1" min="0" max="100" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="transactionRate" value="${Number(profile.transactionRate || 0).toFixed(1)}"></label>
+        <label class="fg"><span class="flabel">Tarifa fixa por pedido (R$)</span><input class="finput" type="number" step="0.01" min="0" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="fixedFee" value="${Number(profile.fixedFee || 0).toFixed(2)}" ${tiers.length ? "disabled" : ""}></label>
+        <label class="fg"><span class="flabel">Frete adicional (R$)</span><input class="finput" type="number" step="0.01" min="0" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="extraShippingCost" value="${Number(profile.extraShippingCost || 0).toFixed(2)}"></label>
         <label class="fg"><span class="flabel">Desconto pago pela loja (%)</span><input class="finput" type="number" step="0.1" min="0" max="99.9" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="sellerDiscountRate" value="${Number(profile.sellerDiscountRate || 0).toFixed(1)}"></label>
       </div>
-      ${renderTiers(platform.key, tiers)}${tierMessage}${renderBreakdown(result)}${renderManual(profile)}${renderRounding(profile, result)}
+      ${renderTiers(platform.key, tiers)}
       <div class="pricing-tier-tools"><button class="btn btn-secondary" type="button" data-pricing-tier-add="${escapeAttribute(platform.key)}">Adicionar faixa de tarifa</button><button class="btn btn-secondary" type="button" data-pricing-review="${escapeAttribute(platform.key)}">Marcar taxas como conferidas</button></div>
-      <label class="fg"><span class="flabel">Observação sobre as taxas</span><input class="finput" type="text" maxlength="200" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="note" value="${escapeAttribute(profile.note || "")}"></label>
+      <label class="fg"><span class="flabel">Observação</span><input class="finput" type="text" maxlength="200" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="note" value="${escapeAttribute(profile.note || "")}"></label>
       <label class="fg"><span class="flabel">Link de referência (opcional)</span><input class="finput" type="url" maxlength="500" placeholder="https://" data-pricing-profile="${escapeAttribute(platform.key)}" data-field="sourceUrl" value="${escapeAttribute(profile.sourceUrl || "")}"></label>
-    </article>`;
-  }).join("");
+    </details>
+  </article>`;
 }
 
 function renderTiers(platformKey, tiers) {
@@ -146,6 +161,10 @@ function formatDate(value) {
 }
 
 function bindEvents() {
+  document.getElementById("pricingPlatformSelect")?.addEventListener("change", (event) => {
+    selectedPlatformKey = event.target.value;
+    renderCards();
+  });
   const fields = {
     pricingProductCost: "productCost", pricingPackagingCost: "packagingCost", pricingExtraCost: "extraCost",
     pricingShippingSubsidy: "shippingSubsidy", pricingTaxRate: "taxRate", pricingReturnReserveRate: "returnReserveRate",

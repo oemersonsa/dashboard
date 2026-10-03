@@ -29,13 +29,14 @@ import { init as initProjection } from "../projection/projection.ui.js";
 import { renderWeekly } from "../weekly/weekly.ui.js";
 import { init as initReturns } from "../returns/returns.ui.js";
 import { showChartSkeleton, hideChartSkeleton, showPlatformBarsSkeleton } from "../../ui/skeleton.js";
-import { computeGoalProgress, GOAL_STATUS, getStatusColorVar, STATUS_LABEL } from "../goals/goals.calc.js";
+import { computeGoalProgress, GOAL_STATUS, getStatusColorVar } from "../goals/goals.calc.js";
 import { getGoal } from "../../core/state.js";
 
 let bound = false;
 let dailyChart = null;
 let overviewTrendChart = null;
 let overviewTrendBucketDays = 1;
+let overviewTrendPeriod = "rolling30";
 let newMonthSel = null;
 let compareMonthKey = "";   // ⬅️ NOVO
 let selectedPlatformKeys = null; // null = todas; array de keys = filtro ativo
@@ -56,8 +57,8 @@ export function init() {
 
 /* ═══ RENDER ALL ═══ */
 export function renderAll() {
-  if (!state.platforms.length || !state.db[state.currentMonth]) return;
   renderTrackingAlerts();
+  if (!state.platforms.length || !state.db[state.currentMonth]) return;
   renderKPIs();
   renderOverviewTrend();
   renderComparePicker();
@@ -79,15 +80,22 @@ function renderTrackingAlerts() {
   const target = getGoal(state.currentMonth);
   const p = computeGoalProgress(state.currentMonth, target, state);
 
-  if (p.hasGoal && (p.status === GOAL_STATUS.ATENCAO || p.status === GOAL_STATUS.RISCO)) {
-    const diff = p.target > 0 ? ((p.projected - p.target) / p.target) * 100 : 0;
+  if (p.hasGoal) {
     const colorVar = `var(${getStatusColorVar(p.status)})`;
+    const progressWidth = Math.min(100, Math.max(0, p.percent));
+    const statusCopy = p.status === GOAL_STATUS.ATINGIDA
+      ? "Meta atingida"
+      : p.status === GOAL_STATUS.NO_RITMO
+        ? "No ritmo para alcançar a meta"
+        : p.status === GOAL_STATUS.ATENCAO
+          ? "Atenção: projeção próxima da meta"
+          : "Em risco: projeção abaixo da meta";
     alerts.push(`
-      <div class="goal-alert" style="border-color:${colorVar}44;background:${colorVar}0F">
-        <div class="goal-alert-icon" style="color:${colorVar}">⚠</div>
-        <div class="goal-alert-text">
-          <strong>${escapeHtml(STATUS_LABEL[p.status])}:</strong>
-          projeção líquida de ${R(p.projected)} está ${Math.abs(diff).toFixed(1)}% ${diff < 0 ? "abaixo" : "acima"} da meta líquida (${R(p.target)}).
+      <div class="goal-alert goal-progress-alert" style="--goal-status-color:${colorVar};border-color:color-mix(in srgb,${colorVar} 42%,var(--border));background:color-mix(in srgb,${colorVar} 8%,var(--surface))" role="status">
+        <div class="goal-progress-main">
+          <div class="goal-progress-heading"><strong>${statusCopy}</strong><span>${p.percent.toFixed(1).replace(".", ",")}%</span></div>
+          <div class="goal-progress-track" role="progressbar" aria-label="Progresso da meta de vendas líquidas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, Math.max(0, p.percent)).toFixed(1)}"><div class="goal-progress-fill" style="width:${progressWidth}%;background:${colorVar}"></div></div>
+          <div class="goal-progress-details"><span>Realizado <strong>${R(p.realized)}</strong> de ${R(p.target)}</span><span>Projeção <strong>${R(p.projected)}</strong></span><span>Faltam <strong>${R(p.remaining)}</strong></span></div>
         </div>
       </div>
     `);
@@ -181,7 +189,7 @@ function renderKPIs() {
   `;
 }
 
-/* ═══ TENDÊNCIA DO OVERVIEW — janela móvel de 30 dias ═══ */
+/* ═══ TENDÊNCIA DO OVERVIEW ═══ */
 function renderOverviewTrend() {
   const canvas = document.getElementById("overviewTrendChart");
   const summary = document.getElementById("overviewTrendSummary");
@@ -193,49 +201,57 @@ function renderOverviewTrend() {
   const lastLoggedDay = getLastLoggedDay(state.currentMonth);
   const today = new Date();
   const isCurrentMonth = selected.year === today.getFullYear() && monthIndex === today.getMonth();
-  const anchorDay = isCurrentMonth ? today.getDate() : (lastLoggedDay || getMonthDays(state.currentMonth));
-  const endDate = new Date(selected.year, monthIndex, anchorDay);
   const dailyValues = [];
 
-  for (let offset = 29; offset >= 0; offset--) {
-    const date = new Date(endDate);
-    date.setDate(endDate.getDate() - offset);
-    const monthName = ALL_MONTHS[date.getMonth()];
-    const periodKey = `${date.getFullYear()}-${monthName}`;
-    const monthData = state.db[periodKey]
-      || Object.entries(state.db).find(([key]) => {
-        const parsed = parsePeriodKey(key);
-        return parsed.year === date.getFullYear() && parsed.month === monthName;
-      })?.[1];
-    const dayLabel = `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const row = monthData?.days?.find((item) => item.d === dayLabel);
-    const gross = row
-      ? state.platforms.reduce((total, platform) => total + Number(row[platform.key] || 0), 0)
-      : 0;
-    dailyValues.push({ date, label: dayLabel, gross });
+  if (overviewTrendPeriod === "month") {
+    const endDay = isCurrentMonth ? today.getDate() : (lastLoggedDay || getMonthDays(state.currentMonth));
+    for (let day = 1; day <= endDay; day += 1) {
+      const date = new Date(selected.year, monthIndex, day);
+      dailyValues.push(getOverviewTrendDay(date));
+    }
+  } else {
+    const anchorDay = isCurrentMonth ? today.getDate() : (lastLoggedDay || getMonthDays(state.currentMonth));
+    const endDate = new Date(selected.year, monthIndex, anchorDay);
+    for (let offset = 29; offset >= 0; offset--) {
+      const date = new Date(endDate);
+      date.setDate(endDate.getDate() - offset);
+      dailyValues.push(getOverviewTrendDay(date));
+    }
   }
 
   const bucketSize = Math.max(1, Number(overviewTrendBucketDays) || 1);
+  const effectiveBucketSize = overviewTrendPeriod === "month" && bucketSize === 30 ? dailyValues.length : bucketSize;
   const grouped = [];
-  for (let start = 0; start < dailyValues.length; start += bucketSize) {
-    const bucket = dailyValues.slice(start, start + bucketSize);
+  for (let start = 0; start < dailyValues.length; start += effectiveBucketSize) {
+    const bucket = dailyValues.slice(start, start + effectiveBucketSize);
     const first = bucket[0].label;
     const last = bucket[bucket.length - 1].label;
     grouped.push({
-      label: bucketSize === 1 ? first : bucketSize === 30 ? "30 dias" : `${first}–${last}`,
+      label: overviewTrendPeriod === "month" && bucketSize === 30 ? getPeriodLabel(state.currentMonth) : bucketSize === 1 ? first : `${first}–${last}`,
       value: bucket.reduce((total, item) => total + item.gross, 0)
     });
   }
 
+  document.querySelectorAll("[data-overview-trend-period]").forEach((button) => {
+    const active = button.dataset.overviewTrendPeriod === overviewTrendPeriod;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   document.querySelectorAll("[data-overview-trend-range]").forEach((button) => {
     const active = Number(button.dataset.overviewTrendRange) === bucketSize;
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
 
+  const periodLabel = overviewTrendPeriod === "month" ? `Mês atual · ${getPeriodLabel(state.currentMonth)}` : "30 dias corridos";
+  const subtitle = document.getElementById("overviewTrendSubtitle");
+  if (subtitle) subtitle.textContent = `Vendas brutas · ${periodLabel}`;
   if (summary) {
     const total = dailyValues.reduce((sum, item) => sum + item.gross, 0);
-    summary.innerHTML = `<span>Vendas brutas no período</span><strong>${RS(total)}</strong><small>30 dias corridos até ${dailyValues.at(-1)?.label || ""}</small>`;
+    const dateDescription = overviewTrendPeriod === "month"
+      ? `${getPeriodLabel(state.currentMonth)} até ${dailyValues.at(-1)?.label || ""}`
+      : `30 dias corridos até ${dailyValues.at(-1)?.label || ""}`;
+    summary.innerHTML = `<span>Vendas brutas no período</span><strong>${RS(total)}</strong><small>${dateDescription}</small>`;
   }
 
   if (overviewTrendChart) overviewTrendChart.destroy();
@@ -276,6 +292,22 @@ function renderOverviewTrend() {
       }
     }
   });
+}
+
+function getOverviewTrendDay(date) {
+    const monthName = ALL_MONTHS[date.getMonth()];
+    const periodKey = `${date.getFullYear()}-${monthName}`;
+    const monthData = state.db[periodKey]
+      || Object.entries(state.db).find(([key]) => {
+        const parsed = parsePeriodKey(key);
+        return parsed.year === date.getFullYear() && parsed.month === monthName;
+      })?.[1];
+    const dayLabel = `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const row = monthData?.days?.find((item) => item.d === dayLabel);
+    const gross = row
+      ? state.platforms.reduce((total, platform) => total + Number(row[platform.key] || 0), 0)
+      : 0;
+    return { date, label: dayLabel, gross };
 }
 
 /* ═══ HEADER DO CARD (eyebrow + total + delta) ═══ */
@@ -1001,6 +1033,12 @@ function varH(current, previous, reverse = false) {
 /* ═══ BIND DE EVENTOS LOCAIS ═══ */
 function bindEvents() {
   document.getElementById("dashboard-panel-overview")?.addEventListener("click", (event) => {
+    const periodButton = event.target.closest("[data-overview-trend-period]");
+    if (periodButton) {
+      overviewTrendPeriod = periodButton.dataset.overviewTrendPeriod === "month" ? "month" : "rolling30";
+      renderOverviewTrend();
+      return;
+    }
     const button = event.target.closest("[data-overview-trend-range]");
     if (!button) return;
     overviewTrendBucketDays = Number(button.dataset.overviewTrendRange) || 1;

@@ -156,3 +156,53 @@
 
 .mode-card:hover { border-color: var(--border-2); transform: translateY(-1px); }
 .mode-card.active { border-color: var(--accent); background: rgba(0, 113, 227, 0.06); }
+
+.roas-main { padding: var(--space-6) var(--space-8); display: grid; gap: var(--space-5); }
+.roas-card { width: min(100%, 760px); justify-self: center; padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); display: grid; gap: var(--space-4); }
+.roas-platform-row { display: grid; grid-template-columns: minmax(220px, 1fr) 1.5fr; align-items: end; gap: var(--space-3); }
+.roas-profile-note { color: var(--muted); font-size: var(--text-xs); padding-bottom: 10px; }
+.roas-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.roas-margin-control { border-top: 1px solid var(--border); padding-top: var(--space-4); }
+.roas-margin-heading { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-sm); }
+.roas-margin-heading strong { font-size: var(--text-base); }
+.roas-margin-control input[type="range"] { width: 100%; accent-color: var(--text); }
+.roas-range-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: var(--text-xs); }
+.roas-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.roas-metric { min-height: 88px; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); display: grid; align-content: space-between; gap: var(--space-2); }
+.roas-metric span { font-size: var(--text-xs); }
+.roas-metric strong { font-size: var(--text-lg); font-weight: 700; }
+.roas-metric small { color: var(--muted); font-size: var(--text-xs); }
+.roas-contribution strong { color: var(--success, #22c55e); }
+.roas-equilibrium { grid-column: 1 / -1; border: 1px solid var(--border); }
+.roas-equilibrium p, .roas-footnote { color: var(--muted); font-size: var(--text-xs); line-height: 1.5; margin: 0; }
+.pricing-workspace { width: min(100%, 900px); justify-self: center; }
+.pricing-main-card { display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.pricing-selector-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.pricing-main-card .pricing-product-actions { margin: calc(var(--space-2) * -1) 0 0; }
+.pricing-main-card .pricing-form-grid { gap: var(--space-3); }
+.pricing-main-card .pricing-mode-row { margin: 0; }
+.pricing-goal-grid { align-items: end; }
+.pricing-main-card .pricing-platform-grid { display: block; }
+.pricing-selected-card { padding: var(--space-4); box-shadow: none; }
+.pricing-selected-card:hover { transform: none; }
+.pricing-quick-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.pricing-quick-results > div { display: grid; gap: var(--space-1); padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); }
+.pricing-quick-results span { color: var(--muted); font-size: var(--text-xs); }
+.pricing-quick-results strong { font-size: var(--text-base); }
+.pricing-selected-card details { border-top: 1px solid var(--border); padding-top: var(--space-3); }
+.pricing-selected-card details > summary { color: var(--text); cursor: pointer; font-size: var(--text-sm); font-weight: 600; }
+.pricing-selected-card details[open] > summary { margin-bottom: var(--space-3); }
+.pricing-selected-card details .pricing-breakdown { margin-top: var(--space-3); }
+@media (max-width: 600px) {
+  .pricing-main-card { padding: var(--space-4); }
+  .pricing-selector-row { grid-template-columns: 1fr; gap: var(--space-2); }
+  .pricing-quick-results { grid-template-columns: 1fr 1fr; }
+  .pricing-quick-results > div:last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .roas-main { padding: var(--space-4); }
+  .roas-card { padding: var(--space-4); }
+  .roas-platform-row { grid-template-columns: 1fr; gap: var(--space-2); }
+  .roas-profile-note { padding-bottom: 0; }
+  .roas-form-grid { gap: var(--space-2); }
+}

@@ -39,6 +39,7 @@ import {
   switchDashboardPeriod
 } from "./features/sales/sales.ui.js";
 import { init as initCalculator } from "./features/calculator/pricing.ui.js";
+import { init as initRoasCalculator } from "./features/calculator/roas.ui.js";
 import { init as initDailyClose } from "./features/daily-close/daily-close.ui.js";
 import { init as initBackup, exportBackup } from "./features/backup/backup.export.js";
 import { init as initSalesImport, openSalesSheetImport } from "./features/sales/sales-import.ui.js";
@@ -688,7 +689,7 @@ function bindSidebarActions() {
 }
 
 export function switchDashboardTab(name) {
-  const valid = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection", "calculator"];
+  const valid = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection", "calculator", "roas"];
   const target = valid.includes(name) ? name : "overview";
 
   state.activeTab = target;
@@ -702,7 +703,7 @@ export function switchDashboardTab(name) {
   });
   const menuByTab = {
     overview: "sales", daily: "sales", weekly: "sales",
-    platforms: "analysis", trends: "analysis", entries: "management", projection: "management", calculator: "tools"
+    platforms: "analysis", trends: "analysis", entries: "management", projection: "management", calculator: "tools", roas: "tools"
   };
   document.querySelectorAll("[data-sidebar-menu-trigger]").forEach((trigger) => {
     trigger.classList.toggle("active", trigger.dataset.sidebarMenuTrigger === menuByTab[target]);
@@ -720,6 +721,7 @@ export function switchDashboardTab(name) {
     import("./features/trends/trends.ui.js").then((m) => m.init?.()).catch(console.error);
   }
   if (target === "platforms") initPlatformAnalytics();
+  if (target === "roas") initRoasCalculator();
 }
 
 /* ═══ BOOT ═══ */

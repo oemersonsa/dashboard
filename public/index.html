@@ -151,6 +151,7 @@
             <div class="sidebar-submenu-popover" id="sidebarMenuTools" hidden>
               <div class="sidebar-submenu-title">Ferramentas</div>
               <button class="sidebar-item" data-dashboard-tab="calculator" type="button">Calculadora</button>
+              <button class="sidebar-item" data-dashboard-tab="roas" type="button">Calculadora de ROAS</button>
               <button class="sidebar-item" id="sidebarOpenDailyClose" type="button">Fechamento</button>
             </div>
           </div>
@@ -188,12 +189,18 @@
             <div class="goal-alert-banner" id="goalAlertBanner" aria-live="polite" hidden></div>
             <div class="card overview-trend-card">
               <div class="card-header overview-trend-header">
-                <div><div class="card-title">Tendência de vendas</div><div class="card-sub">Vendas brutas nos últimos 30 dias corridos</div></div>
-                <div class="overview-trend-controls" role="group" aria-label="Agrupar tendência dos últimos 30 dias">
-                  <button type="button" class="overview-trend-range active" data-overview-trend-range="1" aria-pressed="true">Diária</button>
-                  <button type="button" class="overview-trend-range" data-overview-trend-range="7" aria-pressed="false">Semanal</button>
-                  <button type="button" class="overview-trend-range" data-overview-trend-range="15" aria-pressed="false">Quinzenal</button>
-                  <button type="button" class="overview-trend-range" data-overview-trend-range="30" aria-pressed="false">30 dias</button>
+                <div><div class="card-title">Tendência de vendas</div><div class="card-sub" id="overviewTrendSubtitle">Vendas brutas nos últimos 30 dias corridos</div></div>
+                <div class="overview-trend-tools">
+                  <div class="overview-trend-controls overview-trend-period-controls" role="group" aria-label="Período da tendência">
+                    <button type="button" class="overview-trend-range active" data-overview-trend-period="rolling30" aria-pressed="true">30 dias corridos</button>
+                    <button type="button" class="overview-trend-range" data-overview-trend-period="month" aria-pressed="false">Mês atual</button>
+                  </div>
+                  <div class="overview-trend-controls overview-trend-bucket-controls" role="group" aria-label="Agrupar os dados da tendência">
+                    <button type="button" class="overview-trend-range active" data-overview-trend-range="1" aria-pressed="true">Diária</button>
+                    <button type="button" class="overview-trend-range" data-overview-trend-range="7" aria-pressed="false">Semanal</button>
+                    <button type="button" class="overview-trend-range" data-overview-trend-range="15" aria-pressed="false">Quinzenal</button>
+                    <button type="button" class="overview-trend-range" data-overview-trend-range="30" aria-pressed="false">Mês</button>
+                  </div>
                 </div>
               </div>
               <div class="overview-trend-summary" id="overviewTrendSummary" aria-live="polite"></div>
@@ -346,47 +353,59 @@
             </div>
           </section>
           <section class="dashboard-panel calculator-main" id="dashboard-panel-calculator" data-dashboard-panel="calculator" hidden>
-            <div class="card-header calculator-panel-heading"><div><div class="card-title">Calculadora de preços</div><div class="card-sub">Compare o preço recomendado e o lucro estimado em cada plataforma.</div></div></div>
-      <div class="grid2">
-        <div class="card">
-          <div class="card-header"><div><div class="card-title">Produto e custos por unidade</div><div class="card-sub">Salve um cenário por produto para comparar preços sem sobrescrever os demais.</div></div></div>
-          <div class="pricing-product-manager">
-            <label class="fg"><span class="flabel">Cenário de produto</span><select class="finput" id="pricingProductSelect"></select></label>
-            <label class="fg"><span class="flabel">Nome do produto</span><input class="finput" id="pricingProductName" type="text" maxlength="80" placeholder="Ex.: Camiseta básica"></label>
-            <label class="fg"><span class="flabel">SKU (opcional)</span><input class="finput" id="pricingProductSku" type="text" maxlength="40" placeholder="Ex.: CAM-PRE-M"></label>
-            <div class="pricing-product-actions"><button class="btn btn-secondary" id="pricingNewProduct" type="button">Novo produto</button><button class="btn btn-secondary" id="pricingSaveProductDetails" type="button">Salvar nome e SKU</button><button class="btn btn-secondary" id="pricingDeleteProduct" type="button">Excluir cenário</button></div>
-          </div>
-          <div class="pricing-form-grid">
-            <label class="fg"><span class="flabel">Custo de compra/produção (R$)</span><input class="finput" id="pricingProductCost" type="number" step="0.01" min="0"></label>
-            <label class="fg"><span class="flabel">Embalagem por unidade (R$)</span><input class="finput" id="pricingPackagingCost" type="number" step="0.01" min="0"></label>
-            <label class="fg"><span class="flabel">Outros custos por unidade (R$)</span><input class="finput" id="pricingExtraCost" type="number" step="0.01" min="0"></label>
-            <label class="fg"><span class="flabel">Frete subsidiado pela loja (R$)</span><input class="finput" id="pricingShippingSubsidy" type="number" step="0.01" min="0"></label>
-            <label class="fg"><span class="flabel">Imposto sobre a venda (%)</span><input class="finput" id="pricingTaxRate" type="number" step="0.1" min="0" max="100"></label>
-            <label class="fg"><span class="flabel">Reserva para devoluções (%)</span><input class="finput" id="pricingReturnReserveRate" type="number" step="0.1" min="0" max="100"></label>
-          </div>
-          <p class="pricing-help">Imposto e reserva são percentuais estimados sobre o valor pago pelo cliente. O lucro considera somente os custos informados aqui e nas taxas de cada plataforma.</p>
-          <div class="pricing-mode-row">
-            <button class="mode-card" id="pricingModeMargin" type="button">Calcular por margem</button>
-            <button class="mode-card" id="pricingModeProfit" type="button">Calcular por lucro</button>
-          </div>
-          <div class="pricing-form-grid">
-            <label class="fg" id="pricingTargetMarginWrap"><span class="flabel">Margem desejada sobre o valor pago (%)</span><input class="finput" id="pricingTargetMargin" type="number" step="0.1" min="0" max="99"></label>
-            <label class="fg" id="pricingTargetProfitWrap" hidden><span class="flabel">Lucro Desejado R$</span><input class="finput" id="pricingTargetProfit" type="number" step="0.01" min="0"></label>
-            <label class="fg"><span class="flabel">Vender por R$</span><input class="finput" id="pricingManualPrice" type="number" step="0.01" min="0"></label>
-          </div>
-          <div class="pricing-base-resume"><span>Custos fixos por unidade considerados</span><strong id="pricingBaseCost">R$ 0,00</strong></div>
-        </div>
-        <div class="card">
-          <div class="card-header"><div><div class="card-title">Como interpretar</div><div class="card-sub">O preço recomendado cobre os custos e busca atingir a meta escolhida.</div></div></div>
-          <div class="calculator-tips">
-            <div class="empty-state">Preço anunciado é o valor exibido na oferta. Desconto bancado pela loja reduz o valor pago e é aplicado antes de calcular comissão, imposto, reserva e margem.</div>
-            <div class="empty-state">Faixas de tarifa e valores iniciais são estimativas editáveis. Confira a cobrança real da sua conta e registre a data da revisão.</div>
-            <div class="empty-state">“Frete subsidiado” na base vale para todos os canais; “frete adicional” no canal vale somente para aquela plataforma. Evite lançar o mesmo frete nos dois lugares.</div>
-          </div>
-        </div>
-      </div>
-      <div class="pricing-platform-grid" id="pricingPlatformGrid"></div>
+            <div class="card-header calculator-panel-heading"><div><div class="card-title">Calculadora de preços</div><div class="card-sub">Simule o preço ideal e o lucro estimado em uma plataforma por vez.</div></div></div>
+            <div class="pricing-workspace">
+              <div class="pricing-main-card">
+                <div class="pricing-selector-row">
+                  <label class="fg"><span class="flabel" for="pricingPlatformSelect">Plataforma</span><select class="finput" id="pricingPlatformSelect"></select></label>
+                  <label class="fg"><span class="flabel" for="pricingProductSelect">Produto</span><select class="finput" id="pricingProductSelect"></select></label>
+                </div>
+                <div class="pricing-product-actions"><button class="btn btn-secondary" id="pricingNewProduct" type="button">Novo produto</button><button class="btn btn-secondary" id="pricingSaveProductDetails" type="button">Salvar produto</button><button class="btn btn-secondary" id="pricingDeleteProduct" type="button">Excluir produto</button></div>
+                <div class="pricing-form-grid">
+                  <label class="fg"><span class="flabel">Nome do produto</span><input class="finput" id="pricingProductName" type="text" maxlength="80" placeholder="Ex.: Camiseta básica"></label>
+                  <label class="fg"><span class="flabel">SKU (opcional)</span><input class="finput" id="pricingProductSku" type="text" maxlength="40" placeholder="Ex.: CAM-PRE-M"></label>
+                  <label class="fg"><span class="flabel">Custo do produto (R$)</span><input class="finput" id="pricingProductCost" type="number" step="0.01" min="0"></label>
+                  <label class="fg"><span class="flabel">Embalagem (R$)</span><input class="finput" id="pricingPackagingCost" type="number" step="0.01" min="0"></label>
+                  <label class="fg"><span class="flabel">Outros custos por unidade (R$)</span><input class="finput" id="pricingExtraCost" type="number" step="0.01" min="0"></label>
+                  <label class="fg"><span class="flabel">Frete subsidiado (R$)</span><input class="finput" id="pricingShippingSubsidy" type="number" step="0.01" min="0"></label>
+                  <label class="fg"><span class="flabel">Impostos (%)</span><input class="finput" id="pricingTaxRate" type="number" step="0.1" min="0" max="100"></label>
+                  <label class="fg"><span class="flabel">Reserva para devoluções (%)</span><input class="finput" id="pricingReturnReserveRate" type="number" step="0.1" min="0" max="100"></label>
+                </div>
+                <div class="pricing-mode-row"><button class="mode-card" id="pricingModeMargin" type="button">Calcular por margem</button><button class="mode-card" id="pricingModeProfit" type="button">Calcular por lucro</button></div>
+                <div class="pricing-form-grid pricing-goal-grid">
+                  <label class="fg" id="pricingTargetMarginWrap"><span class="flabel">Margem desejada (%)</span><input class="finput" id="pricingTargetMargin" type="number" step="0.1" min="0" max="99"></label>
+                  <label class="fg" id="pricingTargetProfitWrap" hidden><span class="flabel">Lucro desejado (R$)</span><input class="finput" id="pricingTargetProfit" type="number" step="0.01" min="0"></label>
+                  <label class="fg"><span class="flabel">Preço para simular (R$)</span><input class="finput" id="pricingManualPrice" type="number" step="0.01" min="0"></label>
+                </div>
+                <div class="pricing-base-resume"><span>Custos fixos considerados</span><strong id="pricingBaseCost">R$ 0,00</strong></div>
+                <div class="pricing-platform-grid" id="pricingPlatformGrid"></div>
+              </div>
+            </div>
               </section>
+          <section class="dashboard-panel roas-main" id="dashboard-panel-roas" data-dashboard-panel="roas" hidden>
+            <div class="card-header calculator-panel-heading"><div><div class="card-title">Calculadora de ROAS</div><div class="card-sub">Descubra quanto pode investir em anúncios por pedido sem comprometer sua margem.</div></div></div>
+            <div class="roas-card">
+              <div class="roas-platform-row">
+                <label class="fg"><span class="flabel" for="roasPlatform">Plataforma</span><select class="finput" id="roasPlatform"></select></label>
+                <div class="roas-profile-note" id="roasProfileNote" aria-live="polite"></div>
+              </div>
+              <div class="roas-form-grid">
+                <label class="fg"><span class="flabel" for="roasPrice">Preço de venda (R$)</span><input class="finput" id="roasPrice" type="number" min="0" step="0.01" value="199.90"></label>
+                <label class="fg"><span class="flabel" for="roasCost">Custo do produto (R$)</span><input class="finput" id="roasCost" type="number" min="0" step="0.01" value="75"></label>
+                <label class="fg"><span class="flabel" for="roasCommission">Comissão da plataforma (%)</span><input class="finput" id="roasCommission" type="number" min="0" max="100" step="0.1"></label>
+                <label class="fg"><span class="flabel" for="roasFixed">Tarifa fixa por pedido (R$)</span><input class="finput" id="roasFixed" type="number" min="0" step="0.01"></label>
+                <label class="fg"><span class="flabel" for="roasTax">Impostos (%)</span><input class="finput" id="roasTax" type="number" min="0" max="100" step="0.1" value="8"></label>
+                <label class="fg"><span class="flabel" for="roasOther">Outros custos antes de Ads (R$)</span><input class="finput" id="roasOther" type="number" min="0" step="0.01" value="8"></label>
+              </div>
+              <div class="roas-margin-control"><div class="roas-margin-heading"><label for="roasMargin">Margem desejada após Ads</label><strong id="roasMarginValue">20%</strong></div><input id="roasMargin" type="range" min="0" max="40" value="20" step="1"><div class="roas-range-labels"><span>0%</span><span>20%</span><span>40%</span></div></div>
+              <div class="roas-results" aria-live="polite">
+                <article class="roas-metric roas-contribution"><span>Contribuição antes de Ads</span><strong id="roasContribution">R$ 0,00</strong><small id="roasContributionPercent">0,0% do preço</small></article>
+                <article class="roas-metric"><span>Verba máxima de Ads por pedido</span><strong id="roasAdBudget">R$ 0,00</strong><small>Para preservar a margem desejada</small></article>
+                <article class="roas-metric roas-equilibrium"><span>ROAS mínimo para atingir a margem desejada</span><strong id="roasTarget">—</strong><p id="roasBreakEven">ROAS de equilíbrio matemático: —</p></article>
+              </div>
+              <p class="roas-footnote">O cálculo considera a receita do produto e não inclui diferenças de atribuição, pedidos cancelados ou custos que não foram informados.</p>
+            </div>
+          </section>
         </div>
       </main>
     </div>

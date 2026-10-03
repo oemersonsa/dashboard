@@ -1023,6 +1023,7 @@ body.dark-theme .topbar-user-avatar { color: #111318; }
 
 /* ═══ RESUMO POR PLATAFORMA (card do overview) ═══ */
 .overview-trend-header { align-items: flex-start; gap: var(--space-4); }
+.overview-trend-tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); }
 .overview-trend-controls {
   display: flex;
   align-items: center;
@@ -1060,6 +1061,11 @@ body.dark-theme .topbar-user-avatar { color: #111318; }
 .overview-trend-summary strong { color: var(--text); font-size: var(--text-lg); font-variant-numeric: tabular-nums; }
 .overview-trend-summary small { color: var(--muted); font-size: var(--text-xs); }
 .overview-trend-chart-box { height: 250px; }
+@media (max-width: 760px) {
+  .overview-trend-tools { width: 100%; justify-content: stretch; flex-direction: column; align-items: stretch; }
+  .overview-trend-period-controls, .overview-trend-bucket-controls { width: 100%; }
+  .overview-trend-period-controls .overview-trend-range { flex: 1; }
+}
 
 .platform-clean-card #monthCompareCards {
   margin-bottom: var(--space-5);
@@ -1611,6 +1617,16 @@ button.daily-platform-chip:active {
 }
 
 .goal-alert-text strong { font-weight: 700; }
+
+.goal-progress-alert { padding: var(--space-3) var(--space-4); }
+.goal-progress-main { width: 100%; display: grid; gap: var(--space-2); }
+.goal-progress-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.goal-progress-heading strong { color: var(--goal-status-color); }
+.goal-progress-heading > span { font-size: var(--text-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
+.goal-progress-track { width: 100%; height: 8px; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
+.goal-progress-fill { height: 100%; border-radius: inherit; transition: width 220ms ease; }
+.goal-progress-details { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-5); color: var(--muted); font-size: var(--text-xs); }
+.goal-progress-details strong { color: var(--text); font-weight: 650; }
 
 .return-rate-alert {
   margin-top: var(--space-2);
