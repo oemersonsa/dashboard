@@ -174,7 +174,10 @@ function bindEvents() {
     state.pricing[field] = Math.max(0, Number(event.target.value || 0));
     if (field === "targetMargin") state.pricing[field] = Math.min(99, state.pricing[field]);
     if (["taxRate", "returnReserveRate"].includes(field)) state.pricing[field] = Math.min(100, state.pricing[field]);
-    syncProduct(); saveState(); render(); restoreFocus(id);
+    syncProduct(); saveState();
+    const baseCost = document.getElementById("pricingBaseCost");
+    if (baseCost) baseCost.textContent = R(getPricingBaseCost());
+    renderCards();
   }));
   document.getElementById("pricingProductSelect")?.addEventListener("change", (event) => {
     syncProduct();
@@ -222,12 +225,10 @@ function bindEvents() {
     if (updatedField === "sellerDiscountRate") profile[updatedField] = Math.min(99.9, Number(input.value || 0));
     if (updatedField === "commissionRate" && input.dataset.tierIndex !== undefined) profile.feeTiers[Number(input.dataset.tierIndex)].commissionRate = Math.min(100, Number(input.value || 0));
     if (input.dataset.field !== "note") profile.lastReviewedAt = "";
-    profile.sourceType = "custom"; saveState(); const keySelector = `[data-pricing-profile="${CSS.escape(key)}"]`;
-    render(); requestAnimationFrame(() => { const next = input.dataset.tierIndex !== undefined
-      ? document.querySelector(`${keySelector}[data-tier-index="${input.dataset.tierIndex}"][data-tier-field="${input.dataset.tierField}"]`)
-      : document.querySelector(`${keySelector}[data-field="${input.dataset.field}"]`);
-      if (next) { next.focus(); next.setSelectionRange?.(next.value.length, next.value.length); }
-    });
+    profile.sourceType = "custom"; saveState();
+  });
+  document.getElementById("pricingPlatformGrid")?.addEventListener("change", (event) => {
+    if (event.target.closest("[data-pricing-profile]")) renderCards();
   });
   document.getElementById("pricingPlatformGrid")?.addEventListener("click", (event) => {
     const review = event.target.closest("[data-pricing-review]");
@@ -239,8 +240,4 @@ function bindEvents() {
     const manual = event.target.closest("[data-pricing-manual-price]");
     if (manual) { state.pricing.manualPrice = Number(manual.dataset.pricingManualPrice); syncProduct(); saveState(); render(); }
   });
-}
-
-function restoreFocus(id) {
-  requestAnimationFrame(() => { const next = document.getElementById(id); if (next) { next.focus(); next.setSelectionRange?.(next.value.length, next.value.length); } });
 }
