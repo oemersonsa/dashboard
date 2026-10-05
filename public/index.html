@@ -518,6 +518,10 @@
     </div>
     <div class="sales-import-destination">Destino: <strong id="salesSheetPeriod"></strong></div>
     <label class="fg sales-import-file"><span class="flabel">Arquivo de vendas (.csv, .xlsx ou .xls)</span><input class="finput" id="salesSheetFileInput" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></label>
+    <div id="salesImportSource" class="sales-import-source" hidden>
+      <label class="fg"><span class="flabel">Aba da planilha</span><select class="finput" id="salesImportSheet"></select></label>
+      <label class="fg"><span class="flabel">Mês de destino</span><select class="finput" id="salesImportPeriod"></select></label>
+    </div>
     <div id="salesImportMapping" class="sales-import-mapping" hidden></div>
     <div class="sales-import-conflict">
       <div class="flabel">Se a plataforma já tiver dados nessa data</div>

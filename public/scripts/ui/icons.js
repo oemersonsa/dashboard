@@ -37,7 +37,7 @@ export function platformIcon(platform) {
     ? `<img class="platform-icon-img" src="${escapeAttribute(sources[0])}" alt="" loading="lazy" data-fallbacks="${escapeAttribute(JSON.stringify(sources.slice(1)))}">`
     : "";
 
-  return `<span class="platform-icon" style="background:${bg};color:${escapeAttribute(textColor)}">
+  return `<span class="platform-icon${localKey ? ` platform-icon--${localKey}` : ""}" style="background:${bg};color:${escapeAttribute(textColor)}">
     <span class="platform-icon-label">${escapeHtml(label)}</span>
     ${img}
   </span>`;

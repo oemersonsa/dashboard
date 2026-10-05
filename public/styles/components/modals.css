@@ -127,3 +127,10 @@
 
 #addMonthModal .actions-row { justify-content: center; gap: var(--space-3); }
 #addMonthModal #confirmAddMonthButton { flex: 1; max-width: 180px; }
+.sales-import-source { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.sales-import-source[hidden] { display:none; }
+.sales-import-source .finput { width:100%; min-width:0; }
+@media(max-width:620px) { .sales-import-source { grid-template-columns:1fr; } }
+.sales-import-mapping .sales-import-map-row { grid-template-columns:minmax(100px,.7fr) repeat(4,minmax(90px,1fr)); }
+.sales-import-mapping .sales-import-map-row:first-child { grid-template-columns:minmax(100px,.7fr) minmax(0,4fr); }
+@media(max-width:620px) { .sales-import-mapping .sales-import-map-row,.sales-import-mapping .sales-import-map-row:first-child { grid-template-columns:minmax(0,1fr); } }
