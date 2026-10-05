@@ -43,4 +43,6 @@ dashboard-vendas-backup-2026-setembro.jsondashboard-vendas-backup-*.json
 dashboard.git/
 *.git/
 
+# Imagens geradas pelo codex 
 prototipo-plataformas.svg
+output/
