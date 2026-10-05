@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { resetTestDb, cleanupTestDb } from "../setup/test-db.js";
 
 let serverInfo;
 let token;
 
 beforeAll(async () => {
+  resetTestDb();
   const { startServer } = await import("../../src/server/index.js");
   serverInfo = await startServer({ port: 0, host: "127.0.0.1" });
 
@@ -13,7 +15,7 @@ beforeAll(async () => {
   const res = await fetch(`${serverInfo.url}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: testUser, password: "1234" })
+    body: JSON.stringify({ username: testUser, password: "senha-segura-1234" })
   });
   const data = await res.json();
   token = data.sessionToken;
@@ -25,7 +27,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const { stopServer } = await import("../../src/server/index.js");
-  await stopServer();
+  try {
+    await stopServer();
+    const { client } = await import("../../src/db/index.js");
+    await client.close();
+  } finally {
+    await cleanupTestDb();
+  }
 });
 
 async function request(path, opts = {}) {

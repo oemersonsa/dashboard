@@ -11,7 +11,7 @@ test.describe("Fechamento Diário", () => {
 
     await page.click("#authModeCreateButton");
     await page.fill("#authUsername", "close_user_" + Date.now());
-    await page.fill("#authPassword", "1234");
+    await page.fill("#authPassword", "senha-segura-1234");
     await page.click("#authSubmitButton");
 
     await page.waitForFunction(() => {

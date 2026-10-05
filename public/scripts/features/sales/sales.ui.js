@@ -13,6 +13,7 @@ import {
 } from "../../core/state.js";
 import { R, RS, escapeHtml, escapeAttribute, alphaColor } from "../../core/format.js";
 import { DASH_HTML as dash, ALL_MONTHS, SHORT } from "../../core/constants.js";
+import { appIcon } from "../../ui/app-icons.js";
 import { platformBadge, platformIcon } from "../../ui/icons.js";
 import { getPlatformVisualColor } from "../../ui/charts.js";
 import { toast, toastSuccess, toastError } from "../../ui/toast.js";
@@ -72,7 +73,7 @@ export function renderAll() {
   initProjection();
 }
 
-function renderTrackingAlerts() {
+export function renderTrackingAlerts() {
   const el = document.getElementById("goalAlertBanner");
   if (!el) return;
 
@@ -86,19 +87,19 @@ function renderTrackingAlerts() {
     const statusCopy = p.status === GOAL_STATUS.ATINGIDA
       ? "Meta atingida"
       : p.status === GOAL_STATUS.NO_RITMO
-        ? "No ritmo para alcançar a meta"
+        ? "No ritmo da meta"
         : p.status === GOAL_STATUS.ATENCAO
-          ? "Atenção: projeção próxima da meta"
-          : "Em risco: projeção abaixo da meta";
-    alerts.push(`
-      <div class="goal-alert goal-progress-alert" style="--goal-status-color:${colorVar};border-color:color-mix(in srgb,${colorVar} 42%,var(--border));background:color-mix(in srgb,${colorVar} 8%,var(--surface))" role="status">
-        <div class="goal-progress-main">
-          <div class="goal-progress-heading"><strong>${statusCopy}</strong><span>${p.percent.toFixed(1).replace(".", ",")}%</span></div>
-          <div class="goal-progress-track" role="progressbar" aria-label="Progresso da meta de vendas líquidas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, Math.max(0, p.percent)).toFixed(1)}"><div class="goal-progress-fill" style="width:${progressWidth}%;background:${colorVar}"></div></div>
-          <div class="goal-progress-details"><span>Realizado <strong>${R(p.realized)}</strong> de ${R(p.target)}</span><span>Projeção <strong>${R(p.projected)}</strong></span><span>Faltam <strong>${R(p.remaining)}</strong></span></div>
-        </div>
-      </div>
-    `);
+          ? "Meta em atenção"
+          : "Meta em risco";
+    alerts.push(`<div class="goal-progress-alert" role="status">
+      <span class="metric-icon blue">${appIcon("target")}</span>
+      <div class="goal-progress-heading"><strong>Meta do mês</strong><span>${p.percent.toFixed(0)}% concluído</span></div>
+      <div class="goal-progress-track" role="progressbar" aria-label="Progresso da meta de vendas líquidas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, Math.max(0, p.percent)).toFixed(1)}"><div class="goal-progress-fill" style="width:${progressWidth}%"></div></div>
+      <div class="goal-progress-stat"><span>Realizado</span><strong>${R(p.realized)}</strong></div>
+      <div class="goal-progress-stat"><span>Meta</span><strong>${R(p.target)}</strong></div>
+      <div class="goal-progress-stat"><span>Faltam</span><strong>${R(p.remaining)}</strong></div>
+      <span class="goal-status-chip" style="color:${colorVar}" title="Projeção: ${R(p.projected)}"><i></i>${statusCopy}</span>
+    </div>`);
   }
 
   // O alerta só dispara quando a taxa sobe pelo menos 1 p.p. no comparativo equivalente.
@@ -165,35 +166,21 @@ function renderKPIs() {
   const el = document.getElementById("kpiRow");
   if (!el) return;
 
-  el.innerHTML = `
-    <div class="kpi-period" aria-label="${escapeAttribute(`${getPeriodLabel(state.currentMonth)}. ${comparisonContext}`)}">
-      <span class="kpi-period-current">${getPeriodLabel(state.currentMonth)}</span>
-      <div class="kpi-period-details"><span class="kpi-period-status">${periodStatus}</span><span class="kpi-period-tracking" title="${escapeAttribute(missingDateSummary)}">${trackingStatus}${missingDays ? ` · ${missingDateSummary}` : ""}</span></div>
-      <span class="kpi-period-comparison">${pt ? comparisonContext : "Sem mês anterior para comparar"}</span>
-    </div>
-    <section class="kpi-group kpi-group--volume" aria-labelledby="kpiVolumeHeading">
-      <h2 class="kpi-group-title" id="kpiVolumeHeading">Volume</h2>
-      <div class="kpi-group-cards">
-        <div class="kpi-card kpi-card--volume"><div class="kpi-label">Pedidos</div><div class="kpi-value">${t.orders}</div><div class="kpi-change">${pt ? varH(t.orders, pt.orders) : "Sem mês anterior"}</div></div>
-      </div>
-    </section>
-    <section class="kpi-group kpi-group--financial" aria-labelledby="kpiFinancialHeading">
-      <h2 class="kpi-group-title" id="kpiFinancialHeading">Valores de vendas</h2>
-      <div class="kpi-group-cards">
-        <div class="kpi-card kpi-card--gross"><div class="kpi-label">Vendas brutas</div><div class="kpi-value">${RS(t.gross)}</div><div class="kpi-context">Soma das vendas registradas, antes das devoluções.</div><div class="kpi-change">${pt ? varH(t.gross, pt.gross) : "Sem mês anterior"}</div></div>
-        <div class="kpi-card kpi-card--returns"><div class="kpi-label">Devoluções</div><div class="kpi-value">${RS(t.totalRet)}</div><div class="kpi-context">Valor devolvido · ${rp.toFixed(1)}% do bruto.</div><div class="kpi-change">${pt ? varH(t.totalRet, pt.totalRet, true) : "Sem mês anterior"}</div><div class="returns-bar"><div class="returns-fill" style="width:${Math.min(rp, 100)}%"></div></div></div>
-        <div class="kpi-card kpi-card--net"><div class="kpi-label">Vendas líquidas</div><div class="kpi-value">${RS(t.net)}</div><div class="kpi-context">Bruto − devoluções; não desconta taxas ou custos.</div><div class="kpi-change">${pt ? varH(t.net, pt.net) : "Sem mês anterior"}</div></div>
-        <div class="kpi-card kpi-card--ticket"><div class="kpi-label">Ticket médio</div><div class="kpi-value">${t.orders > 0 ? RS(t.gross / t.orders) : RS(0)}</div><div class="kpi-context">Vendas brutas ÷ pedidos registrados.</div></div>
-      </div>
-    </section>
-  `;
+  const metric = (name, value, icon, color, cls, change = "", context = "") => `<article class="kpi-card ${cls}" title="${context}"><span class="metric-icon ${color}">${appIcon(icon)}</span><div class="kpi-body"><div class="kpi-label">${name}</div><strong class="kpi-value">${value}</strong><div class="kpi-change">${change || "Sem mês anterior"}</div></div></article>`;
+  el.innerHTML = [
+    metric("Pedidos", String(t.orders), "orders", "blue", "kpi-card--volume", pt ? varH(t.orders, pt.orders) : ""),
+    metric("Vendas brutas", RS(t.gross), "money", "green", "kpi-card--gross", pt ? varH(t.gross, pt.gross) : "", "Soma das vendas antes das devoluções"),
+    metric("Devoluções", RS(t.totalRet), "returns", "red", "kpi-card--returns", pt ? varH(t.totalRet, pt.totalRet, true) : ""),
+    metric("Vendas líquidas", RS(t.net), "report", "blue", "kpi-card--net", pt ? varH(t.net, pt.net) : "", "Bruto menos devoluções. Não desconta taxas ou custos"),
+    metric("Ticket médio", RS(t.orders > 0 ? t.gross / t.orders : 0), "ticket", "purple", "kpi-card--ticket", pt ? varH(t.orders > 0 ? t.gross / t.orders : 0, pt.orders > 0 ? pt.gross / pt.orders : 0) : "")
+  ].join("");
 }
 
 /* ═══ TENDÊNCIA DO OVERVIEW ═══ */
 function renderOverviewTrend() {
   const canvas = document.getElementById("overviewTrendChart");
   const summary = document.getElementById("overviewTrendSummary");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas) return;
 
   const selected = parsePeriodKey(state.currentMonth);
   const monthIndex = ALL_MONTHS.indexOf(selected.month);
@@ -243,7 +230,7 @@ function renderOverviewTrend() {
     button.setAttribute("aria-pressed", String(active));
   });
 
-  const periodLabel = overviewTrendPeriod === "month" ? `Mês atual · ${getPeriodLabel(state.currentMonth)}` : "30 dias corridos";
+  const periodLabel = overviewTrendPeriod === "month" ? `Mês selecionado · ${getPeriodLabel(state.currentMonth)}` : "30 dias corridos";
   const subtitle = document.getElementById("overviewTrendSubtitle");
   if (subtitle) subtitle.textContent = `Vendas brutas · ${periodLabel}`;
   if (summary) {
@@ -254,6 +241,7 @@ function renderOverviewTrend() {
     summary.innerHTML = `<span>Vendas brutas no período</span><strong>${RS(total)}</strong><small>${dateDescription}</small>`;
   }
 
+  if (typeof Chart === "undefined") return;
   if (overviewTrendChart) overviewTrendChart.destroy();
   const css = getComputedStyle(document.body);
   const gridColor = css.getPropertyValue("--border").trim() || "rgba(128,128,128,.18)";
@@ -271,10 +259,10 @@ function renderOverviewTrend() {
         borderWidth: 2,
         tension: 0.32,
         fill: true,
-        pointRadius: 0,
+        pointRadius: 2,
         pointHoverRadius: 4,
         pointBackgroundColor: accentColor,
-        pointBorderColor: "transparent"
+        pointBorderColor: accentColor
       }]
     },
     options: {
@@ -748,32 +736,8 @@ function renderPlatformBars() {
   const totalGross = rows.reduce((s, r) => s + r.gross, 0);
   const totalReturns = rows.reduce((s, r) => s + r.returns, 0);
 
-  c.innerHTML = `
-    <div class="pb-table-head" aria-hidden="true">
-      <span>Plataforma</span><span>Vendas</span><span>Devoluções</span><span>Receita líquida</span>
-    </div>
-    <div class="pb-list">${rows.map(({ platform, gross, returns, net }) => {
-    const wp = max > 0 ? (net / max) * 100 : 0;
-    const returnRate = gross > 0 ? (returns / gross) * 100 : 0;
-    return `
-      <div class="pb-entry">
-        <div class="pb-row">
-          <div class="pb-name">${platformIcon(platform)}<span>${escapeHtml(platform.name)}</span></div>
-          <div class="pb-cell pb-gross"><span class="pb-mobile-label">Vendas</span><span>${R(gross)}</span></div>
-          <div class="pb-cell pb-returns"><span class="pb-mobile-label">Devoluções</span><span>${returns > 0 ? R(returns) : "—"}</span>${returns > 0 ? `<em>${returnRate.toFixed(1)}%</em>` : ""}</div>
-          <div class="pb-cell pb-net"><span class="pb-mobile-label">Líquido</span><strong>${R(net)}</strong></div>
-        </div>
-        <div class="pb-track" role="img" aria-label="Líquido equivalente a ${wp.toFixed(0)}% do maior valor entre plataformas"><div class="pb-fill" style="width:${wp.toFixed(1)}%;background:${getPlatformVisualColor(platform)}"></div></div>
-      </div>
-    `;
-  }).join("")}</div>
-    <div class="pb-total">
-      <span class="pb-total-label">Total do mês</span>
-      <span class="pb-total-gross"><strong>${R(totalGross)}</strong><small>em vendas</small></span>
-      <span class="pb-total-returns"><strong>${R(totalReturns)}</strong><small>em devoluções</small></span>
-      <span class="pb-total-net"><strong>${R(totalGross - totalReturns)}</strong><small>líquido</small></span>
-    </div>
-  `;
+  const totalNet = rows.reduce((sum, row) => sum + row.net, 0);
+  c.innerHTML = rows.map(({ platform, net }) => `<div class="platform-summary-row"><div class="pb-name">${platformIcon(platform)}<span>${escapeHtml(platform.name)}</span></div><div class="pb-track"><div class="pb-fill" style="width:${totalNet > 0 ? net / totalNet * 100 : 0}%;background:${getPlatformVisualColor(platform)}"></div></div><strong>${R(net)}</strong><span class="platform-share">${totalNet > 0 ? (net / totalNet * 100).toFixed(1).replace(".", ",") : "0,0"}%</span></div>`).join("");
 }
 
 /* ═══ BEST DAYS ═══ */
@@ -900,6 +864,8 @@ export function renderSaleInputs() {
 /* ═══ TABS / PERÍODO ═══ */
 export function renderTabs() {
   const am = sortPeriodKeys([...new Set([...Object.keys(state.db), state.currentMonth])]);
+  const combined = document.getElementById("dashboardPeriodSelect");
+  if (combined) { combined.innerHTML = am.map(period => `<option value="${escapeAttribute(period)}">${escapeHtml(getPeriodLabel(period))}</option>`).join(""); combined.value = state.currentMonth; }
   const cy = getPeriodYear(state.currentMonth);
   const ys = [...new Set(am.map(getPeriodYear))].sort((a, b) => a - b);
 
@@ -1032,6 +998,7 @@ function varH(current, previous, reverse = false) {
 
 /* ═══ BIND DE EVENTOS LOCAIS ═══ */
 function bindEvents() {
+  document.getElementById("overviewTrendGrouping")?.addEventListener("change", event => { overviewTrendBucketDays = Number(event.target.value) || 1; renderOverviewTrend(); });
   document.getElementById("dashboard-panel-overview")?.addEventListener("click", (event) => {
     const periodButton = event.target.closest("[data-overview-trend-period]");
     if (periodButton) {

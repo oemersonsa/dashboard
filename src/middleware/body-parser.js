@@ -14,7 +14,8 @@ async function readJsonBody(req) {
     chunks.push(chunk);
   }
   if (!chunks.length) return {};
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+  catch { const error = new Error("invalid_json"); error.statusCode = 400; error.code = "invalid_json"; throw error; }
 }
 
 module.exports = { readJsonBody };

@@ -3,7 +3,7 @@
   "version": "5.0.0",
   "private": true,
   "description": "Dashboard de vendas para marketplaces",
-  "main": "src/server.js",
+  "main": "src/main/electron-main.js",
   "author": "",
   "license": "MIT",
   "scripts": {
@@ -19,10 +19,13 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:all": "npm run test:coverage && npm run test:e2e"
+    "test:all": "npm run test:coverage && npm run test:e2e",
+    "postinstall": "node scripts/vendor.cjs"
   },
   "dependencies": {
-    "@libsql/client": "^0.14.0"
+    "@libsql/client": "0.18.0",
+    "chart.js": "4.4.1",
+    "html2canvas": "1.4.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",

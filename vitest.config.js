@@ -12,6 +12,11 @@ export default defineConfig({
       forks: { singleFork: false }
     },
     fileParallelism: false,   // arquivos rodam em sequência, mas em processos diferentes
-    coverage: { /* ... */ }
+    coverage: {
+      provider: "v8",
+      include: ["public/scripts/features/**/*.calc.js", "public/scripts/core/sync.js", "public/scripts/features/backup/backup.validation.js"],
+      reporter: ["text", "html", "json-summary"],
+      thresholds: { lines: 80, statements: 80, functions: 75, branches: 65 }
+    }
   }
 });

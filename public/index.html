@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" href="/assets/kanri-icon.png">
 <link rel="apple-touch-icon" href="/assets/kanri-icon.png">
 <link rel="stylesheet" href="/styles/main.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<script src="/vendor/chart.umd.js"></script>
+<script src="/vendor/html2canvas.min.js" defer></script>
 <script type="module" src="/scripts/main.js" defer></script>
 </head>
 <body>
@@ -87,25 +87,26 @@
     <header class="topbar">
       <div class="header-left">
         <button class="icon-btn menu-toggle" id="menuToggleButton" type="button" aria-label="Menu">☰</button>
-        <div class="logo"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Kanri</div>
+        <div class="dashboard-page-heading"><h1 id="dashboardPageTitle">Visão geral</h1><p id="dashboardPageSubtitle">Acompanhe suas vendas e o progresso da meta</p></div>
       </div>
       <div class="header-right">
-        <div class="dashboard-period-controls" role="group" aria-label="Período do dashboard">
+        <div class="dashboard-period-controls" role="group" aria-label="Período do dashboard"><label class="dashboard-combined-period"><span data-app-icon="calendar"></span><select id="dashboardPeriodSelect" aria-label="Selecionar mês e ano"></select></label>
           <label class="dashboard-period-field"><select id="dashboardMonthSelect" class="dashboard-period-select" aria-label="Selecionar mês"></select></label>
           <label class="dashboard-period-field dashboard-period-year-field"><select id="dashboardYearSelect" class="dashboard-period-select" aria-label="Selecionar ano"></select></label>
           <button class="dashboard-period-add" id="periodPickerButton" type="button" aria-label="Criar outro mês" title="Criar outro mês">+ Mês</button>
         </div>
-        <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
-          <span data-theme-icon></span>
-        </button>
+        <button class="btn btn-primary dashboard-register" id="dashboardRegisterSalesButton" type="button"><span data-app-icon="plus"></span>Registrar vendas</button>
+
         <button class="topbar-user" id="dashboardUserMenuButton" type="button" aria-expanded="false" aria-controls="dashboardUserPopover" hidden>
           <span class="topbar-user-avatar" id="dashboardUserAvatar" aria-hidden="true"><span id="dashboardUserInitial">?</span><img id="dashboardUserPhoto" alt="" hidden></span>
           <span class="topbar-user-name" id="dashboardUserName"></span><span class="topbar-user-chevron" aria-hidden="true">▾</span>
         </button>
         <div class="user-popover" id="dashboardUserPopover" hidden>
           <div class="user-popover-heading" id="dashboardUserPopoverName"></div>
-          <button type="button" class="user-popover-item" id="openAccountSettingsButton">Configurações da conta</button>
-          <div class="user-popover-divider"></div>
+          <button type="button" class="user-popover-item" id="periodPickerMenuButton">Criar outro mês</button><button type="button" class="user-popover-item" id="openAccountSettingsButton">Configurações da conta</button>
+                  <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
+          <span data-theme-icon></span>
+        </button><div class="user-popover-divider"></div>
           <button type="button" class="user-popover-item" id="dashboardLogoutButton">Sair</button>
         </div>
       </div>
@@ -113,59 +114,28 @@
 
     <div class="dashboard-layout">
       <aside class="sidebar" id="dashboardSidebar">
-        <div class="sidebar-current-period" aria-label="Período atual do dashboard">
-          <span class="sidebar-current-period-label">Período atual</span>
-          <span class="sidebar-period-year" id="sidebarCurrentYear">2026</span>
-          <span class="sidebar-period-month" id="sidebarCurrentMonth">Setembro</span>
-        </div>
+        <a class="sidebar-brand" href="#" id="sidebarOpenHub"><img class="sidebar-kanri-icon" src="/assets/kanri-icon.png" alt=""><strong>Kanri</strong></a>
+        <div class="sidebar-current-period" hidden><span id="sidebarCurrentYear"></span><span id="sidebarCurrentMonth"></span></div>
         <nav class="sidebar-nav" aria-label="Navegação principal">
-          <button class="sidebar-item sidebar-home-item" id="sidebarOpenHub" type="button"><span class="sidebar-label">Menu Inicial</span></button>
-          <div class="sidebar-menu-group">
-            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="sales" aria-expanded="false" aria-controls="sidebarMenuSales"><span>Vendas</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
-            <div class="sidebar-submenu-popover" id="sidebarMenuSales" hidden>
-              <div class="sidebar-submenu-title">Vendas</div>
-              <button class="sidebar-item active" data-dashboard-tab="overview" type="button">Visão geral</button>
-              <button class="sidebar-item" data-dashboard-tab="daily" type="button">Vendas diárias</button>
-              <button class="sidebar-item" data-dashboard-tab="weekly" type="button">Semanas</button>
-            </div>
-          </div>
-          <div class="sidebar-menu-group">
-            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="analysis" aria-expanded="false" aria-controls="sidebarMenuAnalysis"><span>Análises</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
-            <div class="sidebar-submenu-popover" id="sidebarMenuAnalysis" hidden>
-              <div class="sidebar-submenu-title">Análises</div>
-              <button class="sidebar-item" data-dashboard-tab="platforms" type="button">Plataformas</button>
-              <button class="sidebar-item" data-dashboard-tab="trends" type="button">Tendência</button>
-              <button class="sidebar-item" id="reportButton" type="button">Relatório</button>
-            </div>
-          </div>
-          <div class="sidebar-menu-group">
-            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="management" aria-expanded="false" aria-controls="sidebarMenuManagement"><span>Gestão</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
-            <div class="sidebar-submenu-popover" id="sidebarMenuManagement" hidden>
-              <div class="sidebar-submenu-title">Gestão</div>
-              <button class="sidebar-item" data-dashboard-tab="entries" type="button">Lançamentos</button>
-              <button class="sidebar-item" data-dashboard-tab="projection" type="button">Projeção</button>
-            </div>
-          </div>
-          <div class="sidebar-menu-group">
-            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="tools" aria-expanded="false" aria-controls="sidebarMenuTools"><span>Ferramentas</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
-            <div class="sidebar-submenu-popover" id="sidebarMenuTools" hidden>
-              <div class="sidebar-submenu-title">Ferramentas</div>
-              <button class="sidebar-item" data-dashboard-tab="calculator" type="button">Calculadora</button>
-              <button class="sidebar-item" data-dashboard-tab="roas" type="button">Calculadora de ROAS</button>
-              <button class="sidebar-item" id="sidebarOpenDailyClose" type="button">Fechamento</button>
-            </div>
-          </div>
-          <div class="sidebar-menu-group">
-            <button class="sidebar-menu-trigger" type="button" data-sidebar-menu-trigger="data" aria-expanded="false" aria-controls="sidebarMenuData"><span>Dados</span><span class="sidebar-menu-chevron" aria-hidden="true">›</span></button>
-            <div class="sidebar-submenu-popover" id="sidebarMenuData" hidden>
-              <div class="sidebar-submenu-title">Dados</div>
-              <button class="sidebar-item" id="sidebarSaveButton" type="button">Salvar</button>
-              <button class="sidebar-item" id="sidebarImportSalesSheetButton" type="button">Importar planilha de vendas</button>
-              <button class="sidebar-item" id="sidebarImportBackupButton" type="button">Importar</button>
-              <button class="sidebar-item" id="sidebarExportBackupButton" type="button">Exportar</button>
-            </div>
-          </div>
+          <button class="sidebar-item" data-dashboard-tab="overview" type="button"><span data-app-icon="home"></span><span>Visão geral</span></button>
+          <button class="sidebar-item" data-dashboard-tab="entries" type="button"><span data-app-icon="clipboard"></span><span>Lançamentos</span></button>
+          <div class="sidebar-section-heading" data-sidebar-menu-trigger="analysis">ANÁLISES</div>
+          <button class="sidebar-item" data-dashboard-tab="daily" type="button"><span data-app-icon="bars"></span><span>Vendas diárias</span></button>
+          <button class="sidebar-item" data-dashboard-tab="weekly" type="button"><span data-app-icon="calendar"></span><span>Semanas</span></button>
+          <button class="sidebar-item" data-dashboard-tab="platforms" type="button"><span data-app-icon="link"></span><span>Desempenho por plataforma</span></button>
+          <button class="sidebar-item" data-dashboard-tab="trends" type="button"><span data-app-icon="trend"></span><span>Tendência</span></button>
+          <button class="sidebar-item" data-dashboard-tab="projection" type="button"><span data-app-icon="target"></span><span>Metas e projeção</span></button>
+          <button class="sidebar-item" id="reportButton" type="button"><span data-app-icon="report"></span><span>Relatórios</span></button>
+          <div class="sidebar-section-heading" data-sidebar-menu-trigger="tools">FERRAMENTAS</div>
+          <button class="sidebar-item" data-dashboard-tab="calculator" type="button"><span data-app-icon="calculator"></span><span>Calculadora de preço</span></button>
+          <button class="sidebar-item" data-dashboard-tab="roas" type="button"><span data-app-icon="roas"></span><span>Calculadora de ROAS</span></button>
+          <button class="sidebar-item" id="sidebarOpenDailyClose" type="button"><span data-app-icon="wallet"></span><span>Fechamento diário</span></button>
         </nav>
+        <div class="sidebar-footer">
+          <button class="sidebar-item" id="sidebarManagePlatformsButton" type="button"><span data-app-icon="settings"></span><span>Gerenciar plataformas</span></button>
+          <button class="sidebar-item" id="sidebarBackupsButton" type="button"><span data-app-icon="backup"></span><span>Backups</span></button>
+          
+        </div>
       </aside>
 
       <main id="dashboardMain" class="dashboard-main">
@@ -189,12 +159,13 @@
             <div class="goal-alert-banner" id="goalAlertBanner" aria-live="polite" hidden></div>
             <div class="card overview-trend-card">
               <div class="card-header overview-trend-header">
-                <div><div class="card-title">Tendência de vendas</div><div class="card-sub" id="overviewTrendSubtitle">Vendas brutas nos últimos 30 dias corridos</div></div>
+                <div><div class="card-title"><span data-app-icon="bars"></span>Tendência de vendas</div><div class="card-sub" id="overviewTrendSubtitle">Vendas brutas nos últimos 30 dias corridos</div></div>
                 <div class="overview-trend-tools">
-                  <div class="overview-trend-controls overview-trend-period-controls" role="group" aria-label="Período da tendência">
+                  <div class="trend-group-label"><span>Período</span><div class="overview-trend-controls overview-trend-period-controls" role="group" aria-label="Período da tendência">
                     <button type="button" class="overview-trend-range active" data-overview-trend-period="rolling30" aria-pressed="true">30 dias corridos</button>
-                    <button type="button" class="overview-trend-range" data-overview-trend-period="month" aria-pressed="false">Mês atual</button>
+                    <button type="button" class="overview-trend-range" data-overview-trend-period="month" aria-pressed="false">Mês selecionado</button>
                   </div>
+                  </div><label class="trend-group-label">Agrupamento<select id="overviewTrendGrouping" aria-label="Agrupamento da tendência"><option value="1">Diário</option><option value="7">Semanal</option><option value="15">Quinzenal</option><option value="30">Mensal</option></select></label>
                   <div class="overview-trend-controls overview-trend-bucket-controls" role="group" aria-label="Agrupar os dados da tendência">
                     <button type="button" class="overview-trend-range active" data-overview-trend-range="1" aria-pressed="true">Diária</button>
                     <button type="button" class="overview-trend-range" data-overview-trend-range="7" aria-pressed="false">Semanal</button>
@@ -208,8 +179,8 @@
             </div>
             <div class="card">
               <div class="card-header">
-                <div><div class="card-title">Mix de Plataformas</div><div class="card-sub">Vendas, devoluções e receita líquida por plataforma</div></div>
-                <div class="pb-bar-note">A barra compara o líquido entre plataformas</div>
+                <div><div class="card-title"><span data-app-icon="bars"></span>Desempenho por plataforma</div></div>
+                
               </div>
               <div class="platform-bars" id="platformBars"></div>
             </div>
@@ -298,7 +269,7 @@
                 </div>
               </div>
               <div class="chart-box trends-chart-box"><canvas id="trendsChart"></canvas></div>
-              <div class="trends-table-wrap" id="trendsTable"></div>
+              <div class="trends-table-wrap" id="trendsTable" tabindex="0" role="region" aria-label="Comparativo mensal por plataforma, role horizontalmente para ver todas as colunas"></div>
             </div>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-entries" data-dashboard-panel="entries" hidden>
@@ -383,27 +354,27 @@
             </div>
               </section>
           <section class="dashboard-panel roas-main" id="dashboard-panel-roas" data-dashboard-panel="roas" hidden>
-            <div class="card-header calculator-panel-heading"><div><div class="card-title">Calculadora de ROAS</div><div class="card-sub">Descubra quanto pode investir em anúncios por pedido sem comprometer sua margem.</div></div></div>
             <div class="roas-card">
-              <div class="roas-platform-row">
-                <label class="fg"><span class="flabel" for="roasPlatform">Plataforma</span><select class="finput" id="roasPlatform"></select></label>
-                <div class="roas-profile-note" id="roasProfileNote" aria-live="polite"></div>
-              </div>
+              <div class="roas-input-card card"><h2><span data-app-icon="calculator"></span>Dados do produto e taxas</h2>
+                <div class="roas-platform-row"><label class="fg"><span class="flabel" for="roasPlatform">Plataforma</span><select class="finput" id="roasPlatform"></select></label><label class="roas-manual"><input id="roasManualFees" type="checkbox"> Informar taxas manualmente</label><p class="roas-profile-note" id="roasProfileNote" aria-live="polite"></p></div>
               <div class="roas-form-grid">
                 <label class="fg"><span class="flabel" for="roasPrice">Preço de venda (R$)</span><input class="finput" id="roasPrice" type="number" min="0" step="0.01" value="199.90"></label>
                 <label class="fg"><span class="flabel" for="roasCost">Custo do produto (R$)</span><input class="finput" id="roasCost" type="number" min="0" step="0.01" value="75"></label>
-                <label class="fg"><span class="flabel" for="roasCommission">Comissão da plataforma (%)</span><input class="finput" id="roasCommission" type="number" min="0" max="100" step="0.1"></label>
+                <label class="fg"><span class="flabel" for="roasCommission">Comissão da plataforma (%)</span><span class="percentage-field"><input class="finput" id="roasCommission" type="number" min="0" max="100" step="0.1"><span>%</span></span></label>
                 <label class="fg"><span class="flabel" for="roasFixed">Tarifa fixa por pedido (R$)</span><input class="finput" id="roasFixed" type="number" min="0" step="0.01"></label>
-                <label class="fg"><span class="flabel" for="roasTax">Impostos (%)</span><input class="finput" id="roasTax" type="number" min="0" max="100" step="0.1" value="8"></label>
+                <label class="fg"><span class="flabel" for="roasTax">Impostos (%)</span><span class="percentage-field"><input class="finput" id="roasTax" type="number" min="0" max="100" step="0.1" value="8"><span>%</span></span></label>
                 <label class="fg"><span class="flabel" for="roasOther">Outros custos antes de Ads (R$)</span><input class="finput" id="roasOther" type="number" min="0" step="0.01" value="8"></label>
               </div>
-              <div class="roas-margin-control"><div class="roas-margin-heading"><label for="roasMargin">Margem desejada após Ads</label><strong id="roasMarginValue">20%</strong></div><input id="roasMargin" type="range" min="0" max="40" value="20" step="1"><div class="roas-range-labels"><span>0%</span><span>20%</span><span>40%</span></div></div>
-              <div class="roas-results" aria-live="polite">
-                <article class="roas-metric roas-contribution"><span>Contribuição antes de Ads</span><strong id="roasContribution">R$ 0,00</strong><small id="roasContributionPercent">0,0% do preço</small></article>
-                <article class="roas-metric"><span>Verba máxima de Ads por pedido</span><strong id="roasAdBudget">R$ 0,00</strong><small>Para preservar a margem desejada</small></article>
-                <article class="roas-metric roas-equilibrium"><span>ROAS mínimo para atingir a margem desejada</span><strong id="roasTarget">—</strong><p id="roasBreakEven">ROAS de equilíbrio matemático: —</p></article>
+              <div class="roas-margin-control"><label class="fg" for="roasMargin"><span class="flabel">Margem de lucro desejada (%)</span><span class="percentage-field"><input class="finput" id="roasMargin" type="number" min="0" max="40" value="20" step="1"><span>%</span></span></label><strong id="roasMarginValue" hidden>20%</strong></div>
+
               </div>
-              <p class="roas-footnote">O cálculo considera a receita do produto e não inclui diferenças de atribuição, pedidos cancelados ou custos que não foram informados.</p>
+              <div class="roas-results card" aria-live="polite">
+                <article class="roas-target"><div><span class="metric-icon blue" data-app-icon="roas"></span><span>ROAS mínimo</span></div><strong id="roasTarget">—</strong></article>
+                <article class="roas-metric roas-contribution"><span class="metric-icon green" data-app-icon="money"></span><span>Contribuição antes de Ads</span><strong id="roasContribution">R$ 0,00</strong><small id="roasContributionPercent" hidden></small></article>
+                <article class="roas-metric"><span class="metric-icon blue" data-app-icon="orders"></span><span>Verba máxima por pedido</span><strong id="roasAdBudget">R$ 0,00</strong></article>
+                <article class="roas-metric"><span class="metric-icon purple" data-app-icon="roas"></span><span>ROAS de equilíbrio</span><strong id="roasBreakEvenValue">—</strong><p id="roasBreakEven" hidden></p></article>
+                <p class="roas-footnote"><span data-app-icon="info"></span>Simulação por pedido. Confira as taxas da sua conta.</p>
+              </div>
             </div>
           </section>
         </div>
@@ -508,15 +479,31 @@
   </div>
 </div>
 
+<div class="moverlay" id="syncConflictModal" role="dialog" aria-labelledby="syncConflictTitle" aria-modal="true">
+  <div class="modal"><div class="mheader"><div class="mtitle" id="syncConflictTitle">Alterações em outro dispositivo</div></div>
+    <p>Os dados do servidor mudaram. Suas alterações estão guardadas neste dispositivo. Exporte uma cópia antes de carregar os dados mais recentes.</p>
+    <button class="btn btn-secondary" id="syncExportPendingButton" type="button">Exportar alterações pendentes</button>
+    <button class="btn btn-primary" id="syncLoadRemoteButton" type="button">Carregar dados do servidor</button>
+  </div>
+</div>
+<div class="moverlay" id="backupPreviewModal" role="dialog" aria-labelledby="backupPreviewTitle" aria-modal="true">
+  <div class="modal"><div class="mheader"><div class="mtitle" id="backupPreviewTitle">Conferir importação</div></div>
+    <p id="backupPreviewSummary"></p><p>Uma cópia dos dados atuais ficará guardada neste dispositivo.</p>
+    <button class="btn btn-primary" id="applyBackupImportButton" type="button">Confirmar importação</button>
+    <button class="btn btn-secondary" data-close-modal="backupPreviewModal" type="button">Cancelar</button>
+  </div>
+</div>
 <div class="moverlay" id="importBackupModal">
   <div class="modal modal-small">
-    <div class="mheader"><div><div class="mtitle">Importar Backup</div><div class="card-sub modal-subtitle">Escolha se deseja mesclar ou substituir.</div></div><button class="mclose" data-close-modal="importBackupModal" type="button">X</button></div>
+    <div class="mheader"><div><div class="mtitle">Backups e dados</div><div class="card-sub modal-subtitle">Escolha se deseja mesclar ou substituir.</div></div><button class="mclose" data-close-modal="importBackupModal" type="button">X</button></div>
+    <div class="backup-quick-actions"><button class="sidebar-item" id="sidebarImportSalesSheetButton" type="button"><span data-app-icon="report"></span><span>Importar planilha de vendas</span></button><button class="sidebar-item" id="sidebarImportBackupButton" type="button"><span data-app-icon="backup"></span><span>Importar backup</span></button><button class="sidebar-item" id="sidebarExportBackupButton" type="button"><span data-app-icon="backup"></span><span>Exportar backup</span></button><button class="sidebar-item" id="sidebarSaveButton" type="button"><span data-app-icon="clipboard"></span><span>Salvar agora</span></button></div>
     <div class="modal-stack">
       <button class="mode-card active" id="importModeMergeButton" data-import-mode="merge" type="button"><span class="mode-card-title">Mesclar</span><span class="mode-card-sub">Mantém o que já existe e adiciona dados do backup.</span></button>
       <button class="mode-card" id="importModeReplaceButton" data-import-mode="replace" type="button"><span class="mode-card-title">Substituir</span><span class="mode-card-sub">Usa o backup como base principal.</span></button>
     </div>
     <div class="actions-row">
       <button class="btn btn-primary" id="confirmImportBackupButton" type="button">Escolher Arquivo</button>
+      <button class="btn btn-secondary" id="exportRecoveryBackupButton" type="button">Exportar cópia de recuperação</button>
       <button class="btn btn-secondary" data-close-modal="importBackupModal" type="button">Cancelar</button>
       <input id="backupFileInputModal" type="file" accept=".json,application/json" hidden>
     </div>

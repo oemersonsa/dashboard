@@ -1,12 +1,14 @@
-import { state, saveState, normalizeState } from "../../core/state.js";
+import { state, saveState, normalizeState, getBusinessSnapshot } from "../../core/state.js";
 import { MARKETPLACE_PRICING_PRESETS } from "../../core/constants.js";
 import { slugify } from "../../core/format.js";
 import { loadSession, saveSession } from "../../core/api.js";
 import { toast, toastSuccess, toastError } from "../../ui/toast.js";
 import { openModal, closeModal } from "../../ui/modal.js";
+import { validateBackup } from "./backup.validation.js";
 
 let bound = false;
 let pendingMode = "merge";
+let pendingImport = null;
 
 export function init() {
   if (!bound) { bindEvents(); bound = true; }
@@ -16,8 +18,7 @@ export function getBackupPayload() {
   return {
     version: 3,
     exportedAt: new Date().toISOString(),
-    sessionUser: loadSession(),
-    state
+    state: JSON.parse(JSON.stringify(getBusinessSnapshot()))
   };
 }
 
@@ -33,22 +34,32 @@ export function exportBackup() {
   toastSuccess("Backup exportado com sucesso");
 }
 
-export async function importBackupFile(file, mode = "merge") {
+export async function importBackupFile(file, mode = "merge", confirmed = false) {
   if (!file) return;
   try {
+    if (file.size > 10 * 1024 * 1024) throw new Error("O backup deve ter até 10 MB.");
     const payload = JSON.parse(await file.text());
+    const { source: src, summary } = validateBackup(payload);
+    if (!confirmed) {
+      pendingImport = { file, mode };
+      document.getElementById("backupPreviewSummary").textContent = `${summary} Modo: ${mode === "replace" ? "substituir" : "mesclar"}.`;
+      closeModal("importBackupModal");
+      openModal("backupPreviewModal");
+      return;
+    }
     const pa = state.auth ? { ...state.auth } : null;
     const ps = loadSession();
-    const src = payload?.state ? payload.state : payload;
     const rs = normalizeState(src, MARKETPLACE_PRICING_PRESETS);
 
-    state.auth = pa || rs.auth;
+    localStorage.setItem(`dashboard-recovery-v1:${ps?.username || "local"}`, JSON.stringify(getBackupPayload()));
+    state.auth = pa;
 
     if (mode === "replace") {
       state.platforms = rs.platforms.map((p) => ({ ...p }));
       state.db = JSON.parse(JSON.stringify(rs.db || {}));
       state.goals = JSON.parse(JSON.stringify(rs.goals || {}));
       state.currentMonth = rs.currentMonth;
+      state.pricing = rs.pricing;
     } else {
       mergeImported(rs);
     }
@@ -59,9 +70,11 @@ export async function importBackupFile(file, mode = "merge") {
     }
     toastSuccess(mode === "replace" ? "Backup substituído" : "Backup importado");
     window.dispatchEvent(new CustomEvent("dashboard:reload"));
+    closeModal("backupPreviewModal");
+    pendingImport = null;
   } catch (e) {
     console.error(e);
-    toastError("Não foi possível importar o backup");
+    toastError(e instanceof SyntaxError ? "O arquivo não é um JSON válido." : e.message || "Não foi possível importar o backup");
   }
 }
 
@@ -107,6 +120,20 @@ function mergeImported(rs) {
 }
 
 function bindEvents() {
+  document.getElementById("applyBackupImportButton")?.addEventListener("click", async () => {
+    if (!pendingImport) return;
+    const button = document.getElementById("applyBackupImportButton");
+    button.disabled = true;
+    try { await importBackupFile(pendingImport.file, pendingImport.mode, true); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("exportRecoveryBackupButton")?.addEventListener("click", () => {
+    const raw = localStorage.getItem(`dashboard-recovery-v1:${loadSession()?.username || "local"}`);
+    if (!raw) return toastError("Não há cópia de recuperação neste dispositivo.");
+    const payload = JSON.parse(raw);
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ version: 3, state: payload.state })], { type: "application/json" }));
+    const link = document.createElement("a"); link.href = url; link.download = "backup-recuperacao.json"; link.click(); URL.revokeObjectURL(url);
+  });
   document.querySelectorAll("[data-import-mode]").forEach((b) => {
     b.addEventListener("click", () => {
       pendingMode = b.dataset.importMode;

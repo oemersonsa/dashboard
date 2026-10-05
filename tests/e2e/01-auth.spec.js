@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const USER = { username: "e2e_user", password: "1234" };
+const USER = { username: "e2e_user", password: "senha-segura-1234" };
 
 test.describe("Auth", () => {
   test.beforeEach(async ({ page }) => {

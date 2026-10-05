@@ -23,7 +23,7 @@ async function saveState(req, res, user) {
     return sendJson(res, 409, { error: "refusing_to_wipe_data" });
   }
 
-  const saved = await stateService.replaceBusinessState(user, payload);
+  const saved = await stateService.replaceBusinessState(user, payload, body.expectedUpdatedAt);
   sendJson(res, 200, { ok: true, state: saved });
 }
 

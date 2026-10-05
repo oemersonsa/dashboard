@@ -326,7 +326,6 @@ export function saveState(options = {}) {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
     auth: state.auth, currentScreen: state.currentScreen
   }));
-  localStorage.setItem(LAST_SAVED_KEY, new Date().toISOString());
   if (!options.localOnly) {
     window.dispatchEvent(new CustomEvent("dashboard:save-request"));
   }

@@ -1,4 +1,5 @@
-import { state } from "../../core/state.js";
+import { state, normalizePricingProfile } from "../../core/state.js";
+import { MARKETPLACE_PRICING_PRESETS } from "../../core/constants.js";
 import { R, escapeAttribute } from "../../core/format.js";
 
 let bound = false;
@@ -8,8 +9,10 @@ export function init() {
   renderPlatforms();
   if (!bound) {
     document.getElementById("roasPlatform")?.addEventListener("change", () => syncProfile(true));
+    document.getElementById("roasManualFees")?.addEventListener("change", () => syncProfile(true));
     document.querySelector(".roas-card")?.addEventListener("input", (event) => {
-      if (event.target.id !== "roasPlatform") calculate();
+      if (event.target.id === "roasPrice") syncProfile(true);
+      else if (event.target.id !== "roasPlatform") calculate();
     });
     bound = true;
   }
@@ -33,23 +36,26 @@ function selectedPlatform() {
 }
 
 function profileFor(platform) {
-  return platform ? state.pricing?.profiles?.[platform.key] || {} : {};
+  return platform
+    ? state.pricing?.profiles?.[platform.key] || normalizePricingProfile(platform, {}, MARKETPLACE_PRICING_PRESETS)
+    : {};
 }
 
 function syncProfile(updateFields) {
   const platform = selectedPlatform();
   const profile = profileFor(platform);
+  const manual = Boolean(document.getElementById("roasManualFees")?.checked);
+  const tier = (profile.feeTiers || []).find(item => {
+    const price = Number(document.getElementById("roasPrice")?.value || 0);
+    return price >= Number(item.min || 0) && (item.max == null || price <= Number(item.max));
+  });
+  for (const id of ["roasCommission", "roasFixed"]) document.getElementById(id).readOnly = !manual && Boolean(platform);
   const note = document.getElementById("roasProfileNote");
   if (note) {
-    note.textContent = platform
-      ? `Taxas carregadas do perfil de ${platform.name}. Ajustes aqui valem somente para esta simulação.`
-      : "Cadastre uma plataforma para carregar suas taxas. Você também pode informar as taxas manualmente.";
+    note.textContent = platform ? (manual ? "Taxas informadas manualmente." : tier ? `Faixa: ${R(tier.min)} a ${tier.max == null ? "sem limite" : R(tier.max)} · Taxas do perfil selecionado` : "Taxas do perfil da plataforma selecionada.") : "Cadastre uma plataforma para carregar suas taxas.";
+    note.title = `Revisão: ${profile.lastReviewedAt || "não informada"}. ${profile.note || ""}`;
   }
-  if (updateFields) {
-    const tier = (profile.feeTiers || []).find((item) => {
-      const price = Number(document.getElementById("roasPrice")?.value || 0);
-      return price >= Number(item.min || 0) && (item.max == null || price <= Number(item.max));
-    });
+  if (updateFields && !manual) {
     document.getElementById("roasCommission").value = Number(tier?.commissionRate ?? profile.commissionRate ?? 0);
     document.getElementById("roasFixed").value = Number(tier?.fixedFee ?? profile.fixedFee ?? 0);
   }
@@ -79,5 +85,6 @@ function calculate() {
   document.getElementById("roasContributionPercent").textContent = `${price > 0 ? (contribution / price * 100).toFixed(1).replace(".", ",") : "0,0"}% do preço`;
   document.getElementById("roasAdBudget").textContent = R(Math.max(0, budget));
   document.getElementById("roasTarget").textContent = targetRoas ? `${targetRoas.toFixed(2)}x` : "Meta não atingível";
+  document.getElementById("roasBreakEvenValue").textContent = breakEvenRoas ? `${breakEvenRoas.toFixed(2)}x` : "—";
   document.getElementById("roasBreakEven").textContent = `ROAS de equilíbrio matemático: ${breakEvenRoas ? `${breakEvenRoas.toFixed(2)}x` : "—"}. O ponto de equilíbrio considera a contribuição antes de anúncios.`;
 }

@@ -85,7 +85,8 @@ async function handleSubmit() {
       saveSession(username, "local", r.sessionToken);
       saveState({ localOnly: true });
 
-      // ⬇️ NÃO chama loadRemoteState: usuário novo, servidor está vazio.
+      if (!await window.dashboard.loadBusinessStateFromServer()) return;
+      // A conta nova começa com o estado vazio confirmado pelo servidor.
       // O renderScreen vai detectar platforms.length === 0 e ir para setup.
 
       toastSuccess("Acesso criado com sucesso");
@@ -123,27 +124,7 @@ async function handleSubmit() {
 }
 
 async function loadRemoteState() {
-  try {
-    const result = await apiRequest("/api/state");
-    const remote = result?.state || {};
-    const normalized = normalizeState(
-      { ...remote, auth: state.auth, pricing: remote.pricing || state.pricing },
-      MARKETPLACE_PRICING_PRESETS
-    );
-    Object.assign(state, {
-      platforms: normalized.platforms,
-      db: normalized.db,
-      goals: normalized.goals || {},  
-      currentMonth: normalized.currentMonth,
-      pricing: normalized.pricing,
-      currentScreen: normalized.currentScreen
-    });
-    return true;
-  } catch (e) {
-    console.error("Falha ao carregar state:", e);
-    toastError("Não foi possível carregar seus dados. Verifique a conexão e tente entrar novamente.");
-    return false;
-  }
+  return window.dashboard.loadBusinessStateFromServer();
 }
 
 export async function handleLogout() {

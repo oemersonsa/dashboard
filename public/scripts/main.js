@@ -12,6 +12,8 @@ import {
   getBusinessSnapshot,
   sortPeriodKeys
 } from "./core/state.js";
+import { hydrateAppIcons } from "./ui/app-icons.js";
+import { createSync } from "./core/sync.js";
 import { apiRequest, loadSession, saveSession, clearSession } from "./core/api.js";
 import { MARKETPLACE_PRICING_PRESETS } from "./core/constants.js";
 
@@ -31,6 +33,7 @@ import { init as initPlatformAnalytics } from "./features/platforms/analytics.ui
 import {
   init as initSales,
   renderAll,
+  renderTrackingAlerts,
   renderTabs,
   openAddMonth,
   confirmAddMonth,
@@ -156,165 +159,43 @@ function syncDashboardUserProfile() {
 
 window.addEventListener("dashboard:account-profile-updated", syncDashboardUserProfile);
 
-// /* ═══ SERVER PERSISTENCE ═══ */
-// function scheduleServerSave() {
-//   clearTimeout(serverSaveTimer);
-//   setSaveStatus("saving");
-//   serverSaveTimer = setTimeout(() => void persistToServer(), 800);
-// }
-
-// async function persistToServer() {
-//   if (!loadSession()) { setSaveStatus("idle"); return; }
-//   if (serverSaveInFlight) { serverSaveQueued = true; return; }
-//   serverSaveInFlight = true;
-
-//   // ⬇️ Timeout de 15s
-//   const controller = new AbortController();
-//   const timeoutId = setTimeout(() => controller.abort(), 15_000);
-
-//   try {
-//     await apiRequest("/api/state", {
-//       method: "POST",
-//       body: JSON.stringify({ state: getBusinessSnapshot() })
-//     });
-//     const iso = new Date().toISOString();
-//     localStorage.setItem("dashboard-vendas-last-saved-v1", iso);
-//     setLastSavedAt(iso);
-//     setSaveStatus("saved");
-//     setTimeout(() => setSaveStatus("idle"), 2000);
-//   } catch (error) {
-//     console.error("Falha ao salvar no servidor:", error);
-//     setSaveStatus("error", "Erro ao salvar");
-//     toastError("Não foi possível salvar no servidor");
-//   } finally {
-//     serverSaveInFlight = false;
-//     if (serverSaveQueued) {
-//       serverSaveQueued = false;
-//       void persistToServer();
-//     }
-//   }
-// }
-
-// window.addEventListener("dashboard:save-request", scheduleServerSave);
-// window.addEventListener("dashboard:reload", () => renderScreen());
-
-let serverSaveTimer = null;
-let serverSaveInFlight = false;
-let serverSaveQueued = false;
-
-function scheduleServerSave() {
-  clearTimeout(serverSaveTimer);
-  setSaveStatus("saving");
-  serverSaveTimer = setTimeout(() => {
-    serverSaveTimer = null;
-    void persistToServer();
-  }, 200);
-}
-
-/* ═══ SERVER PERSISTENCE (incremental) ═══ */
-// Último estado confirmado pelo servidor. null = desconhecido → força salvamento completo.
-const synced = { platforms: null, months: new Map(), goals: null, settings: null };
-
-const jsonOf = (v) => JSON.stringify(v ?? null);
-const settingsOf = () => ({
-  currentMonth: state.currentMonth,
-  currentScreen: state.currentScreen,
-  activeTab: state.activeTab || "overview",
-  pricing: state.pricing
-});
-
-function markSynced() {
-  synced.platforms = jsonOf(state.platforms);
-  synced.months = new Map(
-    Object.entries(state.db).map(([m, d]) => [m, jsonOf(d)])
-  );
-  synced.goals = jsonOf(state.goals || {});
-  synced.settings = jsonOf(settingsOf());
-}
-
-async function persistToServer() {
-  if (!loadSession()) { setSaveStatus("idle"); return false; }
-  if (serverSaveInFlight) { serverSaveQueued = true; return false; }
-  serverSaveInFlight = true;
-  setSaveStatus("saving");
-
-  try {
-    const platformsJson = jsonOf(state.platforms);
-
-    if (synced.platforms !== platformsJson) {
-      // Plataformas mudaram (ou 1º save): salvamento completo, raro
-      await apiRequest("/api/state", {
-        method: "POST",
-        body: JSON.stringify({ state: getBusinessSnapshot() })
-      });
-      markSynced();
-    } else {
-      const tasks = [];
-      const nextMonths = new Map(synced.months);
-
-      for (const [month, data] of Object.entries(state.db)) {
-        const json = jsonOf(data);
-        if (synced.months.get(month) === json) continue;
-        tasks.push(
-          apiRequest(`/api/month/${encodeURIComponent(month)}`, {
-            method: "POST",
-            body: JSON.stringify({ days: data.days, returns: data.returns })
-          }).then(() => nextMonths.set(month, json))
-        );
-      }
-
-      for (const month of synced.months.keys()) {
-        if (state.db[month]) continue;
-        tasks.push(
-          apiRequest(`/api/month/${encodeURIComponent(month)}`, { method: "DELETE" })
-            .then(() => nextMonths.delete(month))
-        );
-      }
-
-      const settingsJson = jsonOf(settingsOf());
-      let nextSettings = synced.settings;
-      if (settingsJson !== synced.settings) {
-        tasks.push(
-          apiRequest("/api/settings", { method: "POST", body: settingsJson })
-            .then(() => { nextSettings = settingsJson; })
-        );
-      }
-
-      // Metas são persistidas pelo endpoint de estado completo. Quando apenas
-      // uma meta muda, as plataformas e os dados mensais permanecem iguais;
-      // comparar goals aqui garante que essa alteração também seja enviada.
-      const goalsJson = jsonOf(state.goals || {});
-      if (goalsJson !== synced.goals) {
-        tasks.push(
-          apiRequest("/api/state", {
-            method: "POST",
-            body: JSON.stringify({ state: getBusinessSnapshot() })
-          }).then(() => markSynced())
-        );
-      }
-
-      await Promise.all(tasks);
-      synced.months = nextMonths;
-      synced.settings = nextSettings;
-    }
-
-    setSaveStatus("saved");
-    return true;
-  } catch (error) {
-    console.error("Falha ao salvar no servidor:", error);
-    setSaveStatus("error", "Erro ao salvar");
-    toastError("Não foi possível salvar no servidor");
-    return false;
-  } finally {
-    serverSaveInFlight = false;
-    if (serverSaveQueued) {
-      serverSaveQueued = false;
-      void persistToServer();
-    }
+const tabScope = sessionStorage.getItem("dashboard-tab-id") || crypto.randomUUID();
+sessionStorage.setItem("dashboard-tab-id", tabScope);
+const sync = createSync({
+  scope: tabScope,
+  storage: localStorage,
+  user: () => loadSession()?.username || "",
+  snapshot: getBusinessSnapshot,
+  request: body => apiRequest("/api/state", { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(15000) }),
+  status: (status, message) => {
+    if (status === "saved") localStorage.setItem("dashboard-vendas-last-saved-v1", new Date().toISOString());
+    setSaveStatus(status, message);
+  },
+  onConflict: () => openModal("syncConflictModal"),
+  onExpired: () => {
+    toastError("Sua sessão expirou. Entre novamente; suas alterações ficaram guardadas neste dispositivo.");
+    clearSession(); setActiveScreen("auth"); renderScreen();
   }
-}
-
-window.addEventListener("dashboard:save-request", scheduleServerSave);
+});
+window.addEventListener("dashboard:save-request", () => sync.schedule());
+window.addEventListener("online", () => void sync.flush());
+window.addEventListener("beforeunload", event => {
+  if (sync.pending()) { event.preventDefault(); event.returnValue = ""; }
+});
+document.getElementById("syncLoadRemoteButton")?.addEventListener("click", async () => {
+  sync.discard();
+  await loadBusinessStateFromServer();
+  document.getElementById("syncConflictModal")?.classList.remove("open");
+  renderScreen();
+});
+document.getElementById("syncExportPendingButton")?.addEventListener("click", () => {
+  const pending = sync.pending();
+  if (!pending) return;
+  const url = URL.createObjectURL(new Blob([JSON.stringify({ version: 3, state: pending.state })], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url; link.download = "alteracoes-pendentes.json"; link.click();
+  URL.revokeObjectURL(url);
+});
 window.addEventListener("dashboard:reload", () => renderScreen());
 
 async function retryServerStateLoad(button) {
@@ -342,7 +223,7 @@ async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false
   if (!loadSession()) return false;
   try {
     const result = await apiRequest("/api/state");
-    const remote = result?.state || {};
+    const remote = sync.initialize(result?.state || {});
     const normalized = normalizeState(
       {
         ...remote,
@@ -362,8 +243,7 @@ async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false
     state.currentScreen = normalized.currentScreen;
     state.activeTab = normalized.activeTab || state.activeTab || "overview";
     setActiveScreen(state.currentScreen || "hub");
-    markSynced();
-    setSaveStatus("idle");
+    if (!sync.pending()) setSaveStatus("idle");
     return true;
   } catch (error) {
     console.error("Falha ao carregar dados do servidor:", error);
@@ -376,10 +256,9 @@ async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false
 
 /* ═══ AÇÕES GLOBAIS ═══ */
 export async function saveNow() {
-  clearTimeout(serverSaveTimer);
-  serverSaveTimer = null;
   saveState({ localOnly: true });
-  const saved = await persistToServer();
+  sync.schedule();
+  const saved = await sync.flush();
   if (saved) toastSuccess("Dados salvos no servidor");
 }
 
@@ -547,17 +426,23 @@ function bindSidebarActions() {
     }
   });
 
+  document.addEventListener("click", event => {
+    if (event.target.closest("#dashboardRegisterSalesButton")) { switchDashboardTab("entries"); document.getElementById("inputDate")?.focus(); }
+    if (event.target.closest("#sidebarManagePlatformsButton")) { closeMobileSidebar(); openSetupScreen(); }
+    if (event.target.closest("#sidebarBackupsButton")) { closeMobileSidebar(); openImportBackupModal(); }
+  });
   // 2. Tabs do dashboard
   document.addEventListener("click", (event) => {
     const tab = event.target.closest(".sidebar-item[data-dashboard-tab]");
     if (!tab) return;
     event.preventDefault();
     switchDashboardTab(tab.dataset.dashboardTab);
+    closeMobileSidebar();
   });
 
   // 4. Seletor de período (modal de mês)
   document.addEventListener("click", (event) => {
-    if (event.target.closest("#periodPickerButton")) {
+    if (event.target.closest("#periodPickerButton, #periodPickerMenuButton")) {
       event.preventDefault();
       openAddMonth();
       return;
@@ -600,6 +485,9 @@ function bindSidebarActions() {
 
   // 4c. Seletores rápidos de mês e ano do dashboard
   document.addEventListener("change", (event) => {
+    if (event.target.id === "dashboardPeriodSelect") {
+      switchDashboardPeriod(event.target.value.slice(0, 4), event.target.value.slice(5)); return;
+    }
     if (event.target.id === "dashboardMonthSelect") {
       const year = document.getElementById("dashboardYearSelect")?.value;
       if (year && event.target.value) switchDashboardPeriod(year, event.target.value);
@@ -713,6 +601,18 @@ export function switchDashboardTab(name) {
     p.classList.toggle("active", active);
     p.hidden = !active;
   });
+  const pages = {
+    overview: ["Visão geral", "Acompanhe suas vendas e o progresso da meta"], entries: ["Lançamentos", "Registre vendas e devoluções por plataforma"],
+    daily: ["Vendas diárias", "Acompanhe a evolução das vendas no período"], weekly: ["Semanas", "Compare os resultados de cada semana"],
+    platforms: ["Desempenho por plataforma", "Compare o desempenho e acompanhe pedidos"], trends: ["Tendência", "Acompanhe a evolução dos últimos meses"],
+    projection: ["Metas e projeção", "Planeje a meta e acompanhe o resultado esperado"], calculator: ["Calculadora de preço", "Simule preço, margem e lucro por plataforma"],
+    roas: ["Calculadora de ROAS", "Descubra quanto pode investir em anúncios por pedido"]
+  };
+  document.getElementById("dashboardPageTitle").textContent = pages[target][0];
+  document.getElementById("dashboardPageSubtitle").textContent = pages[target][1];
+  document.querySelector(".dashboard-period-controls").hidden = ["calculator", "roas"].includes(target);
+  document.getElementById("dashboardRegisterSalesButton").hidden = target !== "overview";
+  document.getElementById("dashboardScreen").dataset.page = target;
   const k = document.getElementById("kpiRow");
   if (k) k.hidden = target !== "overview";
 
@@ -722,11 +622,13 @@ export function switchDashboardTab(name) {
   }
   if (target === "platforms") initPlatformAnalytics();
   if (target === "roas") initRoasCalculator();
+  if (target === "overview") renderTrackingAlerts();
 }
 
 /* ═══ BOOT ═══ */
 async function init() {
   showGlobalLoader();
+  hydrateAppIcons();
   bindModalDismiss();
   bindSidebarActions();
   document.getElementById("retryServerLoadButton")?.addEventListener("click", (event) => {
@@ -779,8 +681,8 @@ window.dashboard = {
   toastError,
   saveState,
   saveNow,
-  scheduleServerSave,
-  markSynced,
+  scheduleServerSave: () => sync.schedule(),
+  loadBusinessStateFromServer,
   exportBackup,
   handleLogout,
   openImportBackupModal,

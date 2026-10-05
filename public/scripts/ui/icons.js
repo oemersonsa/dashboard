@@ -25,7 +25,10 @@ function getPlatformIconSources(platform) {
 }
 
 export function platformIcon(platform) {
-  const sources = getPlatformIconSources(platform);
+  const key = canonicalizePlatformKey(platform?.key || platform?.name || "");
+  const localKeys = ["mercado-livre", "shopee", "amazon", "shein", "magalu", "nuvem-shop", "tiktok", "kwai"];
+  const localKey = localKeys.find(name => key.startsWith(name));
+  const sources = localKey ? [`/assets/marketplaces/${localKey}.png`] : getPlatformIconSources(platform);
   const label = String(platform?.icon || platform?.name || "").slice(0, 2).toUpperCase();
   const textColor = platform?.iconText || "#ffffff";
   const bg = escapeAttribute(platform?.color || "#2563eb");
