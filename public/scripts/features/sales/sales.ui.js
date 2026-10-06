@@ -736,8 +736,32 @@ function renderPlatformBars() {
   const totalGross = rows.reduce((s, r) => s + r.gross, 0);
   const totalReturns = rows.reduce((s, r) => s + r.returns, 0);
 
-  const totalNet = rows.reduce((sum, row) => sum + row.net, 0);
-  c.innerHTML = rows.map(({ platform, net }) => `<div class="platform-summary-row"><div class="pb-name">${platformIcon(platform)}<span>${escapeHtml(platform.name)}</span></div><div class="pb-track"><div class="pb-fill" style="width:${totalNet > 0 ? net / totalNet * 100 : 0}%;background:${getPlatformVisualColor(platform)}"></div></div><strong>${R(net)}</strong><span class="platform-share">${totalNet > 0 ? (net / totalNet * 100).toFixed(1).replace(".", ",") : "0,0"}%</span></div>`).join("");
+  c.innerHTML = `
+    <div class="pb-table-head" aria-hidden="true">
+      <span>Plataforma</span><span>Vendas brutas</span><span>Devoluções</span><span>Vendas líquidas</span>
+    </div>
+    <div class="pb-list">${rows.map(({ platform, gross, returns, net }) => {
+    const wp = max > 0 ? (net / max) * 100 : 0;
+    const returnRate = gross > 0 ? (returns / gross) * 100 : 0;
+    return `
+      <div class="pb-entry">
+        <div class="pb-row">
+          <div class="pb-name">${platformIcon(platform)}<span>${escapeHtml(platform.name)}</span></div>
+          <div class="pb-cell pb-gross"><span class="pb-mobile-label">Vendas brutas</span><span>${R(gross)}</span></div>
+          <div class="pb-cell pb-returns"><span class="pb-mobile-label">Devoluções</span><span>${returns > 0 ? R(returns) : "—"}</span>${returns > 0 ? `<em>${returnRate.toFixed(1)}%</em>` : ""}</div>
+          <div class="pb-cell pb-net"><span class="pb-mobile-label">Vendas líquidas</span><strong>${R(net)}</strong></div>
+        </div>
+        <div class="pb-track" role="img" aria-label="Líquido equivalente a ${wp.toFixed(0)}% do maior valor entre plataformas"><div class="pb-fill" style="width:${wp.toFixed(1)}%;background:${getPlatformVisualColor(platform)}"></div></div>
+      </div>
+    `;
+  }).join("")}</div>
+    <div class="pb-total">
+      <span class="pb-total-label">Total do mês</span>
+      <span class="pb-total-gross"><strong>${R(totalGross)}</strong><small>em vendas</small></span>
+      <span class="pb-total-returns"><strong>${R(totalReturns)}</strong><small>em devoluções</small></span>
+      <span class="pb-total-net"><strong>${R(totalGross - totalReturns)}</strong><small>líquido</small></span>
+    </div>
+  `;
 }
 
 /* ═══ BEST DAYS ═══ */
