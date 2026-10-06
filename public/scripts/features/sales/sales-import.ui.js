@@ -4,6 +4,8 @@ import { toastError, toastSuccess } from "../../ui/toast.js";
 import { openModal, closeModal } from "../../ui/modal.js";
 import { ALL_MONTHS } from "../../core/constants.js";
 import { renderAll } from "./sales.ui.js";
+import { groupSheinOrders, isSheinExport, parseSheinDate } from "./shein-import.calc.js";
+import { groupMercadoLivreOrders, isMercadoLivreExport } from "./mercado-livre-import.calc.js";
 
 const SHEETJS_URL = "/vendor/xlsx.full.min.js";
 let bound = false;
@@ -15,6 +17,9 @@ let headerIndex = 0;
 let sourceWorkbook = null;
 let sourceReader = null;
 let sourceSheet = "";
+let sourceMarketplace = "";
+let sourcePlatformKey = "";
+let sourceImportDetails = null;
 
 export function init() {
   if (bound) return;
@@ -55,6 +60,8 @@ export function openSalesSheetImport() {
   sourceHeaders = [];
   sourceWorkbook = null;
   sourceSheet = "";
+  sourcePlatformKey = "";
+  sourceMarketplace = "";
   document.getElementById("salesSheetFileInput").value = "";
   document.getElementById("salesImportSource").hidden = true;
   document.getElementById("salesImportMapping").hidden = true;
@@ -71,6 +78,7 @@ async function handleFile(event) {
   pendingRows = [];
   sourceMatrix = [];
   sourceHeaders = [];
+  sourcePlatformKey = "";
   document.getElementById("salesImportSource").hidden = true;
   const mapping = document.getElementById("salesImportMapping");
   if (mapping) { mapping.hidden = true; mapping.replaceChildren(); }
@@ -115,7 +123,18 @@ function findTable(XLSX, workbook, sheetName) {
     const index = candidate?.index ?? -1;
     if (index >= 0 && matrix.length > index + 1) {
       const headers = matrix[index].map((cell, column) => String(cell || "").trim() || `Coluna ${column + 1}`);
-      tables.push({ matrix, headers, headerIndex: index, name, score: candidate.score });
+      const marketplace = isSheinExport(headers) ? "shein" : isMercadoLivreExport(headers) ? "mercado livre" : "";
+      if (marketplace) {
+        const platforms = state.platforms.filter(platform => !platform.archived && normalize(platform.name).includes(marketplace));
+        if (!platforms.length) throw new Error(`Cadastre uma plataforma ${marketplace === "shein" ? "Shein" : "Mercado Livre"} para importar esta exportação.`);
+        const platform = platforms.find(item => item.key === sourcePlatformKey) || platforms.find(item => normalize(item.name) === marketplace) || platforms[0];
+        const platformName = platform.name;
+        const groupedHeaders = ["Data", `${platformName} vendas brutas`, `${platformName} pedidos`, `${platformName} devoluções`, `${platformName} cancelamentos`];
+        const details = marketplace === "shein" ? { rows: groupSheinOrders(headers, matrix.slice(index + 1)) } : groupMercadoLivreOrders(headers, matrix.slice(index + 1), index + 2);
+        tables.push({ matrix: [groupedHeaders, ...details.rows], headers: groupedHeaders, headerIndex: 0, name, score: candidate.score, marketplace, platformKey: platform.key, details });
+      } else {
+        tables.push({ matrix, headers, headerIndex: index, name, score: candidate.score });
+      }
     }
   }
   if (tables.length) return tables.sort((a, b) => b.score - a.score)[0];
@@ -128,9 +147,17 @@ function selectSheet(name) {
   try {
     const parsed = findTable(sourceReader, sourceWorkbook, name);
     sourceSheet = name;
+    sourceMarketplace = parsed.marketplace || "";
+    sourcePlatformKey = parsed.platformKey || "";
+    sourceImportDetails = parsed.details || null;
     sourceMatrix = parsed.matrix;
     sourceHeaders = parsed.headers;
     headerIndex = parsed.headerIndex;
+    if (sourceMarketplace && sourceMatrix.length > 1) {
+      const date = parseDate(sourceMatrix[sourceMatrix.length - 1][0]);
+      pendingPeriod = `${date.year}-${ALL_MONTHS[date.month - 1]}`;
+      document.getElementById("salesSheetPeriod").textContent = getPeriodLabel(pendingPeriod);
+    }
     const periods = new Set([pendingPeriod, ...Object.keys(state.db)]);
     const dateColumn = sourceHeaders.findIndex(header => /^(data|date|dia)(\s|$)/.test(normalize(header)));
     sourceMatrix.slice(headerIndex + 1).forEach(row => {
@@ -155,6 +182,8 @@ function renderMapping() {
     const platformMatch = normalize(platform.name);
     const guess = (kind) => sourceHeaders.findIndex((header) => {
       const h = normalize(header);
+      if (sourceMarketplace && platform.key !== sourcePlatformKey) return false;
+      if (sourceImportDetails?.missingRefunds > 0 && (kind === "returns" || kind === "cancelled")) return false;
       const shopeePlatforms = state.platforms.filter(item => !item.archived && normalize(item.name).includes("shopee"));
       if (shopeePlatforms.length === 1 && platform === shopeePlatforms[0] && /pedido feito|produto pago/i.test(sourceSheet)) {
         return kind === "sales" ? /^vendas\s*\(brl\)$/.test(h) : kind === "orders" ? h === "pedidos" : kind === "cancelled" ? /^(vendas|valor).*cancel/.test(h) : /^(vendas|valor).*devolv|^(vendas|valor).*reembols/.test(h);
@@ -165,6 +194,17 @@ function renderMapping() {
   }).join("");
   el.hidden = false;
   el.innerHTML = `<div class="sales-import-map-row"><strong>Data do lançamento</strong><label class="fg"><span class="flabel">Coluna de data</span><select class="finput" id="salesImportDateColumn">${sourceHeaders.map((header, index) => `<option value="${index}" ${index === guessedDate ? "selected" : ""}>${escapeHtml(header)}</option>`).join("")}</select></label></div>${rows}<button class="btn btn-secondary" id="salesImportPreviewButton" type="button">Conferir dados</button>`;
+  if (sourceMarketplace) {
+    const platforms = state.platforms.filter(platform => !platform.archived && normalize(platform.name).includes(sourceMarketplace));
+    el.insertAdjacentHTML("afterbegin", `<label class="fg"><span class="flabel">Plataforma de destino desta exportação</span><select class="finput" id="salesImportPlatform">${platforms.map(platform => `<option value="${escapeAttribute(platform.key)}" ${platform.key === sourcePlatformKey ? "selected" : ""}>${escapeHtml(platform.name)}</option>`).join("")}</select></label>`);
+    document.getElementById("salesImportPlatform").addEventListener("change", event => {
+      sourcePlatformKey = event.target.value;
+      selectSheet(sourceSheet);
+    });
+  }
+  if (sourceImportDetails?.missingRefunds > 0) {
+    el.insertAdjacentHTML("afterbegin", `<p class="card-sub" role="alert">O relatório tem ${sourceImportDetails.missingRefunds} linha(s) com status de cancelamento/devolução sem valor de reembolso. Devoluções e cancelamentos ficaram em “Não importar” para preservar seus totais atuais. Se mapear essas colunas, somente os valores preenchidos serão somados; o total estará incompleto.</p>`);
+  }
   document.getElementById("salesImportPreviewButton")?.addEventListener("click", () => {
     try { buildPreview(); } catch (error) { showImportError(error.message); }
   });
@@ -187,6 +227,12 @@ function buildPreview() {
     return showImportError("Associe pelo menos uma coluna de vendas, pedidos, devoluções ou cancelamentos.");
   }
   const dataRows = sourceMatrix.slice(headerIndex + 1).filter((row) => row.some((cell) => String(cell || "").trim()))
+    .filter(row => {
+      if (!sourceMarketplace) return true;
+      const date = parseDate(row[dateColumn]);
+      const period = parsePeriodKey(pendingPeriod);
+      return date && date.year === period.year && date.month === ALL_MONTHS.indexOf(period.month) + 1;
+    })
     .map((row, index) => ({ row: Object.assign([], row, { date: row[dateColumn] }), index: headerIndex + index + 2, platformColumns }));
   pendingRows = validateAndGroup(dataRows);
   if (!pendingRows.length) return showImportError("Não encontrei linhas de vendas válidas para o período selecionado.");
@@ -250,7 +296,7 @@ function renderPreview() {
   const values = pendingRows.flatMap(row => Object.values(row.values));
   const returnKeys = [...new Set(pendingRows.flatMap(row => Object.entries(row.values).filter(([,value]) => value.hasReturns).map(([key]) => key)))];
   const returnConflicts = returnKeys.filter(key => Number(state.db[pendingPeriod]?.returns?.[key] || 0) > 0).length;
-  el.innerHTML = `<div class="sales-import-summary" role="status"><strong>${pendingRows.length} dias encontrados</strong><span>${cells} combinações de plataforma/dia${conflicts ? ` · ${conflicts} já têm dados` : " · nenhum conflito encontrado"}</span><span>Vendas: ${R(values.reduce((sum, value) => sum + value.amount, 0))} · Pedidos: ${values.reduce((sum, value) => sum + value.orders, 0)} · Devoluções totais: ${R(values.reduce((sum, value) => sum + value.returns, 0))}</span><span>Cancelamentos: ${R(values.reduce((sum, value) => sum + value.cancelled, 0))} · Devolvidos/reembolsados: ${R(values.reduce((sum, value) => sum + value.returns - value.cancelled, 0))}</span>${returnConflicts ? `<span>${returnConflicts} plataforma(s) já têm devoluções no mês; escolha substituir se quiser atualizar esses totais.</span>` : ""}<span>Aba: ${escapeHtml(sourceSheet)} · Destino: ${escapeHtml(getPeriodLabel(pendingPeriod))}</span><span>Devoluções do mês = vendas canceladas + vendas devolvidas/reembolsadas. A soma não altera as vendas brutas nem a quantidade de pedidos. Valores existentes são preservados no modo “Ignorar”.</span></div>
+  el.innerHTML = `<div class="sales-import-summary" role="status"><strong>${pendingRows.length} dias encontrados</strong><span>${cells} combinações de plataforma/dia${conflicts ? ` · ${conflicts} já têm dados` : " · nenhum conflito encontrado"}</span><span>Vendas: ${R(values.reduce((sum, value) => sum + value.amount, 0))} · Pedidos: ${values.reduce((sum, value) => sum + value.orders, 0)} · Devoluções totais: ${values.some(value => value.hasReturns) ? R(values.reduce((sum, value) => sum + value.returns, 0)) : "Não importar"}</span>${values.some(value => value.hasReturns) ? `<span>Cancelamentos: ${R(values.reduce((sum, value) => sum + value.cancelled, 0))} · Devolvidos/reembolsados: ${R(values.reduce((sum, value) => sum + value.returns - value.cancelled, 0))}</span>` : ""}${returnConflicts ? `<span>${returnConflicts} plataforma(s) já têm devoluções no mês; escolha substituir se quiser atualizar esses totais.</span>` : ""}<span>Aba: ${escapeHtml(sourceSheet)} · Destino: ${escapeHtml(getPeriodLabel(pendingPeriod))}</span><span>Devoluções do mês = vendas canceladas + vendas devolvidas/reembolsadas. A soma não altera as vendas brutas nem a quantidade de pedidos. Valores existentes são preservados no modo “Ignorar”.</span></div>
     <div class="sales-import-table-wrap"><table class="sales-import-table"><thead><tr><th>Data</th><th>Plataformas com dados</th><th>Conflitos</th></tr></thead><tbody>${pendingRows.slice(0, 8).map((row) => {
       const keys = Object.keys(row.values);
       const conflictsHere = keys.filter((key) => {
@@ -260,6 +306,8 @@ function renderPreview() {
       return `<tr><td>${escapeHtml(row.d)}</td><td>${keys.length}</td><td>${conflictsHere.length ? `${conflictsHere.length} existente(s)` : "—"}</td></tr>`;
     }).join("")}</tbody></table>${pendingRows.length > 8 ? `<div class="card-sub">Prévia das primeiras 8 datas.</div>` : ""}</div>`;
   if (button) button.disabled = false;
+  if (sourceMarketplace === "shein") el.insertAdjacentHTML("afterbegin", '<p class="card-sub">Shein: somente pedidos do mês selecionado. Vendas brutas = preço do produto × quantidade, antes de cupons, descontos, comissões e taxas. Pedidos contados uma vez por número; devoluções e cancelamentos identificados pelo status do item.</p>');
+  if (sourceMarketplace === "mercado livre") el.insertAdjacentHTML("afterbegin", `<p class="card-sub">Mercado Livre: somente vendas do mês selecionado. Vendas brutas usam “Receita por produtos (BRL)” ou, quando ausente, preço unitário × unidades (${sourceImportDetails.estimatedSales} linha(s) no arquivo). Resumos de pacotes e linhas sem produto foram ignorados (${sourceImportDetails.skippedRows}). Reembolsos usam somente “Cancelamentos e reembolsos (BRL)”, em valor absoluto. Valores ausentes não foram estimados.</p>`);
 }
 
 function applyImport() {
@@ -305,6 +353,8 @@ function applyImport() {
 }
 
 function parseDate(value) {
+  const sheinDate = parseSheinDate(value);
+  if (sheinDate) return sheinDate;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return { day: value.getDate(), month: value.getMonth() + 1, year: value.getFullYear() };
   const text = String(value || "").trim().slice(0, 10);
   if (text.length === 10 && text[4] === "-" && text[7] === "-") {

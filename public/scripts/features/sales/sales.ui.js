@@ -102,8 +102,24 @@ export function renderTrackingAlerts() {
     </div>`);
   }
 
-  // O alerta só dispara quando a taxa sobe pelo menos 1 p.p. no comparativo equivalente.
   const comparison = getComparisonPeriod(state.currentMonth);
+  const totals = comparison.currentTotals;
+  if (totals && totals.totalRet > totals.gross * 0.25) {
+    const rateDescription = totals.gross > 0
+      ? ` (${((totals.totalRet / totals.gross) * 100).toFixed(1).replace(".", ",")}%)`
+      : " (sem vendas brutas registradas)";
+    alerts.push(`
+      <div class="goal-alert return-rate-alert return-threshold-alert" role="alert">
+        <div class="goal-alert-icon" aria-hidden="true">⚠</div>
+        <div class="goal-alert-text">
+          <strong>As devoluções ultrapassaram 25% das vendas brutas.</strong>
+          Em ${escapeHtml(getPeriodLabel(state.currentMonth))}, as devoluções somam ${R(totals.totalRet)}${rateDescription}, sobre ${R(totals.gross)} em vendas brutas.
+        </div>
+      </div>
+    `);
+  }
+
+  // O alerta comparativo só dispara quando a taxa sobe pelo menos 1 p.p.
   const current = comparison.previousTotals ? comparison.currentComparisonTotals : null;
   const previous = comparison.previousTotals;
   if (current?.gross > 0 && previous?.gross > 0) {

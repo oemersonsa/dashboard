@@ -3,7 +3,8 @@ function invalid() { const e = new Error("invalid_business_data"); e.statusCode 
 function object(value) { return value && typeof value === "object" && !Array.isArray(value); }
 function period(value) {
   const match = /^(\d{4})-(.+)$/.exec(value);
-  const year = Number(match?.[1]); const month = MONTHS.indexOf(match?.[2]);
+  // O app e backups históricos usam "Marco"; também aceitamos "Março".
+  const year = Number(match?.[1]); const month = MONTHS.indexOf(match?.[2] === "Marco" ? "Março" : match?.[2]);
   if (!match || year < 2000 || year > 2100 || month < 0) invalid();
   return { year, month };
 }
