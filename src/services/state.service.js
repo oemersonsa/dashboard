@@ -88,25 +88,32 @@ async function replaceBusinessState(userId, state, expectedUpdatedAt) {
     }
     const timestamp = new Date(Math.max(Date.now(), (Date.parse(previous) || 0) + 1)).toISOString();
     savedVersion = timestamp;
-    await tx.execute({ sql: "DELETE FROM sales WHERE user_id = ?", args: [userId] });
-    await tx.execute({ sql: "DELETE FROM returns WHERE user_id = ?", args: [userId] });
-    await tx.execute({ sql: "DELETE FROM platforms WHERE user_id = ?", args: [userId] });
-    await tx.execute({ sql: "DELETE FROM goals WHERE user_id = ?", args: [userId] });
+    const platformStatements = [
+      { sql: "DELETE FROM sales WHERE user_id = ?", args: [userId] },
+      { sql: "DELETE FROM returns WHERE user_id = ?", args: [userId] },
+      { sql: "DELETE FROM platforms WHERE user_id = ?", args: [userId] },
+      { sql: "DELETE FROM goals WHERE user_id = ?", args: [userId] }
+    ];
 
     // Plataformas
     const platformIds = new Map();
     const platforms = state.platforms || [];
     for (let i = 0; i < platforms.length; i++) {
       const p = platforms[i];
-      const res = await tx.execute({
+      platformStatements.push({
         sql: `INSERT INTO platforms
               (user_id, platform_key, name, icon, color, icon_text, sort_order, archived, created_at, updated_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [userId, p.key, p.name, p.icon, p.color,
                p.iconText || "#ffffff", i, p.archived ? 1 : 0, timestamp, timestamp]
       });
-      platformIds.set(p.key, Number(res.lastInsertRowid));
     }
+    const platformResults = await tx.batch(platformStatements);
+    platforms.forEach((p, i) => platformIds.set(p.key, Number(platformResults[i + 4].lastInsertRowid)));
+
+    // Uma chamada remota por lote, em vez de uma por venda. Todos os lotes
+    // permanecem na mesma transação, incluindo a verificação de versão.
+    const statements = [];
 
     // Vendas
     for (const [month, monthData] of Object.entries(state.db || {})) {
@@ -117,7 +124,7 @@ async function replaceBusinessState(userId, state, expectedUpdatedAt) {
           const amount = Number(day[platform.key] || 0);
           const orders = Math.max(0, Math.round(Number(day[`orders_${platform.key}`] || 0)));
           if (amount <= 0 && orders <= 0) continue;
-          await tx.execute({
+          statements.push({
             sql: `INSERT INTO sales
                   (user_id, platform_id, month, date, amount, orders_count, created_at, updated_at)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -134,7 +141,7 @@ async function replaceBusinessState(userId, state, expectedUpdatedAt) {
         if (!platformId) continue;
         const amount = Number(monthData.returns?.[platform.key] || 0);
         if (amount <= 0) continue;
-        await tx.execute({
+        statements.push({
           sql: `INSERT INTO returns
                 (user_id, platform_id, month, amount, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?)`,
@@ -147,7 +154,7 @@ async function replaceBusinessState(userId, state, expectedUpdatedAt) {
     for (const [month, value] of Object.entries(state.goals || {})) {
       const target = Number(value?.target ?? value ?? 0);
       if (!Number.isFinite(target) || target <= 0) continue;
-      await tx.execute({
+      statements.push({
         sql: `INSERT INTO goals (user_id, month, target, created_at, updated_at)
               VALUES (?, ?, ?, ?, ?)`,
         args: [userId, month, target, timestamp, timestamp]
@@ -155,7 +162,7 @@ async function replaceBusinessState(userId, state, expectedUpdatedAt) {
     }
 
     // Settings
-    await tx.execute({
+    statements.push({
       sql: `INSERT INTO app_settings
             (user_id, current_month, current_screen, active_tab, pricing_json, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -168,6 +175,9 @@ async function replaceBusinessState(userId, state, expectedUpdatedAt) {
       args: [userId, state.currentMonth || "", state.currentScreen || "hub", state.activeTab || "overview",
              JSON.stringify(state.pricing || null), timestamp]
     });
+    for (let offset = 0; offset < statements.length; offset += 250) {
+      await tx.batch(statements.slice(offset, offset + 250));
+    }
   }).then(async () => ({ ...await getBusinessState(userId), updatedAt: savedVersion }));
 }
 

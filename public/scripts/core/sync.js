@@ -57,7 +57,14 @@ export function createSync({ storage, user, snapshot, request, status, onConflic
           attempts = 0;
         } catch (error) {
           if (user() !== owner) return false;
-          status("error", "Alterações pendentes");
+          const message = error.message === "invalid_business_data"
+            ? "Dados inválidos. Revise as datas e os valores ou exporte as alterações pendentes."
+            : error.status === 413
+              ? "Os dados excedem o limite de envio. Exporte as alterações pendentes."
+              : error.status === 429
+                ? "Muitos envios. Tentando novamente…"
+                : "Alterações pendentes";
+          status("error", message);
           if (error.status === 409) { blocked = true; onConflict(); }
           else if (error.status === 401) { blocked = true; onExpired(); }
           else if (!error.status || error.status === 429 || error.status >= 500) timer = setTimeout(() => void flush(), Math.min(30000, 1000 * 2 ** attempts++));

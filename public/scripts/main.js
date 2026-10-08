@@ -166,7 +166,7 @@ const sync = createSync({
   storage: localStorage,
   user: () => loadSession()?.username || "",
   snapshot: getBusinessSnapshot,
-  request: body => apiRequest("/api/state", { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(15000) }),
+  request: body => apiRequest("/api/state", { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(60000) }),
   status: (status, message) => {
     if (status === "saved") localStorage.setItem("dashboard-vendas-last-saved-v1", new Date().toISOString());
     setSaveStatus(status, message);

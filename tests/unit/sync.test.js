@@ -7,9 +7,10 @@ function setup(request = vi.fn(async () => ({ state: { updatedAt: "v2" } }))) {
   const storage = { getItem: k => data.get(k), setItem: (k, v) => data.set(k, v), removeItem: k => data.delete(k), get length() { return data.size; }, key: i => [...data.keys()][i] };
   let state = { platforms: [], db: {}, goals: { target: 1 } };
   const conflict = vi.fn(); const expired = vi.fn();
-  const sync = createSync({ storage, user: () => "alice", snapshot: () => state, request, status: vi.fn(), onConflict: conflict, onExpired: expired });
+  const status = vi.fn();
+  const sync = createSync({ storage, user: () => "alice", snapshot: () => state, request, status, onConflict: conflict, onExpired: expired });
   sync.initialize({ updatedAt: "v1" });
-  return { sync, storage, request, conflict, expired, update: value => { state.goals.target = value; sync.schedule(); } };
+  return { sync, storage, request, status, conflict, expired, update: value => { state.goals.target = value; sync.schedule(); } };
 }
 describe("sincronização", () => {
   it("confirma apenas a cópia enviada e envia a edição feita durante a requisição", async () => {
@@ -43,6 +44,16 @@ describe("sincronização", () => {
   it("preserva alterações quando a sessão expira", async () => {
     vi.useFakeTimers(); const { sync, update, expired } = setup(vi.fn().mockRejectedValue({ status: 401 })); update(9);
     await sync.flush(); expect(expired).toHaveBeenCalled(); expect(sync.pending()).toBeTruthy();
+  });
+  it("explica os dados rejeitados e preserva o rascunho sem repetir automaticamente", async () => {
+    vi.useFakeTimers();
+    const { sync, update, request, status } = setup(vi.fn().mockRejectedValue({ status: 400, message: "invalid_business_data" }));
+    update(9);
+    expect(await sync.flush()).toBe(false);
+    expect(status).toHaveBeenLastCalledWith("error", expect.stringContaining("Dados inválidos"));
+    expect(sync.pending().state.goals.target).toBe(9);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(request).toHaveBeenCalledTimes(1);
   });
   it("detecta conflito ao recuperar e cria cópia antes de descartar", () => {
     vi.useFakeTimers(); const { sync, update, conflict, storage } = setup(); update(4);
