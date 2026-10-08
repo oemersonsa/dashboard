@@ -170,6 +170,7 @@ body.dark-theme .topbar-user-avatar { color: #111318; }
   right: 0;
   z-index: 80;
   width: 230px;
+  max-width: calc(100vw - 32px);
   padding: var(--space-2);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-md);

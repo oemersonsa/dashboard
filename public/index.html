@@ -97,6 +97,7 @@
         </div>
         <button class="btn btn-primary dashboard-register" id="dashboardRegisterSalesButton" type="button"><span data-app-icon="plus"></span>Registrar vendas</button>
 
+        <div class="dashboard-user-menu">
         <button class="topbar-user" id="dashboardUserMenuButton" type="button" aria-expanded="false" aria-controls="dashboardUserPopover" hidden>
           <span class="topbar-user-avatar" id="dashboardUserAvatar" aria-hidden="true"><span id="dashboardUserInitial">?</span><img id="dashboardUserPhoto" alt="" hidden></span>
           <span class="topbar-user-name" id="dashboardUserName"></span><span class="topbar-user-chevron" aria-hidden="true">▾</span>
@@ -108,6 +109,7 @@
           <span data-theme-icon></span>
         </button><div class="user-popover-divider"></div>
           <button type="button" class="user-popover-item" id="dashboardLogoutButton">Sair</button>
+        </div>
         </div>
       </div>
     </header>
@@ -157,6 +159,12 @@
         <div class="dashboard-panels">
           <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
             <div class="goal-alert-banner" id="goalAlertBanner" aria-live="polite" hidden></div>
+            <div class="card">
+              <div class="card-header">
+                <div><div class="card-title"><span data-app-icon="bars"></span>Desempenho por plataforma</div></div>
+              </div>
+              <div class="platform-bars" id="platformBars"></div>
+            </div>
             <div class="card overview-trend-card">
               <div class="card-header overview-trend-header">
                 <div><div class="card-title"><span data-app-icon="bars"></span>Tendência de vendas</div><div class="card-sub" id="overviewTrendSubtitle">Vendas brutas nos últimos 30 dias corridos</div></div>
@@ -176,13 +184,6 @@
               </div>
               <div class="overview-trend-summary" id="overviewTrendSummary" aria-live="polite"></div>
               <div class="chart-box overview-trend-chart-box"><canvas id="overviewTrendChart" aria-label="Gráfico de vendas brutas agrupadas no período selecionado"></canvas></div>
-            </div>
-            <div class="card">
-              <div class="card-header">
-                <div><div class="card-title"><span data-app-icon="bars"></span>Desempenho por plataforma</div></div>
-                
-              </div>
-              <div class="platform-bars" id="platformBars"></div>
             </div>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-daily" data-dashboard-panel="daily" hidden>

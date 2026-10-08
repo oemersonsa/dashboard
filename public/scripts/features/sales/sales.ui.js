@@ -182,13 +182,34 @@ function renderKPIs() {
   const el = document.getElementById("kpiRow");
   if (!el) return;
 
-  const metric = (name, value, icon, color, cls, change = "", context = "") => `<article class="kpi-card ${cls}" title="${context}"><span class="metric-icon ${color}">${appIcon(icon)}</span><div class="kpi-body"><div class="kpi-label">${name}</div><strong class="kpi-value">${value}</strong><div class="kpi-change">${change || "Sem mês anterior"}</div></div></article>`;
+  const metric = (name, current, previous, icon, color, cls, context = "", reverse = false, count = false) => {
+    const detailFormat = count ? value => Number(value).toLocaleString("pt-BR") : R;
+    const change = pt ? varH(current, previous, reverse) : "Sem mês anterior";
+    const id = `${cls}-comparison`;
+    const difference = current - previous;
+    const windowLabel = pt && c.cutoffDay ? `Dias 1–${c.cutoffDay} de cada mês` : "Mês completo";
+    const allocatedReturns = pt && c.cutoffDay && (cls === "kpi-card--returns" || cls === "kpi-card--net")
+      && (c.cutoffDay < getMonthDays(state.currentMonth) || c.cutoffDay < getMonthDays(pn));
+    const tooltip = `<div class="kpi-comparison-tooltip" id="${id}" role="tooltip">
+      <strong>${escapeHtml(name)}</strong>
+      <p>${escapeHtml(pt ? windowLabel : "Período selecionado")}</p>
+      <dl>
+        <div><dt>${escapeHtml(getPeriodLabel(state.currentMonth))}</dt><dd>${detailFormat(current)}</dd></div>
+        ${pt ? `<div><dt>${escapeHtml(getPeriodLabel(pn))}</dt><dd>${detailFormat(previous)}</dd></div>
+        <div class="kpi-comparison-difference"><dt>Diferença</dt><dd>${difference > 0 ? "+" : difference < 0 ? "−" : ""}${detailFormat(Math.abs(difference))}</dd></div>`
+        : "<div><dt>Comparação</dt><dd>Sem mês anterior disponível</dd></div>"}
+      </dl>
+      ${context ? `<p>${escapeHtml(context)}</p>` : ""}
+      ${allocatedReturns ? "<p>Devoluções proporcionais às vendas no recorte de dias.</p>" : ""}
+    </div>`;
+    return `<article class="kpi-card ${cls}" tabindex="0" aria-describedby="${id}"><span class="metric-icon ${color}">${appIcon(icon)}</span><div class="kpi-body"><div class="kpi-label">${name}</div><strong class="kpi-value">${count ? detailFormat(current) : RS(current)}</strong><div class="kpi-change">${change}</div></div>${tooltip}</article>`;
+  };
   el.innerHTML = [
-    metric("Pedidos", String(t.orders), "orders", "blue", "kpi-card--volume", pt ? varH(t.orders, pt.orders) : ""),
-    metric("Vendas brutas", RS(t.gross), "money", "green", "kpi-card--gross", pt ? varH(t.gross, pt.gross) : "", "Soma das vendas antes das devoluções"),
-    metric("Devoluções", RS(t.totalRet), "returns", "red", "kpi-card--returns", pt ? varH(t.totalRet, pt.totalRet, true) : ""),
-    metric("Vendas líquidas", RS(t.net), "report", "blue", "kpi-card--net", pt ? varH(t.net, pt.net) : "", "Bruto menos devoluções. Não desconta taxas ou custos"),
-    metric("Ticket médio", RS(t.orders > 0 ? t.gross / t.orders : 0), "ticket", "purple", "kpi-card--ticket", pt ? varH(t.orders > 0 ? t.gross / t.orders : 0, pt.orders > 0 ? pt.gross / pt.orders : 0) : "")
+    metric("Pedidos", t.orders, pt?.orders, "orders", "blue", "kpi-card--volume", "", false, true),
+    metric("Vendas brutas", t.gross, pt?.gross, "money", "green", "kpi-card--gross", "Soma das vendas antes das devoluções"),
+    metric("Devoluções", t.totalRet, pt?.totalRet, "returns", "red", "kpi-card--returns", "", true),
+    metric("Vendas líquidas", t.net, pt?.net, "report", "blue", "kpi-card--net", "Bruto menos devoluções. Não desconta taxas ou custos"),
+    metric("Ticket médio", t.orders > 0 ? t.gross / t.orders : 0, pt?.orders > 0 ? pt.gross / pt.orders : 0, "ticket", "purple", "kpi-card--ticket", "Vendas brutas divididas pelo número de pedidos")
   ].join("");
 }
 

@@ -136,7 +136,8 @@ body.dark-theme .metric-icon { background:#172b46; }
 .dashboard-screen .topbar { position:relative; min-height:96px; padding-top:24px; }
 .dashboard-screen .header-right { padding-top:20px; }
 .dashboard-screen .save-indicator { position:absolute; top:10px; right:76px; text-decoration:none; color:var(--muted-2); }
-.dashboard-screen .topbar-user { position:absolute; top:7px; right:28px; }
+.dashboard-screen .dashboard-user-menu { position:absolute; top:7px; right:28px; display:flex; }
+.dashboard-screen .dashboard-user-menu .topbar-user { position:static; }
 .dashboard-screen .topbar-user-avatar { width:24px; height:24px; border:1px solid var(--border); }
 .dashboard-period-field,.dashboard-period-add { display:none; }
 .dashboard-combined-period { display:flex; align-items:center; gap:7px; height:36px; border:1px solid var(--border-2); border-radius:6px; padding:0 10px; background:var(--surface); }
@@ -154,7 +155,7 @@ body.dark-theme .metric-icon { background:#172b46; }
 .goal-progress-stat { padding-left:14px; }
 .goal-status-chip { white-space:nowrap; max-width:none; border-radius:20px; padding:6px 9px; font-size:9px; }
 .dashboard-register { height:36px; }
-@media(max-width:860px) { .dashboard-screen .topbar-user { right:16px; } .dashboard-screen .save-indicator { right:54px; } }
+@media(max-width:860px) { .dashboard-screen .dashboard-user-menu { right:16px; } .dashboard-screen .save-indicator { right:54px; } }
 @media(max-width:620px) { .dashboard-screen .header-right { padding-top:0; } .dashboard-screen .topbar-user,.dashboard-screen .save-indicator { position:static; } .dashboard-screen .header-right { gap:8px; } .goal-status-chip { white-space:normal; } }
 
 .dashboard-screen .header-right { position:static; }
@@ -162,6 +163,7 @@ body.dark-theme .metric-icon { background:#172b46; }
 .sidebar-item.active .icon-home { fill:currentColor; stroke-width:1; }
 .metric-icon .icon-target { stroke-width:2.2; }
 @media(max-width:620px) { .dashboard-screen .header-right { position:relative; } }
+@media(max-width:620px) { .dashboard-screen .dashboard-user-menu { position:relative; top:auto; right:auto; } }
 
 .sidebar-kanri-icon { width:28px; height:28px; object-fit:contain; }
 .platform-icon-img { inset:2px; width:calc(100% - 4px); height:calc(100% - 4px); object-fit:contain; background:transparent; border-radius:0; }

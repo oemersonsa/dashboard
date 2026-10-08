@@ -325,6 +325,18 @@ function closeUserPopover(restoreFocus = false) {
   if (restoreFocus) button.focus();
 }
 
+function positionUserPopover() {
+  const button = document.getElementById("dashboardUserMenuButton");
+  const popover = document.getElementById("dashboardUserPopover");
+  if (!button || !popover || popover.hidden) return;
+  const anchor = button.getBoundingClientRect();
+  const container = button.parentElement.getBoundingClientRect();
+  const width = popover.offsetWidth;
+  const left = Math.max(16, Math.min(anchor.right - width, window.innerWidth - width - 16));
+  popover.style.left = `${left - container.left}px`;
+  popover.style.right = "auto";
+}
+
 function bindSidebarActions() {
   document.querySelectorAll(".sidebar-submenu-popover").forEach((menu) => {
     document.body.appendChild(menu);
@@ -361,7 +373,10 @@ function bindSidebarActions() {
       closeUserPopover();
       userPopover.hidden = !shouldOpen;
       userButton.setAttribute("aria-expanded", String(shouldOpen));
-      if (shouldOpen) document.getElementById("openAccountSettingsButton")?.focus();
+      if (shouldOpen) {
+        positionUserPopover();
+        document.getElementById("openAccountSettingsButton")?.focus();
+      }
       return;
     }
     if (event.target.closest("#openAccountSettingsButton")) {
@@ -403,7 +418,7 @@ function bindSidebarActions() {
     }
   });
 
-  window.addEventListener("resize", () => closeSidebarSubmenus());
+  window.addEventListener("resize", () => { closeSidebarSubmenus(); positionUserPopover(); });
   window.addEventListener("scroll", () => closeSidebarSubmenus(), true);
 
   // 1. Sidebar

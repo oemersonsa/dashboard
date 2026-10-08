@@ -86,6 +86,41 @@
 
 .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 
+.kpi-card:has(.kpi-comparison-tooltip) { overflow: visible; }
+.kpi-card:hover, .kpi-card:focus-within { z-index: 10; }
+.kpi-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.kpi-comparison-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 280px;
+  max-width: calc(100vw - 40px);
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+  line-height: 1.5;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.kpi-comparison-tooltip::before { content: ""; position: absolute; left: 0; right: 0; top: -9px; height: 9px; }
+.kpi-card:last-child .kpi-comparison-tooltip { left: auto; right: 0; }
+.kpi-card:hover .kpi-comparison-tooltip, .kpi-card:focus-within .kpi-comparison-tooltip { visibility: visible; opacity: 1; }
+.kpi-comparison-tooltip p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+.kpi-comparison-tooltip dl { margin: 12px 0 0; }
+.kpi-comparison-tooltip dl > div { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.kpi-comparison-tooltip dt { color: var(--muted); }
+.kpi-comparison-tooltip dd { margin: 0; text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+.kpi-comparison-tooltip .kpi-comparison-difference { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 10px; }
+@media (max-width: 620px) {
+  .kpi-card:nth-child(odd) .kpi-comparison-tooltip { left: 0; right: auto; }
+  .kpi-card:nth-child(even) .kpi-comparison-tooltip { left: auto; right: 0; }
+}
+
 .kpi-card::before {
   content: '';
   position: absolute;
