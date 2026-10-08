@@ -1,352 +1,384 @@
-<div align="center">
+# Kanri
 
-<img src="docs/banner.png" alt="Dashboard de Vendas" width="100%">
+Painel de gestão de vendas para marketplaces, com lançamentos por plataforma, pedidos, devoluções, metas, projeções, análises e ferramentas de precificação. A mesma aplicação funciona no navegador e em uma janela desktop com Electron.
 
-# 📊 Dashboard de Vendas
+O nome do pacote permanece `dashboard-vendas`, atualmente na versão `5.0.0`.
 
-**Gestão completa de vendas em marketplaces** — projeções, metas, comparativos multi-mês e fechamento diário em uma interface única.
+[Aplicação web](https://dashboard-ldb7.onrender.com) · [Reportar problema](https://github.com/oemersonsa/dashboard/issues)
 
-[![Status](https://img.shields.io/badge/status-ativo-success)](https://dashboard-ldb7.onrender.com)
-[![Deploy](https://img.shields.io/badge/deploy-render-blue)](https://dashboard-ldb7.onrender.com)
-[![Database](https://img.shields.io/badge/database-turso-green)](https://turso.tech)
-[![Tests](https://img.shields.io/badge/tests-144%20passing-brightgreen)](#-testes)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+## Funcionalidades
 
-[🌐 **Acessar o app**](https://dashboard-ldb7.onrender.com) · [📖 **Documentação**](#-como-rodar) · [🐛 **Reportar bug**](https://github.com/oemersonsa/dashboard/issues)
+### Hub e navegação
 
-</div>
+- Tela inicial com resumo do mês, vendas, pedidos, devoluções, progresso da meta e dias lançados.
+- Menu lateral com áreas de vendas, análises, gestão e ferramentas.
+- Seleção de mês e ano, criação e exclusão de períodos e persistência da aba selecionada.
+- Interface responsiva, navegação por teclado, indicadores de carregamento e mensagens de resultado.
+- Temas claro, escuro e automático, acompanhando o sistema.
 
----
+### Conta e autenticação
 
-## 🎯 O que é
+- Cadastro e login por usuário e senha, com senha mínima de 12 caracteres.
+- Senhas armazenadas com hash `scrypt` e salt; usuários e sessões persistidos no banco.
+- Sessões com validade de um ano e token guardado no navegador para manter o acesso.
+- Perfil com nome de exibição e foto em PNG, JPEG ou WebP, redimensionada pela interface.
+- Troca de senha com verificação da senha atual e invalidação das sessões anteriores.
+- Dados de negócio separados por usuário e rota de compatibilidade para migração de acesso local.
 
-Um painel para consolidar vendas, devoluções, metas e projeções de múltiplas plataformas de e-commerce (Mercado Livre, Shopee, Magalu, TikTok Shop, etc.). Roda como **app desktop** (Electron) e como **aplicação web** (Node.js + Turso).
+### Plataformas
 
----
+- Cadastro e edição de nome, sigla e cor, com sugestão de paleta.
+- Ícones para marketplaces conhecidos, como Mercado Livre, Shopee, Shein, Magalu, Nuvem Shop, TikTok, Kwai e Amazon.
+- Arquivamento e reativação de plataformas, preservando o histórico.
+- Plataformas personalizadas para outros canais de venda.
 
-## ✨ Funcionalidades
+### Vendas, pedidos e devoluções
 
-### 🏠 Hub central
-Acesso rápido a todas as áreas em um só lugar, com resumo do mês.
+- Lançamento diário de valores e quantidade de pedidos por plataforma.
+- Registro de devoluções por plataforma no período selecionado.
+- Visão geral com vendas brutas, vendas após devoluções, pedidos, ticket médio, participação das plataformas e acompanhamento da meta.
+- Tendência na visão geral por mês selecionado ou 30 dias corridos, com agrupamento diário, semanal, quinzenal ou mensal.
+- Gráfico de vendas diárias com filtro por plataforma e comparação com outro período.
+- Visão semanal com participação no mês, detalhamento por plataforma e comparação com o período anterior.
 
-![Hub](docs/01-hub.png)
+**Vendas após devoluções** correspondem às vendas descontadas das devoluções. Esse indicador não desconta todos os custos, impostos e tarifas do negócio e não representa lucro.
 
-### 🔐 Autenticação local
-Login/cadastro com senha hasheada (scrypt) e sessões persistentes.
+### Análises e tendências
 
-![Login](docs/02-auth.png)
+- Análise por plataforma ou consolidada nos últimos 30, 90, 180 ou 365 dias, ou em intervalo personalizado.
+- Indicadores de vendas, pedidos, médias diárias e variação contra o intervalo anterior equivalente.
+- Gráfico diário, participação das plataformas e tabela de desempenho.
+- Comparativo de até 12 meses com vendas, vendas após devoluções, pedidos ou ticket médio.
+- Linha de meta e identificação de períodos parciais ou sem lançamentos no comparativo multi-mês.
 
-### ⚙️ Cadastro de plataformas
-Adicione marketplaces com nome, sigla e cor — a paleta é sugerida automaticamente.
+### Metas e projeções
 
-![Setup](docs/03-setup.png)
+- Meta mensal configurável, acompanhada no hub, na visão geral e na área de projeção.
+- Progresso, alertas de risco, projeção de fechamento e média diária necessária para atingir a meta.
 
-### 📈 Visão Geral
-KPIs de vendas, pedidos, devoluções e ticket médio. Mix de plataformas e alertas de meta.
+### Calculadora de preço
 
-![Visão Geral](docs/04-overview.png)
+- Simulação por margem percentual ou lucro desejado em reais.
+- Custos de produto, embalagem, extras e subsídio de frete; impostos e reserva para devoluções.
+- Perfis de tarifas por plataforma, incluindo comissão, transação, taxa fixa e frete adicional.
+- Cadastro de produtos com nome, SKU e custo, para reutilizar nas simulações.
+- Comparação de preço ideal e preço informado manualmente.
 
-### 📅 Vendas Diárias
-Gráfico consolidado do mês com filtro por plataforma, comparação com outro mês e destaque do topo de cada stack.
+Os perfis iniciais de tarifas são estimativas editáveis. Ajuste os valores às condições da sua conta antes de usar os resultados.
 
-![Vendas Diárias](docs/05-daily.png)
+### Calculadora de ROAS
 
-### 📊 Tendência multi-mês
-Comparativo de até 12 meses por plataforma, com 4 métricas (vendas, líquido, pedidos, ticket) e linha de meta.
+- Simulação por pedido considerando preço, custo, comissão, tarifa fixa, impostos, outros custos e margem desejada.
+- Contribuição antes de anúncios, verba máxima por pedido, ROAS mínimo e ROAS de equilíbrio.
+- Aproveitamento das tarifas da plataforma selecionada, com opção de informar taxas manualmente.
+- Tratamento de faixas de preço e indicação de margem inviável.
 
-![Tendência](docs/06-trends.png)
+### Importação de planilhas
 
-### 🎯 Projeção e Metas
-Meta mensal configurável, progresso visual, projeção de fechamento e média diária necessária.
+- Leitura de arquivos `.csv`, `.xlsx` e `.xls`, com seleção de aba, período de destino e mapeamento de colunas.
+- Prévia dos dados e conflitos antes de confirmar a importação.
+- Opção de ignorar ou substituir valores já existentes por plataforma e data.
+- Reconhecimento de exportações da Shein e do Mercado Livre, agrupando os dados para os lançamentos do painel.
+- Shein: cálculo bruto por preço × quantidade, contagem de pedidos por número e identificação de devoluções/cancelamentos pelo status.
+- Mercado Livre: receita por produtos ou preço × unidades quando necessário; exclusão de resumos de pacotes e linhas sem produto; reembolsos a partir da coluna de cancelamentos e reembolsos.
 
-![Projeção](docs/07-projection.png)
+O fluxo usa arquivos fornecidos pelo usuário. O projeto não implementa conexão automática com as APIs dos marketplaces. Para exportações reconhecidas, a plataforma correspondente deve estar cadastrada e ativa; confira a prévia e as regras exibidas antes de aplicar.
 
-### 🧮 Calculadora de preço
-Preço ideal por plataforma considerando comissão, taxa fixa, frete e margem/lucro desejado.
+### Fechamento diário
 
-![Calculadora](docs/08-calculator.png)
+- Soma de valores colados, como `1000 + 500,50`.
+- Consolidação por plataforma e geração de texto no formato de envio diário.
+- Cópia do relatório e download em TXT.
 
-### 📋 Fechamento Diário
-Soma valores colados (`1000 + 500,50`), gera relatório TXT formatado para envio e calcula totais.
+### Relatórios e backups
 
-![Fechamento](docs/09-daily-close.png)
+- Relatório do mês com vendas, pedidos, devoluções, valores após devoluções e detalhamento por plataforma.
+- Comparativo numérico e visual com o período anterior.
+- Exportação em PNG, CSV e Excel (`.xlsx`).
+- Exportação de backup JSON e importação por mesclagem ou substituição, com validação e prévia.
+- Backups de negócio sem credenciais de sessão; a importação preserva o acesso atual.
 
-### 📄 Relatório completo
-Resumo do mês, comparativo com o anterior e exportação em **PNG**, **CSV** e **Excel**.
+### Salvamento e recuperação
 
-![Relatório](docs/10-report.png)
+- Salvamento do estado no servidor, com indicador de andamento e último salvamento.
+- Cópia local das alterações pendentes por usuário e recuperação após falhas ou recarregamento.
+- Controle de versão do estado para detectar conflitos entre abas e evitar sobrescrita silenciosa.
+- Validação de dados de negócio e proteção contra substituição acidental por um estado sem plataformas.
 
-### 💾 Backup
-Exportar e importar dados em JSON (mesclar ou substituir).
+## Tecnologias e arquitetura
 
-### 🎨 Temas
-Claro, escuro e automático (segue o sistema).
+| Camada | Tecnologias |
+|--------|-------------|
+| Backend | Node.js 22.5+, CommonJS, servidor HTTP nativo, `crypto` |
+| Banco | `@libsql/client`, Turso/libSQL, migrations e repositórios |
+| Frontend | HTML, CSS e JavaScript com ES Modules, sem bundler |
+| Gráficos | Chart.js 4 |
+| Exportação de imagem | html2canvas |
+| Planilhas | SheetJS/XLSX |
+| Desktop | Electron 33 |
+| Testes | Vitest, cobertura V8 e Playwright |
+| Automação | GitHub Actions em Windows e Linux |
+| Deploy | Configuração Render e arquivo de deploy Railway |
 
----
+```text
+Navegador                         Electron
+    |                                 |
+    | HTTP                            | servidor HTTP interno
+    +----------------+----------------+
+                     |
+            src/server + src/routes
+                     |
+               src/services
+                     |
+             src/db/repositories
+                     |
+                Turso/libSQL
 
-## 🛠 Tecnologias
-
-### Backend
-| Tecnologia | Uso |
-|------------|-----|
-| **Node.js 22+** | Runtime do servidor |
-| **HTTP nativo** | Servidor sem framework |
-| **@libsql/client** | Cliente Turso (SQLite remoto) |
-| **crypto** | Hash de senhas (scrypt) |
-| **Electron** | Wrapper desktop (opcional) |
-
-### Frontend
-| Tecnologia | Uso |
-|------------|-----|
-| **ES Modules puros** | Sem bundler |
-| **CSS moderno** | Design tokens + temas |
-| **Chart.js 4** | Gráficos |
-| **html2canvas** | Exportar relatório em PNG |
-
-### Infraestrutura
-| Tecnologia | Uso |
-|------------|-----|
-| **Render** | Hospedagem do app web |
-| **Turso** | Banco SQLite distribuído |
-| **GitHub** | Versionamento |
-
-### Testes
-| Ferramenta | Cobertura |
-|------------|-----------|
-| **Vitest** | 108 testes unitários + API |
-| **Playwright** | 9 testes E2E |
-
----
-
-## 🏗 Arquitetura
-
-O mesmo código roda em **dois modos**:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     CÓDIGO COMPARTILHADO                    │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  src/       →  Servidor HTTP (rotas, static)        │    │
-│  │  src/db/    →  Turso (repos, migrations)            │    │
-│  │  src/...    →  Serviços de negócio                  │    │
-│  │  public/    →  Frontend (HTML, CSS, JS)             │    │
-│  └─────────────────────────────────────────────────────┘    │
-└──────────────┬──────────────────────────────┬───────────────┘
-               │                              │
-               ▼                              ▼
-     ┌──────────────────┐          ┌──────────────────┐
-     │  MODO DESKTOP    │          │   MODO WEB       │
-     │  (Electron)      │          │   (Render)       │
-     ├──────────────────┤          ├──────────────────┤
-     │  Janela nativa   │          │  HTTP :10000     │
-     │  startServer()   │          │  startServer()   │
-     │  ↓               │          │  ↓               │
-     │  Turso (nuvem)   │          │  Turso (nuvem)   │
-     └──────────────────┘          └──────────────────┘
+public/ contém a interface compartilhada entre os dois modos.
 ```
 
-- **Desktop** → `electron-main.js` abre uma janela nativa e sobe o servidor interno
-- **Web** → `server.js` expõe o HTTP público, servindo o mesmo `public/`
-- **Banco** → em ambos, o Turso é acessado via HTTP (não depende de disco local)
+- `src/server.js` inicia o modo web.
+- `src/main/electron-main.js` inicia o servidor em `127.0.0.1` e abre a janela Kanri; a porta padrão é `37171` quando `PORT` não está definida.
+- As migrations em `src/db/migrations/` são executadas antes de o servidor começar a receber requisições.
+- Ambos os modos usam o banco configurado em `TURSO_DATABASE_URL`. Com Turso remoto, o desktop também precisa de conexão para carregar e salvar dados.
+- Os testes usam bancos libSQL locais isolados; não dependem das credenciais do banco de produção.
+- Chart.js e html2canvas são copiados de `node_modules` para `public/vendor/` pelo `postinstall`. O leitor XLSX também está em `public/vendor/`; a exportação Excel possui carregamento de fallback via CDN.
 
----
-
-## 🚀 Como rodar
+## Como rodar
 
 ### Pré-requisitos
-- **Node.js 22.5+**
-- **Conta no Turso** ([turso.tech](https://turso.tech)) — gratuito
 
-### 1. Clonar e instalar
+- Node.js **22.5 ou superior** e npm.
+- Banco Turso e token de acesso para usar a configuração remota.
+- Ambiente gráfico para executar o Electron.
+
+### Instalação
 
 ```bash
 git clone https://github.com/oemersonsa/dashboard.git
 cd dashboard
-npm install
+npm ci
 ```
 
-### 2. Configurar o Turso
+`npm ci` usa as versões do `package-lock.json` e prepara os arquivos locais de Chart.js e html2canvas. Para atualizar dependências durante o desenvolvimento, use `npm install`.
 
-```bash
-# Instalar CLI
-curl -sSfL https://get.tur.so/install.sh | bash
+### Configuração
 
-# Login
-turso auth login
+Copie `.env.example` para `.env` na raiz do projeto. No PowerShell:
 
-# Criar banco
-turso db create dashboard-vendas
-
-# Pegar URL
-turso db show dashboard-vendas --url
-
-# Criar token
-turso db tokens create dashboard-vendas
+```powershell
+Copy-Item .env.example .env
 ```
 
-### 3. Criar o `.env`
-
-Na raiz do projeto:
+Preencha a URL e o token do seu banco:
 
 ```env
 PORT=3000
 HOST=0.0.0.0
 APP_ORIGIN=http://localhost:3000
-
-TURSO_DATABASE_URL=libsql://dashboard-vendas-xxx.turso.io
-TURSO_AUTH_TOKEN=eyJhbGciOi...
+TURSO_DATABASE_URL=libsql://seu-banco.turso.io
+TURSO_AUTH_TOKEN=seu-token
 ```
 
-### 4. Rodar
+Se já tiver a CLI do Turso configurada, consulte a URL e gere um token com:
 
 ```bash
-# Modo web (navegador)
-npm run dev
-# → http://localhost:3000
+turso db show <nome-do-banco> --url
+turso db tokens create <nome-do-banco>
+```
 
-# Modo desktop (Electron)
+| Variável | Uso |
+|----------|-----|
+| `PORT` | Porta HTTP; padrão `3000` no modo web |
+| `HOST` | Endereço de escuta; padrão `0.0.0.0` no modo web e fixado em `127.0.0.1` pelo desktop |
+| `APP_ORIGIN` | Origem usada na construção das URLs; padrão `http://localhost:<PORT>` no modo web |
+| `TURSO_DATABASE_URL` | URL do banco; obrigatória para iniciar o backend |
+| `TURSO_AUTH_TOKEN` | Token de acesso ao banco remoto; dispensado pelos bancos locais de teste |
+
+O backend aceita URLs locais `file:` via libSQL, como as usadas nos testes. O nome da variável permanece `TURSO_DATABASE_URL`. A variável `TURSO_SYNC_URL` é lida pela configuração, mas não é usada para configurar sincronização de réplicas no cliente atual.
+
+### Execução
+
+```bash
+# Web: http://localhost:3000 com o exemplo de .env
+npm run dev
+
+# Alternativa para o modo web
+npm run start:web
+
+# Desktop
 npm start
 
-# Com auto-reload
-npm run dev:watch
+# Alternativa explícita para o desktop
+npm run start:electron
 ```
 
----
+O Electron usa a porta já definida no ambiente ou seu padrão `37171`, ajustando a origem para o servidor interno. Não há script `dev:watch` nem empacotamento de instalador desktop no `package.json` atual.
 
-## 🧪 Testes
+No primeiro acesso, crie um usuário, cadastre as plataformas e comece os lançamentos ou importe um backup/planilha.
+
+## Testes
 
 ```bash
-npm test                 # Unit + API (Vitest)
-npm run test:coverage    # Com cobertura
-npm run test:e2e         # Playwright (headless)
-npm run test:e2e:ui      # Playwright (interativo)
-npm run test:all         # Tudo
+npm test                   # Unitários e API
+npm run test:watch         # Vitest em modo interativo
+npm run test:unit          # Somente unitários
+npm run test:api           # Somente API
+npm run test:coverage      # Vitest com cobertura V8
+npx playwright install chromium
+npm run test:e2e           # Interface no Chromium
+npm run test:e2e:ui        # Interface interativa do Playwright
+npm run test:e2e:headed    # Navegador visível
+npm run test:all           # Cobertura e E2E em sequência
 ```
 
-**Cobertura atual:**
+Para listar os cenários E2E sem executá-los:
 
-| Camada | Testes |
-|--------|--------|
-| Unitários | 108 ✅ |
-| E2E | 9 ✅ |
-| **Total** | **117+** |
-
----
-
-## 🌐 Deploy
-
-### Fluxo no Render
-
-1. `git push` para o `main`
-2. Render detecta e roda `npm install`
-3. Inicia `node src/server.js`
-4. Servidor conecta no Turso e roda migrations
-5. App disponível em [dashboard-ldb7.onrender.com](https://dashboard-ldb7.onrender.com)
-
-### Variáveis obrigatórias (Render)
-
-| Variável | Origem |
-|----------|--------|
-| `TURSO_DATABASE_URL` | `turso db show <nome> --url` |
-| `TURSO_AUTH_TOKEN` | `turso db tokens create <nome>` |
-| `HOST` | `0.0.0.0` |
-
-### Free tier
-
-- **Render**: 750h/mês, cold start de ~30s após 15 min inativo
-- **Turso**: 8GB de banco, 500M rows lidos/mês
-
----
-
-## 🔌 API
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| `GET` | `/health` | Healthcheck |
-| `POST` | `/api/auth/register` | Criar acesso |
-| `POST` | `/api/auth/login` | Login |
-| `GET` | `/api/auth/session` | Validar sessão |
-| `POST` | `/api/auth/logout` | Logout |
-| `POST` | `/api/auth/change-password` | Trocar senha |
-| `GET` | `/api/state` | Carregar estado completo |
-| `POST` | `/api/state` | Salvar estado completo |
-| `GET` | `/api/platforms` | Listar plataformas |
-| `POST` | `/api/platforms` | Salvar plataformas |
-| `GET` | `/api/sales` | Listar vendas |
-| `POST` | `/api/sales` | Salvar vendas |
-| `GET` | `/api/returns` | Listar devoluções |
-| `POST` | `/api/returns` | Salvar devoluções |
-| `GET` | `/api/dashboard/:month` | Dados de um mês |
-
-Todas as rotas protegidas exigem:
+```bash
+npx playwright test --list
 ```
+
+As suítes verificam cálculos, validação, importação, exportação, autenticação, perfil, persistência, isolamento entre usuários, recuperação de alterações, conflitos e fluxos da interface. A quantidade e o resultado dos testes devem ser consultados na execução atual.
+
+Os testes de API usam banco em memória. O Playwright inicia um servidor próprio na porta `37171` e cria um banco em `.data-e2e/`. Deixe essa porta livre ao executar os E2E.
+
+Os limites de cobertura são 80% de linhas e instruções, 75% de funções e 65% de ramificações. Aplicam-se aos módulos de cálculos, sincronização e validação de backup selecionados em `vitest.config.js`, e não ao aplicativo inteiro.
+
+O workflow `.github/workflows/tests.yml` executa cobertura e E2E em Windows e Linux a cada push ou pull request, disponibilizando `coverage/` e `test-results/` como artefatos por sete dias.
+
+Mais detalhes em [tests/README.md](tests/README.md).
+
+## API
+
+As requisições com corpo usam JSON. Para acessar dados do usuário, envie o token retornado no cadastro ou login:
+
+```http
 Authorization: Bearer <sessionToken>
+Content-Type: application/json
 ```
 
----
+### Saúde e autenticação
 
-## 📁 Estrutura
+| Método | Rota | Uso |
+|--------|------|-----|
+| `GET` | `/health` | Saúde do servidor HTTP |
+| `GET` | `/health/database` | Consulta ao banco; retorna `503` se indisponível |
+| `POST` | `/api/auth/register` | Cadastro com `username` e `password`; retorna `sessionToken` |
+| `POST` | `/api/auth/login` | Login com `username` e `password`; retorna `sessionToken` |
+| `POST` | `/api/auth/migrate-local` | Compatibilidade de migração de usuário local, com usuário e senha |
+| `GET` | `/api/auth/session` | Valida o token e retorna o usuário; exige sessão válida |
+| `POST` | `/api/auth/logout` | Remove a sessão identificada pelo token enviado |
 
-```
+### Rotas protegidas
+
+| Método | Rota | Uso |
+|--------|------|-----|
+| `GET` | `/api/auth/profile` | Consulta nome e foto do perfil |
+| `PATCH` | `/api/auth/profile` | Atualiza `displayName` e `avatarData` |
+| `POST` | `/api/auth/change-password` | Altera senha com `username`, `currentPassword` e `newPassword` |
+| `GET` | `/api/state` | Retorna o estado de negócio em `{ state }` |
+| `POST` | `/api/state` | Substitui o estado validado; aceita `expectedUpdatedAt` para verificar a versão |
+| `GET` | `/api/platforms` | Lista plataformas do usuário |
+| `POST` | `/api/platforms` | Salva plataformas |
+| `GET` | `/api/sales` | Lista vendas |
+| `POST` | `/api/sales` | Salva vendas |
+| `GET` | `/api/returns` | Lista devoluções |
+| `POST` | `/api/returns` | Salva devoluções |
+| `POST` | `/api/settings` | Salva período, tela e configuração de precificação |
+| `POST` | `/api/month/:month` | Substitui os dias e as devoluções do período |
+| `DELETE` | `/api/month/:month` | Exclui o período |
+| `GET` | `/api/dashboard/:month` | Retorna os dados do dashboard para o período |
+
+As chaves atuais de período combinam ano e nome do mês, por exemplo `2026-Outubro`. Codifique o parâmetro de caminho quando necessário. O estado de negócio reúne `platforms`, `db`, `goals`, `currentMonth`, `currentScreen`, `activeTab`, `pricing` e `updatedAt`.
+
+A substituição do estado verifica `expectedUpdatedAt` quando enviado e retorna `409` com `state_conflict` se outra gravação alterou a versão. As rotas `/api/` possuem limite de 30 requisições por minuto por IP, com exceção dos endereços de loopback locais; o corpo das requisições é limitado a 10 MiB. Erros são retornados em JSON com o campo `error`.
+
+## Deploy
+
+### Render
+
+O arquivo `render.yaml` declara um serviço web Node com:
+
+- Build: `npm install`.
+- Inicialização: `node src/server.js`.
+- Healthcheck: `/health`.
+- `NODE_ENV=production` e `HOST=0.0.0.0`.
+- `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` fornecidos no ambiente do serviço.
+- Deploy automático habilitado no blueprint.
+
+Configure a URL e o token do banco no serviço e ajuste `APP_ORIGIN` para a URL pública quando necessário. O servidor executa as migrations ao iniciar. A branch e a integração que acionam o deploy dependem das configurações do serviço no Render.
+
+### Railway
+
+O arquivo `railway.json` define healthcheck em `/health`, timeout de 30 segundos e reinício em caso de falha. Para executar o app, configure o comando `npm run start:web` e as variáveis do banco no serviço. O script padrão `npm start` inicia o Electron.
+
+Os limites e preços dos provedores devem ser consultados nos próprios serviços; não são definidos pelo projeto.
+
+## Estrutura do projeto
+
+```text
 dashboard/
-├── docs/                     # Screenshots e banner
-├── src/                      # Backend (CommonJS)
-│   ├── config/               # env, paths
-│   ├── db/
-│   │   ├── index.js          # Cliente Turso + migrations
-│   │   ├── migrations/       # Schemas versionados
-│   │   └── repositories/     # Acesso a dados
-│   ├── middleware/           # CORS, auth, rate-limit
-│   ├── routes/               # Endpoints
-│   ├── services/             # Regras de negócio
-│   ├── server/               # HTTP + static
-│   ├── utils/                # Logger, errors
-│   ├── main/
-│   │   └── electron-main.js  # Entry point desktop
-│   └── server.js             # Entry point web
-│
-├── public/                   # Frontend (ES Modules)
-│   ├── index.html
-│   ├── assets/
-│   ├── styles/               # CSS em camadas
+├── .github/workflows/tests.yml   # CI em Windows e Linux
+├── public/
+│   ├── index.html               # Telas, painéis e modais
+│   ├── assets/                  # Identidade Kanri e ícones de marketplaces
+│   ├── vendor/                  # Bibliotecas do navegador e suas licenças
+│   ├── styles/                  # Tokens, componentes e layouts
 │   └── scripts/
-│       ├── main.js           # Roteador + boot
-│       ├── core/             # state, api, format
-│       ├── ui/               # toast, modal, theme, skeleton
-│       └── features/         # Um módulo por domínio
-│
+│       ├── main.js              # Inicialização e navegação
+│       ├── core/                # Estado, API, sincronização e formatação
+│       ├── ui/                  # Gráficos, temas, ícones, modais e indicadores
+│       └── features/
+│           ├── account/         # Perfil e senha
+│           ├── auth/            # Cadastro e login
+│           ├── backup/          # Exportação, importação e validação de JSON
+│           ├── calculator/      # Precificação e ROAS
+│           ├── daily-close/     # Fechamento e TXT
+│           ├── goals/           # Cálculos de metas
+│           ├── hub/             # Tela inicial
+│           ├── platforms/       # Cadastro e análise de plataformas
+│           ├── projection/      # Projeção mensal
+│           ├── reports/         # Relatório e exportações
+│           ├── returns/         # Devoluções
+│           ├── sales/           # Vendas e importadores de planilhas
+│           ├── trends/          # Comparativo multi-mês
+│           └── weekly/          # Visão semanal
+├── src/
+│   ├── config/                  # Ambiente e caminhos
+│   ├── db/
+│   │   ├── index.js             # Cliente libSQL e execução de migrations
+│   │   ├── migrations/          # Esquema, sessões, metas, perfil e preferências
+│   │   └── repositories/        # Acesso aos dados
+│   ├── main/electron-main.js    # Inicialização desktop
+│   ├── middleware/              # Autenticação, CORS, JSON e rate limit
+│   ├── routes/                  # Endpoints HTTP
+│   ├── server/                  # Servidor, roteamento e arquivos estáticos
+│   ├── services/                # Autenticação, sessões, estado e validação
+│   ├── utils/                   # Datas, erros e logs
+│   └── server.js                # Inicialização web
+├── scripts/vendor.cjs           # Preparo de Chart.js e html2canvas
 ├── tests/
-│   ├── unit/                 # Cálculos puros
-│   ├── api/                  # Rotas HTTP
-│   └── e2e/                  # Playwright
-│
+│   ├── unit/                    # Cálculos, importação, estado e validações
+│   ├── api/                     # Autenticação e recursos HTTP
+│   ├── e2e/                     # Fluxos de interface
+│   └── setup/                   # Banco isolado para testes de API
 ├── .env.example
 ├── package.json
+├── package-lock.json
+├── playwright.config.js
+├── vitest.config.js
+├── render.yaml
+├── railway.json
 └── README.md
 ```
 
----
+## Contribuição
 
-## 🤝 Contribuindo
+1. Crie uma branch para a alteração.
+2. Mantenha os módulos organizados por domínio e atualize a documentação quando mudar funcionalidades, comandos ou API.
+3. Execute os testes relevantes; para alterações que afetem o fluxo completo, execute `npm run test:all`.
+4. Abra um pull request descrevendo o comportamento alterado e a validação realizada.
 
-1. Fork o repositório
-2. Crie uma branch (`git checkout -b feature/nova-funcionalidade`)
-3. Commit (`git commit -m "Adiciona X"`)
-4. Push (`git push origin feature/nova-funcionalidade`)
-5. Abra um Pull Request
+## Licença
 
----
-
-## 📄 Licença
-
-MIT © 2026
-
----
-
-<div align="center">
-
-**Feito com ❤️ para simplificar a gestão de vendas em marketplaces**
-
-[⬆ Voltar ao topo](#-dashboard-de-vendas)
-
-</div>
+O `package.json` declara licença MIT. Este checkout não contém um arquivo `LICENSE` com o texto da licença. As bibliotecas distribuídas em `public/vendor/` incluem seus respectivos arquivos de licença.
