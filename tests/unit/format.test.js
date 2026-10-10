@@ -1,9 +1,20 @@
 import { describe, it, expect } from "vitest";
 import {
-  R, RS, escapeHtml, slugify, hexToRgb, alphaColor, formatSavedAt
+  R, RS, escapeHtml, slugify, hexToRgb, alphaColor, formatSavedAt, parseMoney
 } from "../../public/scripts/core/format.js";
 
 describe("format.js", () => {
+  it("interpreta dinheiro brasileiro sem truncar milhares", () => {
+    expect(parseMoney("1.234,56")).toBe(1234.56);
+    expect(parseMoney("R$ 12.345.678,90")).toBe(12345678.9);
+    expect(parseMoney("1234.56")).toBe(1234.56);
+    expect(parseMoney("1.234")).toBe(1234);
+    expect(parseMoney("0,00")).toBe(0);
+    expect(parseMoney("-20,50")).toBe(-20.5);
+    expect(parseMoney("1.234.56")).toBeNaN();
+    expect(parseMoney("valor errado")).toBeNaN();
+    expect(parseMoney("10,50,20")).toBeNaN();
+  });
   describe("R (formata moeda)", () => {
     it("formata zero", () => {
       expect(R(0)).toBe("R$ 0,00");

@@ -87,4 +87,14 @@ function calculate() {
   document.getElementById("roasTarget").textContent = targetRoas ? `${targetRoas.toFixed(2)}x` : "Meta não atingível";
   document.getElementById("roasBreakEvenValue").textContent = breakEvenRoas ? `${breakEvenRoas.toFixed(2)}x` : "—";
   document.getElementById("roasBreakEven").textContent = `ROAS de equilíbrio matemático: ${breakEvenRoas ? `${breakEvenRoas.toFixed(2)}x` : "—"}. O ponto de equilíbrio considera a contribuição antes de anúncios.`;
+  const parts = [
+    ["Custo do produto", Math.max(0, cost), "#1bd9eb"],
+    ["Comissão", Math.max(0, price * commission / 100), "#f6c847"],
+    ["Tarifa fixa", Math.max(0, fixed), "#ff805c"],
+    ["Impostos", Math.max(0, price * tax / 100), "#ef84b4"],
+    ["Outros custos", Math.max(0, other), "#b79cff"],
+    ["Contribuição antes de Ads", Math.max(0, contribution), "#68e795"]
+  ];
+  const total = parts.reduce((sum, part) => sum + part[1], 0);
+  document.getElementById("roasCosts").innerHTML = `<h3 class="card-title">Distribuição dos custos por venda</h3><div class="cost-bar" role="img" aria-label="Custos e contribuição antes dos anúncios">${parts.map(([, amount, color]) => `<span style="width:${total > 0 ? amount / total * 100 : 0}%;background:${color}"></span>`).join("")}</div><div class="cost-legend">${parts.map(([label, amount, color]) => `<span><i style="background:${color}"></i>${label} · ${R(amount)}</span>`).join("")}</div>`;
 }

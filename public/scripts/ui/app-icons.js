@@ -1,4 +1,9 @@
 const paths = {
+  logout: '<path d="M10 4H3v16h7m4-13 5 5-5 5m-7-5h12"/>',
+  upload: '<path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>',
+  store: '<path d="M3 9 5 3h14l2 6M3 9v4h18V9M5 13v8h14v-8M9 21v-6h6v6"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M12 17v4m-5 0h10"/>',
   home: '<path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/>',
   clipboard: '<rect x="5" y="5" width="14" height="16" rx="2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6m-6 4h6"/>',
   bars: '<path d="M4 20V10m5 10V4m5 16v-7m5 7V7M2 22h20"/>',

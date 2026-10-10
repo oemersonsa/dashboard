@@ -11,6 +11,7 @@
     "start:electron": "electron src/main/electron-main.js",
     "start:web": "node src/server.js",
     "dev": "node src/server.js",
+    "build": "node scripts/build.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
@@ -20,7 +21,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:all": "npm run test:coverage && npm run test:e2e",
-    "postinstall": "node scripts/vendor.cjs"
+    "postinstall": "node scripts/vendor.cjs && node scripts/build.cjs"
   },
   "dependencies": {
     "@libsql/client": "0.18.0",

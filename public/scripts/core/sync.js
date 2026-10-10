@@ -1,5 +1,8 @@
-export function createSync({ storage, user, snapshot, request, status, onConflict, onExpired, scope = "", delay = 200 }) {
+import { diffBusiness, changesAlreadyApplied } from "./changes.js";
+
+export function createSync({ storage, user, snapshot, request, status, onConflict, onExpired, scope = "", delay = 400, incremental = false }) {
   let version = null;
+  let baseline = {};
   let timer;
   let flight;
   let blocked = false;
@@ -9,10 +12,21 @@ export function createSync({ storage, user, snapshot, request, status, onConflic
   function pending() {
     try { return JSON.parse(storage.getItem(key()) || "null"); } catch { return null; }
   }
+  function hasDraft() {
+    if (pending()) return true;
+    if (!scope || !user()) return false;
+    const prefix = `dashboard-pending-v1:${user()}:`;
+    for (let i = 0; i < storage.length; i++) {
+      const candidate = storage.key(i);
+      if (!candidate?.startsWith(prefix)) continue;
+      try { if (JSON.parse(storage.getItem(candidate))?.state) return true; } catch {}
+    }
+    return false;
+  }
   function capture() {
     if (!user()) return;
     const old = pending();
-    storage.setItem(key(), JSON.stringify({ state: clone(snapshot()), version: old?.version ?? version, savedAt: Date.now() }));
+    storage.setItem(key(), JSON.stringify({ state: snapshot(), ...(incremental ? { base: old?.base || baseline } : {}), version: old?.version ?? version, savedAt: Date.now() }));
   }
   function schedule() {
     try { capture(); }
@@ -33,9 +47,13 @@ export function createSync({ storage, user, snapshot, request, status, onConflic
         const sent = pending();
         status("saving");
         try {
-          const result = await request({ state: sent.state, expectedUpdatedAt: version });
+          const changes = incremental && sent.base ? diffBusiness(sent.base, sent.state) : null;
+          const result = changes && !Object.keys(changes).length ? { updatedAt: version } : await request({
+            ...(changes ? { changes } : { state: sent.state }), expectedUpdatedAt: version
+          });
           if (user() !== owner) return false;
-          version = result.state.updatedAt;
+          version = result.updatedAt ?? result.state.updatedAt;
+          baseline = sent.state;
           const current = pending();
           if (JSON.stringify(current?.state) === JSON.stringify(sent.state)) {
             storage.removeItem(storageKey);
@@ -53,7 +71,7 @@ export function createSync({ storage, user, snapshot, request, status, onConflic
               matches.forEach(candidate => storage.removeItem(candidate));
             }
           }
-          else if (current) storage.setItem(storageKey, JSON.stringify({ ...current, version }));
+          else if (current) storage.setItem(storageKey, JSON.stringify({ ...current, version, ...(incremental ? { base: baseline } : {}) }));
           attempts = 0;
         } catch (error) {
           if (user() !== owner) return false;
@@ -79,6 +97,7 @@ export function createSync({ storage, user, snapshot, request, status, onConflic
   function initialize(remote) {
     clearTimeout(timer);
     version = remote.updatedAt || "";
+    baseline = clone(remote);
     blocked = false;
     let local = pending();
     // Recupera rascunhos também quando o navegador abre uma nova sessão.
@@ -94,6 +113,12 @@ export function createSync({ storage, user, snapshot, request, status, onConflic
       if (local) storage.setItem(key(), JSON.stringify(local));
     }
     if (!local) return remote;
+    const changes = local.base ? diffBusiness(local.base, local.state) : diffBusiness(remote, local.state);
+    if (incremental && changesAlreadyApplied(changes, remote)) {
+      discard();
+      status("saved");
+      return remote;
+    }
     if (local.version !== version) { blocked = true; status("error", "Conflito de alterações"); onConflict(); }
     else timer = setTimeout(() => void flush(), delay);
     return local.state;
@@ -116,5 +141,10 @@ export function createSync({ storage, user, snapshot, request, status, onConflic
     }
     blocked = false;
   }
-  return { schedule, flush, initialize, pending, discard };
+  function hydrate(remote) {
+    if (pending() || flight || blocked || remote.updatedAt !== version) return false;
+    baseline.db = { ...baseline.db, ...clone(remote.db || {}) };
+    return true;
+  }
+  return { schedule, flush, initialize, pending, hasDraft, discard, hydrate, version: () => version };
 }

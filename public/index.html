@@ -7,11 +7,9 @@
 <link rel="icon" type="image/png" href="/assets/kanri-icon.png">
 <link rel="apple-touch-icon" href="/assets/kanri-icon.png">
 <link rel="stylesheet" href="/styles/main.css">
-<script src="/vendor/chart.umd.js"></script>
-<script src="/vendor/html2canvas.min.js" defer></script>
 <script type="module" src="/scripts/main.js" defer></script>
 </head>
-<body>
+<body class="dark-theme">
 <div class="app">
   <!-- AUTH -->
   <section class="screen auth-screen" id="authScreen">
@@ -49,14 +47,14 @@
 
   <!-- SETUP -->
   <section class="screen setup-screen" id="setupScreen" hidden>
+    <header class="topbar">
+      <div class="header-left"><button class="icon-btn menu-toggle" id="setupMenuButton" data-workspace-menu type="button" aria-label="Abrir menu" aria-controls="dashboardSidebar" aria-expanded="false">☰</button><div class="workspace-heading"><h1>Gerenciar plataformas</h1><p>Organize os canais de venda usados no seu painel.</p></div></div>
+      <div class="header-right"><button class="btn btn-secondary" id="logoutFromSetupButton" type="button">Sair</button><button class="btn btn-primary" id="finishSetupButton" type="button">Concluir</button></div>
+    </header>
     <div class="setup-shell">
-      <div class="auth-card setup-card">
-        <div class="logo"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Kanri · Configurar Plataformas</div>
-        <div class="auth-copy">
-          <div class="card-title">Cadastre suas plataformas</div>
-          <div class="card-sub">O dashboard será gerado com base nas plataformas que você usar.</div>
-        </div>
         <div class="platform-builder">
+          <section class="card setup-form-card">
+            <div class="card-header"><div><h2 class="card-title" id="platformFormTitle">Adicionar plataforma</h2><p class="card-sub">Escolha o nome, a sigla e a cor do canal de venda.</p></div></div>
           <div class="setup-grid">
             <div class="fg"><label class="flabel" for="platformName">Nome</label><input class="finput" id="platformName" type="text" placeholder="Ex.: Mercado Livre"></div>
             <div class="fg"><label class="flabel" for="platformShort">Sigla</label><input class="finput" id="platformShort" type="text" maxlength="3" placeholder="ML"></div>
@@ -66,14 +64,15 @@
             <button class="btn btn-primary" id="addPlatformConfigButton" type="button">Adicionar Plataforma</button>
             <button class="btn btn-secondary" id="cancelPlatformEditButton" type="button" hidden>Cancelar Edição</button>
           </div>
-          <div class="setup-list" id="platformConfigList"></div>
-          <div class="actions-row">
+          <div class="setup-backup-action">
             <button class="btn btn-secondary" id="importBackupSetupButton" type="button">Importar Backup</button>
-            <button class="btn btn-primary" id="finishSetupButton" type="button">Finalizar Configuração</button>
-            <button class="btn btn-secondary" id="logoutFromSetupButton" type="button">Sair</button>
           </div>
+          </section>
+          <section class="card platform-config-card">
+            <div class="card-header"><div><h2 class="card-title">Suas plataformas</h2><p class="card-sub">Edite seus canais ou arquive os que não usa mais. O histórico é preservado.</p></div></div>
+            <div class="setup-list" id="platformConfigList"></div>
+          </section>
         </div>
-      </div>
     </div>
   </section>
 
@@ -86,7 +85,7 @@
   <section class="screen dashboard-screen" id="dashboardScreen" hidden>
     <header class="topbar">
       <div class="header-left">
-        <button class="icon-btn menu-toggle" id="menuToggleButton" type="button" aria-label="Menu">☰</button>
+        <button class="icon-btn menu-toggle" id="menuToggleButton" type="button" aria-label="Abrir menu" aria-controls="dashboardSidebar" aria-expanded="false">☰</button>
         <div class="dashboard-page-heading"><h1 id="dashboardPageTitle">Visão geral</h1><p id="dashboardPageSubtitle">Acompanhe suas vendas e o progresso da meta</p></div>
       </div>
       <div class="header-right">
@@ -96,6 +95,7 @@
           <button class="dashboard-period-add" id="periodPickerButton" type="button" aria-label="Criar outro mês" title="Criar outro mês">+ Mês</button>
         </div>
         <button class="btn btn-primary dashboard-register" id="dashboardRegisterSalesButton" type="button"><span data-app-icon="plus"></span>Registrar vendas</button>
+        <button class="btn btn-secondary dashboard-import" id="dashboardImportSalesButton" data-open-sales-import type="button"><span data-app-icon="upload"></span>Importar planilha</button>
 
         <div class="dashboard-user-menu">
         <button class="topbar-user" id="dashboardUserMenuButton" type="button" aria-expanded="false" aria-controls="dashboardUserPopover" hidden>
@@ -119,12 +119,13 @@
         <a class="sidebar-brand" href="#" id="sidebarOpenHub"><img class="sidebar-kanri-icon" src="/assets/kanri-icon.png" alt=""><strong>Kanri</strong></a>
         <div class="sidebar-current-period" hidden><span id="sidebarCurrentYear"></span><span id="sidebarCurrentMonth"></span></div>
         <nav class="sidebar-nav" aria-label="Navegação principal">
+          <button class="sidebar-item" data-screen-nav="hub" type="button"><span data-app-icon="home"></span><span>Início</span></button>
           <button class="sidebar-item" data-dashboard-tab="overview" type="button"><span data-app-icon="home"></span><span>Visão geral</span></button>
           <button class="sidebar-item" data-dashboard-tab="entries" type="button"><span data-app-icon="clipboard"></span><span>Lançamentos</span></button>
           <div class="sidebar-section-heading" data-sidebar-menu-trigger="analysis">ANÁLISES</div>
           <button class="sidebar-item" data-dashboard-tab="daily" type="button"><span data-app-icon="bars"></span><span>Vendas diárias</span></button>
           <button class="sidebar-item" data-dashboard-tab="weekly" type="button"><span data-app-icon="calendar"></span><span>Semanas</span></button>
-          <button class="sidebar-item" data-dashboard-tab="platforms" type="button"><span data-app-icon="link"></span><span>Desempenho por plataforma</span></button>
+          <button class="sidebar-item" data-dashboard-tab="platforms" type="button"><span data-app-icon="store"></span><span>Plataformas</span></button>
           <button class="sidebar-item" data-dashboard-tab="trends" type="button"><span data-app-icon="trend"></span><span>Tendência</span></button>
           <button class="sidebar-item" data-dashboard-tab="projection" type="button"><span data-app-icon="target"></span><span>Metas e projeção</span></button>
           <button class="sidebar-item" id="reportButton" type="button"><span data-app-icon="report"></span><span>Relatórios</span></button>
@@ -136,6 +137,7 @@
         <div class="sidebar-footer">
           <button class="sidebar-item" id="sidebarManagePlatformsButton" type="button"><span data-app-icon="settings"></span><span>Gerenciar plataformas</span></button>
           <button class="sidebar-item" id="sidebarBackupsButton" type="button"><span data-app-icon="backup"></span><span>Backups</span></button>
+          <button class="sidebar-item sidebar-account" data-screen-nav="account" type="button"><span data-app-icon="user"></span><span>Minha conta</span></button>
           
         </div>
       </aside>
@@ -159,9 +161,9 @@
         <div class="dashboard-panels">
           <section class="dashboard-panel active" id="dashboard-panel-overview" data-dashboard-panel="overview">
             <div class="goal-alert-banner" id="goalAlertBanner" aria-live="polite" hidden></div>
-            <div class="card">
+            <div class="card overview-platform-card">
               <div class="card-header">
-                <div><div class="card-title"><span data-app-icon="bars"></span>Desempenho por plataforma</div></div>
+                <div><div class="card-title"><span data-app-icon="bars"></span>Vendas por marketplace</div></div>
               </div>
               <div class="platform-bars" id="platformBars"></div>
             </div>
@@ -185,6 +187,7 @@
               <div class="overview-trend-summary" id="overviewTrendSummary" aria-live="polite"></div>
               <div class="chart-box overview-trend-chart-box"><canvas id="overviewTrendChart" aria-label="Gráfico de vendas brutas agrupadas no período selecionado"></canvas></div>
             </div>
+            <section class="card overview-recent-card"><div class="card-header"><div class="card-title"><span data-app-icon="clipboard"></span>Vendas diárias recentes</div><button class="link-btn" data-dashboard-open="daily" type="button">Ver todas →</button></div><div class="concept-table-wrap"><table id="overviewRecentTable" aria-label="Últimos dias com vendas registradas"></table></div></section>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-daily" data-dashboard-panel="daily" hidden>
             <div class="grid2">
@@ -219,6 +222,7 @@
                 <div class="bdgrid" id="bestDayGrid"></div>
               </div>
             </div>
+            <section class="card"><div class="card-header"><h2 class="card-title">Detalhamento diário</h2><span class="card-sub">Use “Ver detalhes” no gráfico para editar os valores.</span></div><div class="concept-table-wrap"><table id="dailyInlineTable" aria-label="Vendas e pedidos por dia"></table></div></section>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-weekly" data-dashboard-panel="weekly" hidden>
             <div class="card">
@@ -230,12 +234,13 @@
             <div class="platform-analytics">
               <header class="platform-analytics-heading"><div class="platform-analytics-eyebrow">ANÁLISES / PLATAFORMAS</div><h1>Vendas por plataforma</h1><p>Compare o desempenho e acompanhe pedidos no período.</p></header>
               <div class="card platform-analytics-filters">
-                <label class="platform-analytics-field"><span class="flabel">Período</span><select class="finput" id="platformRange"><option value="30">Últimos 30 dias</option><option value="90" selected>Últimos 90 dias</option><option value="180">Últimos 180 dias</option><option value="365">Últimos 12 meses</option><option value="custom">Personalizado</option></select></label>
+                <label class="platform-analytics-field"><span class="flabel">Período</span><select class="finput" id="platformRange"><option value="month" selected>Mês selecionado</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="180">Últimos 180 dias</option><option value="365">Últimos 12 meses</option><option value="custom">Personalizado</option></select></label>
                 <label class="platform-analytics-field"><span class="flabel">Plataforma</span><select class="finput" id="platformFilter"><option value="all">Todas as plataformas</option></select></label>
                 <div class="platform-custom-dates" id="platformCustomDates" hidden><label class="platform-analytics-field"><span class="flabel">De</span><input class="finput" type="date" id="platformDateFrom"></label><label class="platform-analytics-field"><span class="flabel">Até</span><input class="finput" type="date" id="platformDateTo"></label></div>
                 <div class="platform-analytics-period" id="platformPeriodLabel" aria-live="polite"></div><button type="button" class="btn btn-secondary platform-export-button" id="platformExportButton">Exportar CSV</button>
               </div>
-              <div class="platform-analytics-kpis" id="platformAnalyticsKpis"></div>
+              <div class="platform-concept-cards" id="platformConceptCards"></div>
+              <div class="platform-analytics-kpis" id="platformAnalyticsKpis" hidden></div>
               <div class="platform-analytics-grid">
                 <section class="card platform-chart-card"><div class="platform-section-heading"><div><h2>Evolução das vendas e pedidos</h2><p id="platformChartSubtitle">Valores diários no período selecionado</p></div><div class="platform-metric-toggle" role="group" aria-label="Métrica do gráfico"><button type="button" class="active" data-platform-metric="sales" aria-pressed="true">Vendas</button><button type="button" data-platform-metric="orders" aria-pressed="false">Pedidos</button></div></div><div class="platform-analytics-chart-box"><canvas id="platformAnalyticsChart" aria-label="Gráfico de vendas no período selecionado"></canvas></div></section>
                 <section class="card platform-mix-card"><div class="platform-section-heading"><div><h2>Participação por plataforma</h2><p>Vendas brutas no período</p></div></div><div id="platformShare"></div></section>
@@ -274,23 +279,32 @@
             </div>
           </section>
           <section class="dashboard-panel" id="dashboard-panel-entries" data-dashboard-panel="entries" hidden>
-            <div class="card">
+            <div class="card entry-form-card">
               <div class="sec-label">Lançamento de Dados</div>
               <div class="itabs">
-                <button class="itab active" data-tab="sales" type="button">+ Vendas Diárias</button>
+                <button class="itab active" data-tab="sales" type="button"><span data-app-icon="bars"></span>Vendas</button>
                 <button class="itab" data-tab="returns" type="button">Devoluções</button>
               </div>
               <div class="ipanel active" id="panel-sales">
+                <div class="entry-workspace"><div class="entry-fields">
+                <h2 class="card-title">Registrar vendas</h2><p class="card-sub">Informe o total de vendas e pedidos por plataforma para a data selecionada.</p>
                 <div class="irow">
                   <div class="fg"><label class="flabel" for="inputDate">Data</label><input type="date" class="finput" id="inputDate"></div>
                   <div class="fg"><label class="flabel" for="inputMonth">Mês</label><select class="finput" id="inputMonth"></select></div>
                 </div>
                 <div class="sec-label small-label">Valor bruto por plataforma (R$)</div>
                 <div class="pigrid" id="saleInputs"></div>
+                <div class="fg">
+                  <label class="flabel" for="saleEntryMode">Como aplicar os valores preenchidos</label>
+                  <select class="finput" id="saleEntryMode"><option value="add">Adicionar aos valores existentes</option><option value="replace">Substituir valores das plataformas preenchidas</option></select>
+                  <p class="card-sub">Campos vazios preservam os valores já registrados.</p>
+                </div>
+                <p id="saleEntryError" class="entry-error" role="alert" hidden></p>
                 <div class="actions-row">
-                  <button class="btn btn-primary" id="registerSaleButton" type="button">Registrar</button>
+                  <button class="btn btn-primary" id="registerSaleButton" type="button"><span data-app-icon="plus"></span>Registrar vendas</button>
                   <button class="btn btn-secondary" id="clearSaleButton" type="button">Limpar</button>
                 </div>
+                </div><aside class="entry-review"><h2 class="card-title">Conferir lançamento</h2><p class="card-sub">Veja o impacto nos valores do dia antes de registrar.</p><div id="saleEntryPreview" class="entry-preview" aria-live="polite"></div><p class="entry-review-note"><span data-app-icon="info"></span>Campos vazios preservam os valores existentes.</p><button class="btn btn-secondary" id="undoSaleButton" type="button" hidden><span data-app-icon="returns"></span>Desfazer último lançamento</button></aside></div>
               </div>
               <div class="ipanel" id="panel-returns">
                 <div class="irow">
@@ -310,11 +324,12 @@
               <div class="card-header">
                 <div>
                   <div class="card-title">Meta do Mês</div>
-                  <div class="card-sub">Defina uma meta sobre o faturamento líquido (após devoluções)</div>
+              <div class="card-sub">Meta de vendas após devoluções. Este valor não desconta custos, impostos ou tarifas e não representa lucro.</div>
                 </div>
                 <div class="goal-input-wrap">
                   <label class="flabel" for="goalInput">Meta R$</label>
                   <input class="finput" id="goalInput" type="text" inputmode="decimal" placeholder="Ex.: 50000,00">
+                  <button class="btn btn-primary" id="saveGoalButton" type="button">Salvar meta</button>
                 </div>
               </div>
               <div id="goalProgressArea"></div>
@@ -323,16 +338,20 @@
               <div class="card-header"><div><div class="card-title">Projeção do Mês</div><div class="card-sub">Estimativa baseada na média dos dias já lançados</div></div></div>
               <div class="projection-grid" id="projectionGrid"></div>
             </div>
+            <section class="card projection-chart-card"><div class="card-header"><div><h2 class="card-title">Evolução acumulada das vendas</h2><p class="card-sub">Meta e projeção pela média dos dias lançados. Devoluções mensais distribuídas proporcionalmente às vendas.</p></div></div><div class="chart-box"><canvas id="goalProjectionChart" aria-label="Vendas acumuladas comparadas à meta e à projeção"></canvas></div></section>
+            <section class="projection-detail-grid" id="projectionDetailGrid" aria-label="Projeção detalhada do mês"></section>
           </section>
           <section class="dashboard-panel calculator-main" id="dashboard-panel-calculator" data-dashboard-panel="calculator" hidden>
             <div class="card-header calculator-panel-heading"><div><div class="card-title">Calculadora de preços</div><div class="card-sub">Simule o preço ideal e o lucro estimado em uma plataforma por vez.</div></div></div>
             <div class="pricing-workspace">
               <div class="pricing-main-card">
+                <div class="calculator-tabs"><button class="active" data-dashboard-open="calculator" type="button">Preço</button><button data-dashboard-open="roas" type="button">ROAS</button></div>
                 <div class="pricing-selector-row">
                   <label class="fg"><span class="flabel" for="pricingPlatformSelect">Plataforma</span><select class="finput" id="pricingPlatformSelect"></select></label>
                   <label class="fg"><span class="flabel" for="pricingProductSelect">Produto</span><select class="finput" id="pricingProductSelect"></select></label>
                 </div>
                 <div class="pricing-product-actions"><button class="btn btn-secondary" id="pricingNewProduct" type="button">Novo produto</button><button class="btn btn-secondary" id="pricingSaveProductDetails" type="button">Salvar produto</button><button class="btn btn-secondary" id="pricingDeleteProduct" type="button">Excluir produto</button></div>
+                <h2 class="card-title pricing-subheading">Produto e custos</h2>
                 <div class="pricing-form-grid">
                   <label class="fg"><span class="flabel">Nome do produto</span><input class="finput" id="pricingProductName" type="text" maxlength="80" placeholder="Ex.: Camiseta básica"></label>
                   <label class="fg"><span class="flabel">SKU (opcional)</span><input class="finput" id="pricingProductSku" type="text" maxlength="40" placeholder="Ex.: CAM-PRE-M"></label>
@@ -350,11 +369,12 @@
                   <label class="fg"><span class="flabel">Preço para simular (R$)</span><input class="finput" id="pricingManualPrice" type="number" step="0.01" min="0"></label>
                 </div>
                 <div class="pricing-base-resume"><span>Custos fixos considerados</span><strong id="pricingBaseCost">R$ 0,00</strong></div>
-                <div class="pricing-platform-grid" id="pricingPlatformGrid"></div>
               </div>
+              <aside class="pricing-platform-grid" id="pricingPlatformGrid" aria-label="Resultado da simulação"></aside>
             </div>
               </section>
           <section class="dashboard-panel roas-main" id="dashboard-panel-roas" data-dashboard-panel="roas" hidden>
+            <div class="calculator-tabs"><button data-dashboard-open="calculator" type="button">Preço</button><button class="active" data-dashboard-open="roas" type="button">ROAS</button></div>
             <div class="roas-card">
               <div class="roas-input-card card"><h2><span data-app-icon="calculator"></span>Dados do produto e taxas</h2>
                 <div class="roas-platform-row"><label class="fg"><span class="flabel" for="roasPlatform">Plataforma</span><select class="finput" id="roasPlatform"></select></label><label class="roas-manual"><input id="roasManualFees" type="checkbox"> Informar taxas manualmente</label><p class="roas-profile-note" id="roasProfileNote" aria-live="polite"></p></div>
@@ -370,11 +390,12 @@
 
               </div>
               <div class="roas-results card" aria-live="polite">
-                <article class="roas-target"><div><span class="metric-icon blue" data-app-icon="roas"></span><span>ROAS mínimo</span></div><strong id="roasTarget">—</strong></article>
+                <article class="roas-target"><div><span class="metric-icon blue" data-app-icon="roas"></span><span>ROAS para a margem desejada</span></div><strong id="roasTarget">—</strong></article>
                 <article class="roas-metric roas-contribution"><span class="metric-icon green" data-app-icon="money"></span><span>Contribuição antes de Ads</span><strong id="roasContribution">R$ 0,00</strong><small id="roasContributionPercent" hidden></small></article>
                 <article class="roas-metric"><span class="metric-icon blue" data-app-icon="orders"></span><span>Verba máxima por pedido</span><strong id="roasAdBudget">R$ 0,00</strong></article>
                 <article class="roas-metric"><span class="metric-icon purple" data-app-icon="roas"></span><span>ROAS de equilíbrio</span><strong id="roasBreakEvenValue">—</strong><p id="roasBreakEven" hidden></p></article>
                 <p class="roas-footnote"><span data-app-icon="info"></span>Simulação por pedido. Confira as taxas da sua conta.</p>
+                <div class="roas-costs" id="roasCosts" aria-label="Distribuição dos custos por venda"></div>
               </div>
             </div>
           </section>
@@ -386,10 +407,11 @@
   <section class="screen daily-close-screen" id="dailyCloseScreen" hidden>
     <header class="topbar">
       <div class="header-left">
+        <button class="icon-btn menu-toggle" id="dailyCloseMenuButton" data-workspace-menu type="button" aria-label="Abrir menu" aria-controls="dashboardSidebar" aria-expanded="false">☰</button>
         <button class="btn btn-secondary" id="dailyCloseBackToHubButton" type="button">Menu</button>
         <button class="btn btn-secondary" id="dailyCloseOpenDashboardButton" type="button">Dashboard</button>
       </div>
-      <div class="logo header-brand"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt=""><span id="dailyCloseTitle">Fechamento Diário</span></div>
+      <div class="workspace-heading"><h1 id="dailyCloseTitle">Fechamento diário</h1><p>Some os valores e gere o resumo do dia</p></div>
       <div class="header-right">
         <button class="btn btn-secondary" id="dailyCloseManagePlatformsButton" type="button">Plataformas</button>
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema">
@@ -422,9 +444,10 @@
   <section class="screen account-screen" id="accountScreen" hidden>
     <header class="topbar account-topbar">
       <div class="header-left">
+        <button class="icon-btn menu-toggle" id="accountMenuButton" data-workspace-menu type="button" aria-label="Abrir menu" aria-controls="dashboardSidebar" aria-expanded="false">☰</button>
         <button class="btn btn-secondary" id="accountBackButton" type="button">Voltar ao dashboard</button>
       </div>
-      <div class="logo header-brand"><img class="kanri-app-icon" src="/assets/kanri-icon.png" alt="">Configurações da conta</div>
+      <div class="workspace-heading"><h1>Minha conta</h1><p>Gerencie seu perfil, segurança e aparência</p></div>
       <div class="header-right">
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema" title="Alternar tema"><span data-theme-icon></span></button>
       </div>
@@ -445,6 +468,7 @@
           </div>
           <div class="account-profile-form">
             <label class="fg"><span class="flabel">Nome de exibição</span><input class="finput" id="accountDisplayNameInput" type="text" maxlength="60" autocomplete="name" placeholder="Como quer aparecer no perfil?"></label>
+            <label class="fg"><span class="flabel">Nome de usuário (login)</span><input class="finput" id="accountUsernameInput" type="text" readonly></label>
             <div class="card-sub">Seu usuário de acesso permanece o mesmo.</div>
             <button class="btn btn-primary" id="accountSaveProfileButton" type="button">Salvar perfil</button>
           </div>
@@ -459,6 +483,7 @@
         </div>
         <div class="account-password-footer"><div class="card-sub">A nova senha precisa ter pelo menos 12 caracteres. Uma frase-senha é mais fácil de lembrar.</div><button class="btn btn-primary" id="accountSavePasswordButton" type="button">Alterar senha</button></div>
       </section>
+      <section class="card account-appearance"><div><h2 class="card-title"><span data-app-icon="monitor"></span>Aparência</h2><p class="card-sub">Escolha o tema da interface.</p></div><div class="appearance-options" role="group" aria-label="Tema da aplicação"><button type="button" data-theme-choice="dark"><strong>Modo escuro</strong><span>Fundo escuro e destaques em ciano</span></button><button type="button" data-theme-choice="light"><strong>Modo claro</strong><span>Fundo claro e contraste suave</span></button><button type="button" data-theme-choice="auto"><strong>Automático</strong><span>Segue o tema do sistema</span></button></div></section>
     </main>
   </section>
 </div>
@@ -481,8 +506,8 @@
 </div>
 
 <div class="moverlay" id="syncConflictModal" role="dialog" aria-labelledby="syncConflictTitle" aria-modal="true">
-  <div class="modal"><div class="mheader"><div class="mtitle" id="syncConflictTitle">Alterações em outro dispositivo</div></div>
-    <p>Os dados do servidor mudaram. Suas alterações estão guardadas neste dispositivo. Exporte uma cópia antes de carregar os dados mais recentes.</p>
+  <div class="modal"><div class="mheader"><div class="mtitle" id="syncConflictTitle">Alterações pendentes de revisão</div></div>
+    <p>Há alterações locais que diferem da versão atual do servidor. Isso pode acontecer também em outra aba ou sessão neste computador. Suas alterações estão guardadas aqui. Exporte uma cópia antes de carregar os dados mais recentes.</p>
     <button class="btn btn-secondary" id="syncExportPendingButton" type="button">Exportar alterações pendentes</button>
     <button class="btn btn-primary" id="syncLoadRemoteButton" type="button">Carregar dados do servidor</button>
   </div>
@@ -572,6 +597,8 @@
       <button class="mclose" data-close-modal="dailyDetailsModal" type="button">X</button>
     </div>
     <div class="daily-wrap modal-daily-wrap"><table class="dtable" id="dailyDetailsTable"></table></div>
+    <p class="card-sub">Enter confirma a edição. Escape cancela a alteração do campo.</p>
+    <button class="btn btn-secondary" id="undoDailyEntryButton" type="button" hidden>Desfazer última alteração</button>
   </div>
 </div>
 

@@ -6,24 +6,50 @@ import {
   calcTotals,
   getComparisonPeriod,
   getLoggedDays,
-  getMonthDays,
-  getLastLoggedDay
+  getMonthDays
 } from "../sales/sales.calc.js";
 import {
   computeGoalProgress,
   parseGoalInput,
-  GOAL_STATUS,
   STATUS_LABEL,
   getStatusColorVar
 } from "../goals/goals.calc.js";
-import { toast, toastSuccess, toastError } from "../../ui/toast.js";
+import { toast, toastSuccess } from "../../ui/toast.js";
+let projectionChart;
 
 let bound = false;
 
 export function init() {
   renderGoalCard();
   renderProjection();
+  renderProjectionChart();
   if (!bound) { bindEvents(); bound = true; }
+}
+
+function renderProjectionChart() {
+  const canvas = document.getElementById("goalProjectionChart");
+  if (!canvas || !window.Chart) return;
+  const totals = calcTotals(state.currentMonth);
+  const progress = computeGoalProgress(state.currentMonth, getGoal(state.currentMonth), state);
+  const length = getMonthDays(state.currentMonth);
+  const days = state.db[state.currentMonth]?.days || [];
+  const last = Math.max(0, ...days.map(day => Number(day.d.split("/")[0])));
+  const projected = getLoggedDays(state.currentMonth) ? totals.net / getLoggedDays(state.currentMonth) * length : 0;
+  let accumulated = 0;
+  const values = Array.from({ length }, (_, index) => {
+    const day = days.find(item => Number(item.d.split("/")[0]) === index + 1);
+    accumulated += state.platforms.reduce((sum, platform) => sum + Number(day?.[platform.key] || 0), 0);
+    return index + 1 <= last ? accumulated * (totals.gross > 0 ? totals.net / totals.gross : 1) : null;
+  });
+  const style = getComputedStyle(document.body);
+  const accent = style.getPropertyValue("--accent").trim();
+  const muted = style.getPropertyValue("--muted").trim();
+  const datasets = [{ label: "Vendas após devoluções", data: values, borderColor: accent, backgroundColor: accent, tension: .2, pointRadius: 2, borderWidth: 2 }];
+  if (progress.hasGoal) datasets.push({ label: "Meta do mês", data: Array.from({ length }, (_, index) => progress.target * (index + 1) / length), borderColor: muted, borderDash: [5, 5], pointRadius: 0, borderWidth: 2 });
+  if (last && last < length) datasets.push({ label: "Projeção", data: Array.from({ length }, (_, index) => index + 1 < last ? null : totals.net + (projected - totals.net) * (index + 1 - last) / (length - last)), borderColor: "#f6c847", borderDash: [3, 5], pointRadius: 0, borderWidth: 2 });
+  const config = { type: "line", data: { labels: Array.from({ length }, (_, index) => String(index + 1)), datasets }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: "top", labels: { color: muted, usePointStyle: true, boxWidth: 7, padding: 18 } }, tooltip: { callbacks: { label: item => `${item.dataset.label}: ${R(item.raw)}` } } }, scales: { x: { grid: { display: false }, ticks: { color: muted, maxTicksLimit: 12 } }, y: { beginAtZero: true, grid: { color: style.getPropertyValue("--border").trim() }, ticks: { color: muted, callback: value => value >= 1000 ? `R$ ${Math.round(value / 1000)} mil` : R(value) } } } } };
+  if (projectionChart) { projectionChart.data = config.data; projectionChart.options = config.options; projectionChart.update("none"); }
+  else projectionChart = new window.Chart(canvas, config);
 }
 
 /* ═══ Card de Meta ═══ */
@@ -57,7 +83,7 @@ function renderGoalCard() {
       <div class="goal-progress-head">
         <div>
           <div class="goal-progress-realized">${R(p.realized)}</div>
-          <div class="goal-progress-label">líquido de ${R(p.target)}</div>
+          <div class="goal-progress-label">Após devoluções · meta de ${R(p.target)}</div>
         </div>
         <div class="goal-badge" style="background:${colorVar}1A;color:${colorVar};border-color:${colorVar}44">
           ${escapeHtml(statusLabel)}
@@ -133,11 +159,20 @@ function renderProjection() {
   }).join("") : `<div class="projection-platform-empty">Cadastre vendas por plataforma para ver a projeção detalhada.</div>`;
 
   el.innerHTML = `
-    <div class="projection-card"><div class="projection-label">Dias Lançados</div><div class="projection-value">${p.loggedDays}/${p.monthDays}</div><div class="projection-sub">Base usada para a média do mês</div></div>
+    <div class="projection-summary-value">${R(p.projectedNet)}</div>
+    <div class="projection-sub">Vendas estimadas após devoluções</div>
+    <div class="projection-summary-stats">
+      <div><span>Média diária após devoluções</span><strong>${R(ld > 0 ? t.net / ld : 0)}</strong></div>
+      <div><span>Dias lançados</span><strong>${p.loggedDays} de ${p.monthDays}</strong></div>
+      <div><span>Realizado até agora</span><strong>${R(t.net)}</strong></div>
+    </div>
+  `;
+  const details = document.getElementById("projectionDetailGrid");
+  if (!details) return;
+  details.innerHTML = `
     <div class="projection-card"><div class="projection-label">Projeção de Pedidos</div><div class="projection-value">${Math.round(p.projectedOrders)}</div><div class="projection-sub">Média diária: ${p.ordersDailyAverage.toFixed(1)} pedidos</div><div class="projection-meta">Realizado até agora: ${t.orders} pedidos</div></div>
     <div class="projection-card"><div class="projection-label">Projeção de Vendas</div><div class="projection-value">${RS(p.projectedGross)}</div><div class="projection-sub">Média diária: ${RS(p.salesDailyAverage)}</div><div class="projection-meta">${pt ? `vs bruto de ${cl}: ${varH(p.projectedGross, pt.gross)}` : "Sem mês anterior para comparar"}</div></div>
     <div class="projection-card"><div class="projection-label">Projeção de Devoluções</div><div class="projection-value neg">${RS(p.projectedReturns)}</div><div class="projection-sub">Média diária: ${RS(p.returnsDailyAverage)}</div><div class="projection-meta">Taxa projetada: ${p.projectedReturnRate.toFixed(1)}%</div></div>
-    <div class="projection-card"><div class="projection-label">Projeção Líquida</div><div class="projection-value" style="color:var(--accent)">${RS(p.projectedNet)}</div><div class="projection-sub">Taxa atual: ${p.currentReturnRate.toFixed(1)}%</div><div class="projection-meta">Realizado até agora: ${RS(t.net)}</div></div>
     <div class="projection-card projection-platform-card">
       <div class="projection-platform-head"><div><div class="projection-label">Projeção por Plataforma</div><div class="projection-sub">Estimativa pela mesma média diária</div></div><div class="projection-platform-total">${RS(ppt)}</div></div>
       <div class="projection-platform-list">${platformHtml}</div>
@@ -159,6 +194,7 @@ function bindEvents() {
         toast("Meta removida");
         renderGoalCard();
         renderProjection();
+        renderProjectionChart();
         return;
       }
 
@@ -166,9 +202,13 @@ function bindEvents() {
       toastSuccess(`Meta definida: ${R(parsed)}`);
       renderGoalCard();
       renderProjection();
+      renderProjectionChart();
     };
 
     input.addEventListener("blur", commit);
+    document.getElementById("saveGoalButton")?.addEventListener("click", () => {
+      if (getGoal(state.currentMonth) !== parseGoalInput(input.value)) commit();
+    });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); commit(); input.blur(); }
       if (e.key === "Escape") {

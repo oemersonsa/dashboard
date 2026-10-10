@@ -77,7 +77,7 @@ function renderCards() {
   const container = document.getElementById("pricingPlatformGrid");
   if (!container) return;
   const settingsOpen = container.querySelector("[data-pricing-settings]")?.open || false;
-  const breakdownOpen = container.querySelector("[data-pricing-breakdown]")?.open || false;
+  const breakdownOpen = container.querySelector("[data-pricing-breakdown]")?.open ?? true;
   const platform = state.platforms.find((item) => item.key === selectedPlatformKey && !item.archived);
   if (!platform) {
     container.innerHTML = '<div class="empty-state">Cadastre uma plataforma para calcular o preço e as taxas.</div>';

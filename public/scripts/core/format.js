@@ -17,6 +17,21 @@ export const escapeHtml = (value) =>
 
 export const escapeAttribute = (value) => escapeHtml(value).replace(/`/g, "&#96;");
 
+export function parseMoney(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : NaN;
+  const raw = String(value ?? "").trim().replace(/^R\$\s*/, "").replace(/\s/g, "");
+  if (!raw) return 0;
+  let normalized = raw;
+  if (raw.includes(",")) {
+    if (!/^-?(?:\d+|\d{1,3}(?:\.\d{3})+),\d{1,2}$/.test(raw)) return NaN;
+    normalized = raw.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(?:\.\d{3})+$/.test(raw)) {
+    normalized = raw.replace(/\./g, "");
+  } else if (!/^-?\d+(?:\.\d{1,2})?$/.test(raw)) return NaN;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? Math.round(number * 100) / 100 : NaN;
+}
+
 export const slugify = (value) =>
   String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");

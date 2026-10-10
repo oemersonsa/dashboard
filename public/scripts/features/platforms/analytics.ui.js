@@ -2,6 +2,8 @@ import { state, parsePeriodKey } from "../../core/state.js";
 import { ALL_MONTHS } from "../../core/constants.js";
 import { R, RS, escapeHtml, escapeAttribute } from "../../core/format.js";
 import { getPlatformVisualColor } from "../../ui/charts.js";
+import { platformBadge } from "../../ui/icons.js";
+import { calcTotals } from "../sales/sales.calc.js";
 
 let chart = null;
 let bound = false;
@@ -39,6 +41,13 @@ function periodDays() {
 function currentRange() {
   const range = document.getElementById("platformRange")?.value || "90";
   const today = startOfDay(new Date());
+  if (range === "month") {
+    const period = parsePeriodKey(state.currentMonth);
+    const month = ALL_MONTHS.indexOf(period.month);
+    const from = new Date(period.year, month, 1);
+    const to = new Date(period.year, month + 1, 0);
+    return { from, to, days: to.getDate() };
+  }
   if (range === "custom") {
     const fromValue = document.getElementById("platformDateFrom")?.value;
     const toValue = document.getElementById("platformDateTo")?.value;
@@ -98,7 +107,32 @@ function render() {
   if (subtitle) subtitle.textContent = `${key === "all" ? "Todas as plataformas" : state.platforms.find((p) => p.key === key)?.name || "Plataforma"} • ${metric === "sales" ? "Vendas brutas" : "Pedidos"} por dia`;
   renderChart(rows, range, key);
   renderShare(rows, key);
+  renderPlatformCards(rows, range, key);
   renderTable(rows, range, key);
+}
+
+function renderPlatformCards(rows, range, key) {
+  const cards = document.getElementById("platformConceptCards");
+  const platforms = state.platforms.filter(platform => !platform.archived && (key === "all" || platform.key === key));
+  const columns = platforms.length <= 2 ? Math.max(1, platforms.length) : Math.ceil(platforms.length / 2);
+  cards.style.setProperty("--platform-columns", columns);
+  cards.innerHTML = platforms.map(platform => {
+    const gross = sum(rows, "sales", platform.key);
+    const orders = sum(rows, "orders", platform.key);
+    let returns = 0;
+    for (const [month, data] of Object.entries(state.db)) {
+      const period = parsePeriodKey(month);
+      const index = ALL_MONTHS.indexOf(period.month);
+      const from = new Date(period.year, index, 1);
+      const to = new Date(period.year, index + 1, 0);
+      if (to < range.from || from > range.to) continue;
+      const total = calcTotals(month);
+      const selected = sum(rows.filter(row => row.date.getFullYear() === period.year && row.date.getMonth() === index), "sales", platform.key);
+      const fullMonth = range.from <= from && range.to >= to;
+      returns += Number(data.returns?.[platform.key] || 0) * (fullMonth ? 1 : total.sales[platform.key] > 0 ? selected / total.sales[platform.key] : 0);
+    }
+    return `<article class="card platform-concept-card"><h2 class="card-title">${platformBadge(platform)}</h2><div class="platform-card-values"><div><span>Vendas brutas</span><strong>${R(gross)}</strong></div><div><span>Devoluções</span><strong>${R(returns)}</strong></div><div><span>Vendas após devoluções</span><strong>${R(gross - returns)}</strong></div><div><span>Pedidos</span><strong>${orders.toLocaleString("pt-BR")}</strong></div></div></article>`;
+  }).join("");
 }
 
 function renderChart(rows, range, key) {
@@ -114,22 +148,32 @@ function renderChart(rows, range, key) {
     values.push(metric === "sales" ? sum(row ? [row] : [], "sales", key === "all" ? null : key) : sum(row ? [row] : [], "orders", key === "all" ? null : key));
     date.setDate(date.getDate() + 1);
   }
-  if (chart) chart.destroy();
+
   const selectedPlatform = state.platforms.find((p) => p.key === key);
   const color = selectedPlatform ? getPlatformVisualColor(selectedPlatform) : (getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#3972e6");
   const money = metric === "sales";
-  chart = new window.Chart(canvas.getContext("2d"), {
-    type: "line",
-    data: { labels, datasets: [{ label: money ? "Vendas" : "Pedidos", data: values, borderColor: color, backgroundColor: `${color}20`, fill: true, tension: 0.32, pointRadius: range.days > 60 ? 0 : 2, pointHoverRadius: 4, borderWidth: 2 }] },
+  const stacked = money && key === "all";
+  const datasets = stacked ? state.platforms.filter(p => !p.archived).map(platform => ({
+    label: platform.name,
+    data: labels.map((_, index) => {
+      const date = new Date(range.from); date.setDate(date.getDate() + index);
+      return byDate.get(isoDate(date))?.sales[platform.key] || 0;
+    }), backgroundColor: getPlatformVisualColor(platform), borderRadius: 2, maxBarThickness: 20
+  })) : [{ label: money ? "Vendas" : "Pedidos", data: values, borderColor: color, backgroundColor: `${color}cc`, borderRadius: 3, maxBarThickness: 20 }];
+  const config = {
+    type: "bar",
+    data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (item) => money ? ` ${RS(item.raw)}` : ` ${Math.round(item.raw).toLocaleString("pt-BR")} pedidos` } } },
+      plugins: { legend: { display: stacked, labels: { color: getComputedStyle(document.body).getPropertyValue("--muted").trim(), usePointStyle: true, boxWidth: 8 } }, tooltip: { callbacks: { label: (item) => money ? `${item.dataset.label}: ${R(item.raw)}` : `${Math.round(item.raw).toLocaleString("pt-BR")} pedidos` } } },
       scales: {
-        x: { grid: { display: false }, ticks: { color: "#929aaa", maxTicksLimit: 7, maxRotation: 0 } },
-        y: { beginAtZero: true, grid: { color: getComputedStyle(document.body).getPropertyValue("--border").trim() || "#eceef2" }, ticks: { color: "#929aaa", callback: (value) => money ? (value >= 1000 ? `R$ ${(value / 1000).toLocaleString("pt-BR")}k` : `R$ ${value}`) : value } }
+        x: { stacked, grid: { display: false }, ticks: { color: "#a5b5c8", maxTicksLimit: 7, maxRotation: 0 } },
+        y: { stacked, beginAtZero: true, grid: { color: getComputedStyle(document.body).getPropertyValue("--border").trim() || "#eceef2" }, ticks: { color: "#a5b5c8", callback: (value) => money ? (value >= 1000 ? `R$ ${(value / 1000).toLocaleString("pt-BR")}k` : `R$ ${value}`) : value } }
       }
     }
-  });
+  };
+  if (chart) { chart.data = config.data; chart.options = config.options; chart.update("none"); }
+  else chart = new window.Chart(canvas.getContext("2d"), config);
 }
 
 function renderShare(rows, selectedKey) {
@@ -139,14 +183,9 @@ function renderShare(rows, selectedKey) {
   const values = platforms.map((p) => ({ platform: p, sales: sum(rows, "sales", p.key) })).filter((item) => item.sales > 0).sort((a, b) => b.sales - a.sales);
   const total = values.reduce((s, item) => s + item.sales, 0);
   if (!total) { target.innerHTML = `<div class="platform-analytics-empty">Sem vendas registradas neste período.</div>`; return; }
-  let offset = 0;
-  const stops = values.map(({ platform, sales }) => {
-    const start = offset; offset += sales / total * 100;
-    return `${getPlatformVisualColor(platform)} ${start}% ${offset}%`;
-  }).join(", ");
-  target.innerHTML = `<div class="platform-donut" style="--platform-donut:conic-gradient(${stops})"><div><small>TOTAL</small><strong>${RS(total)}</strong></div></div><div class="platform-share-legend">${values.map(({ platform, sales }) => {
+  target.innerHTML = `<div class="platform-share-legend concept-platform-share">${values.map(({ platform, sales }) => {
     const percent = sales / total * 100;
-    return `<button type="button" class="platform-share-row ${selectedKey === platform.key ? "is-selected" : ""}" data-platform-row="${escapeAttribute(platform.key)}"><span class="platform-share-name"><i style="--platform-color:${escapeAttribute(getPlatformVisualColor(platform))}"></i>${escapeHtml(platform.name)}</span><strong>${percent.toFixed(1).replace(".", ",")}%</strong></button>`;
+    return `<button type="button" class="marketplace-item ${selectedKey === platform.key ? "is-selected" : ""}" data-platform-row="${escapeAttribute(platform.key)}">${platformBadge(platform)}<span class="marketplace-data"><span><strong>${R(sales)}</strong><small>${percent.toFixed(1).replace(".", ",")}%</small></span><span class="marketplace-track"><span><i style="width:${percent}%;background:${getPlatformVisualColor(platform)}"></i></span></span></span></button>`;
   }).join("")}</div>`;
 }
 

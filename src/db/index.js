@@ -81,6 +81,8 @@ async function withTransaction(fn) {
   } catch (error) {
     try { await tx.rollback(); } catch {}
     throw error;
+  } finally {
+    tx.close();
   }
 }
 

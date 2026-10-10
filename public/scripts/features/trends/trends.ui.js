@@ -16,7 +16,7 @@ import {
 
 let chart = null;
 let bound = false;
-let currentMetric = "gross";
+let currentMetric = "net";
 let currentMonths = 6;
 
 export function init() {
@@ -61,8 +61,6 @@ function renderChart(series) {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
 
-  destroyChart();
-
   const css = getComputedStyle(document.body);
   const mutedColor = css.getPropertyValue("--muted").trim() || "#86868b";
   const borderColor = css.getPropertyValue("--border").trim() || "rgba(0,0,0,0.06)";
@@ -72,11 +70,14 @@ function renderChart(series) {
 
   // Datasets: uma linha por plataforma + Total
   const datasets = series.platforms.map((p) => ({
+    type: "bar",
     label: p.name,
     data: p.data,
     borderColor: getPlatformVisualColor(p),
-    backgroundColor: "transparent",
-    borderWidth: 2,
+    backgroundColor: getPlatformVisualColor(p),
+    borderWidth: 0,
+    borderRadius: 3,
+    maxBarThickness: 30,
     tension: 0.35,
     spanGaps: false,          // meses sem dados ficam com lacuna
     pointRadius: 3,
@@ -89,9 +90,10 @@ function renderChart(series) {
 
   // Total (mais visível)
   datasets.push({
+    type: "line",
     label: "Total",
     data: series.total.data,
-    borderColor: mutedColor,
+    borderColor: css.getPropertyValue("--accent").trim(),
     backgroundColor: "transparent",
     borderWidth: 2.5,
     borderDash: [],
@@ -99,7 +101,7 @@ function renderChart(series) {
     spanGaps: false,
     pointRadius: 4,
     pointHoverRadius: 6,
-    pointBackgroundColor: mutedColor,
+    pointBackgroundColor: css.getPropertyValue("--accent").trim(),
     pointBorderColor: "transparent",
     order: 1
   });
@@ -125,7 +127,7 @@ function renderChart(series) {
   // Como o Chart.js não suporta por-ponto facilmente, usamos o callback de tooltip
   // + a tabela abaixo para sinalizar.
 
-  chart = new Chart(ctx, {
+  const config = {
     type: "line",
     data: { labels: series.labels, datasets },
     options: {
@@ -207,7 +209,9 @@ function renderChart(series) {
         }
       }
     }
-  });
+  };
+  if (chart) { chart.data = config.data; chart.options = config.options; chart.update("none"); }
+  else chart = new Chart(ctx, config);
 
   // Marca visualmente o mês atual como tracejado (só o último segmento)
   // Não é suportado nativamente pelo Chart.js, então aplicamos via plugin simples

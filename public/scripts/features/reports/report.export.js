@@ -1,3 +1,4 @@
+import { loadSheets as loadSheetJs } from "../../core/libraries.js";
 /* ═══════════════════════════════════════════════════════════════
    features/reports/report.export.js
    Exportação do relatório em CSV e Excel (XLSX)
@@ -148,23 +149,6 @@ export function toCsv(reportRows) {
 }
 
 /* ═══ SheetJS — carregamento sob demanda ═══ */
-const SHEETJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-
-function loadSheetJs() {
-  return new Promise((resolve, reject) => {
-    if (window.XLSX) return resolve(window.XLSX);
-    const s = document.createElement("script");
-    s.src = SHEETJS_URL;
-    s.async = true;
-    s.onload = () => {
-      if (window.XLSX) resolve(window.XLSX);
-      else reject(new Error("sheetjs_not_loaded"));
-    };
-    s.onerror = () => reject(new Error("sheetjs_load_error"));
-    document.head.appendChild(s);
-  });
-}
-
 /* ═══ Download de arquivo (efeito colateral) ═══ */
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);

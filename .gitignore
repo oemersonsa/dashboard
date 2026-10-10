@@ -13,6 +13,9 @@ node_modules/
 # Cache de build
 dist/
 build/
+public/compiled/
+public/**/*.gz
+public/**/*.br
 out/
 
 # Resultados de teste

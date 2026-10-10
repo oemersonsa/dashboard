@@ -8,7 +8,7 @@
 const THEME_KEY = "dashboard-theme-v1";
 const VALID_MODES = ["auto", "light", "dark"];
 
-let currentMode = "auto";
+let currentMode = "dark";
 let mediaQuery = null;
 let bound = false;
 
@@ -18,13 +18,12 @@ function loadMode() {
     const saved = localStorage.getItem(THEME_KEY);
     if (VALID_MODES.includes(saved)) return saved;
   } catch {}
-  return "auto";
+  return "dark";
 }
 
 function saveMode(mode) {
   try {
-    if (mode === "auto") localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, mode);
+    localStorage.setItem(THEME_KEY, mode);
   } catch {}
 }
 

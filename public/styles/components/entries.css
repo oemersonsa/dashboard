@@ -1,0 +1,26 @@
+#saleInputs { display: grid; grid-template-columns: 1fr; gap: var(--space-3); }
+.sale-platform-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(80px, .6fr); gap: var(--space-3); align-items: center; padding: var(--space-3); border: 1px solid var(--border); border-radius: 8px; }
+.sale-platform-row .fg { margin: 0; min-width: 0; }
+.sale-platform-name { min-width: 0; }
+.entry-preview { margin-block: var(--space-3); }
+.entry-preview > div { display: flex; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); border-bottom: 1px solid var(--border); font-size: 13px; }
+.entry-error { color: var(--red); margin-block: var(--space-3); }
+[aria-invalid="true"] { border-color: var(--red) !important; }
+#dailyDetailsTable .ceditable { min-width: 105px; width: 120px; }
+.hub-quick-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
+.empty-state .btn { margin: var(--space-2); }
+.dashboard-period-add { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 8px; }
+@media (max-width: 860px) {
+  .dashboard-layout { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-main { grid-column: 1; }
+  .sidebar:not(.open) { visibility: hidden; }
+  .sidebar.open { visibility: visible; }
+}
+@media (max-width: 600px) {
+  .sale-platform-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .sale-platform-name { grid-column: 1 / -1; }
+  .entry-preview > div { flex-direction: column; gap: 4px; }
+  .hub-quick-actions .btn { flex: 1 1 150px; min-height: 44px; }
+  #panel-sales .actions-row { position: sticky; bottom: 0; padding-block: var(--space-3); background: var(--surface); z-index: 2; flex-wrap: wrap; }
+  #panel-sales .actions-row .btn { min-height: 44px; }
+}

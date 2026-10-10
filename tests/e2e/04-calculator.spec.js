@@ -69,7 +69,7 @@ test.describe("Calculadora", () => {
 
   test("o ROAS muda a faixa com o preço e preserva taxas manuais", async ({ page }) => {
     await page.click('[data-nav="dashboard"]');
-    await page.click('[data-sidebar-menu-trigger="tools"]');
+
     await page.click('[data-dashboard-tab="roas"]');
     await page.locator("#roasPlatform").selectOption("shopee");
     await page.locator("#roasPrice").fill("250");
@@ -87,7 +87,7 @@ test.describe("Calculadora", () => {
   test("a Calculadora de ROAS carrega as taxas da plataforma selecionada", async ({ page }) => {
     await page.click('[data-nav="dashboard"]');
     await expect(page.locator("#dashboardScreen")).toBeVisible();
-    await page.click('[data-sidebar-menu-trigger="tools"]');
+
     await page.click('[data-dashboard-tab="roas"]');
     await expect(page.locator("#dashboard-panel-roas")).toBeVisible();
     await expect(page.locator("#roasPlatform option")).toHaveCount(2);

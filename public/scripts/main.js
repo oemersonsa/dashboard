@@ -10,12 +10,14 @@ import {
   saveState,
   normalizeState,
   getBusinessSnapshot,
-  sortPeriodKeys
+  sortPeriodKeys,
+  saveNavigation, loadNavigation, getAvailablePeriods, parsePeriodKey
 } from "./core/state.js";
 import { hydrateAppIcons } from "./ui/app-icons.js";
+import { initWorkspace, renderWorkspace } from "./ui/workspace.js";
 import { createSync } from "./core/sync.js";
 import { apiRequest, loadSession, saveSession, clearSession } from "./core/api.js";
-import { MARKETPLACE_PRICING_PRESETS } from "./core/constants.js";
+import { ALL_MONTHS, MARKETPLACE_PRICING_PRESETS } from "./core/constants.js";
 
 // ─── UI ─────────────────────────────────────────────────────────────────────
 import { toast, toastSuccess, toastError } from "./ui/toast.js";
@@ -29,7 +31,7 @@ import { showGlobalLoader, hideGlobalLoader, renderKpiSkeleton } from "./ui/skel
 import { init as initAuth, handleLogout } from "./features/auth/auth.ui.js";
 import { init as initHub } from "./features/hub/hub.ui.js";
 import { init as initPlatforms } from "./features/platforms/platforms.ui.js";
-import { init as initPlatformAnalytics } from "./features/platforms/analytics.ui.js";
+
 import {
   init as initSales,
   renderAll,
@@ -41,24 +43,64 @@ import {
   selectMonth,
   switchDashboardPeriod
 } from "./features/sales/sales.ui.js";
-import { init as initCalculator } from "./features/calculator/pricing.ui.js";
-import { init as initRoasCalculator } from "./features/calculator/roas.ui.js";
+
 import { init as initDailyClose } from "./features/daily-close/daily-close.ui.js";
-import { init as initBackup, exportBackup } from "./features/backup/backup.export.js";
-import { init as initSalesImport, openSalesSheetImport } from "./features/sales/sales-import.ui.js";
-import { init as initReports, openReport } from "./features/reports/report.builder.js";
+
 import {
   init as initAccount,
   getCachedAccountProfile,
   loadAccountProfile
 } from "./features/account/account.ui.js";
 
+import { loadCharts } from "./core/libraries.js";
+import { readRoute, routeHash } from "./core/navigation.js";
+const routeAtBoot = location.hash;
+let routeRestored = false;
+let applyingRoute = false;
+
+function writeRoute() {
+  if (applyingRoute || !loadSession()) return;
+  const hash = routeHash(activeScreen, state.activeTab || "overview", state.currentMonth);
+  if (location.hash !== hash) history.pushState(null, "", hash);
+}
+
+async function applyRoute(hash) {
+  const route = readRoute(hash);
+  if (!route || !loadSession()) return;
+  try {
+    if (route.month && route.month !== state.currentMonth) {
+      await ensurePeriod(route.month);
+      state.currentMonth = route.month;
+    }
+    applyingRoute = true;
+    state.activeTab = route.tab;
+    setActiveScreen(route.screen);
+    renderScreen();
+    saveNavigation();
+    history.replaceState(null, "", routeHash(activeScreen, state.activeTab || "overview", state.currentMonth));
+  } catch (error) { toastError(error.message); }
+  finally { applyingRoute = false; }
+}
+window.addEventListener("popstate", () => void applyRoute(location.hash));
+window.addEventListener("hashchange", () => void applyRoute(location.hash));
+window.addEventListener("dashboard:period-changed", writeRoute);
+
+async function openSalesSheetImport() {
+  try { const feature = await import("./features/sales/sales-import.ui.js"); feature.init(); feature.openSalesSheetImport(); }
+  catch (error) { toastError(error.message); }
+}
+async function exportBackup() {
+  try { await ensureHistory(); const feature = await import("./features/backup/backup.export.js"); feature.init(); feature.exportBackup(); }
+  catch (error) { toastError(error.message); }
+}
+async function openReport() {
+  try { await ensurePeriod(state.currentMonth); const feature = await import("./features/reports/report.builder.js"); feature.init(); feature.openReport(); }
+  catch (error) { toastError(error.message); }
+}
+
 // ─── Roteador ───────────────────────────────────────────────────────────────
 const KNOWN_SCREENS = ["hub", "dashboard", "calculator", "dailyClose", "account"];
 let activeScreen = "hub";
-//let serverSaveTimer = null;
-// let serverSaveInFlight = false;
-// let serverSaveQueued = false;
 
 export function getActiveScreen() { return activeScreen; }
 
@@ -69,6 +111,7 @@ export function setActiveScreen(screen) {
   }
   activeScreen = KNOWN_SCREENS.includes(screen) ? screen : "hub";
   state.currentScreen = activeScreen === "account" ? "dashboard" : activeScreen;
+  saveNavigation();
 }
 
 export function renderScreen() {
@@ -85,6 +128,7 @@ export function renderScreen() {
   const hasAuth = Boolean(state.auth?.username);
   const session = loadSession();
   const isLoggedIn = Boolean(hasAuth && session && session.username === state.auth.username);
+  renderWorkspace(activeScreen, Boolean(isLoggedIn && state.platforms.length));
 
   Object.values(screens).forEach((s) => { if (s) s.hidden = true; });
   closeSidebarSubmenus();
@@ -92,6 +136,7 @@ export function renderScreen() {
   closeMobileSidebar();
 
   if (!isLoggedIn) {
+    document.querySelectorAll(".moverlay.open").forEach(modal => closeModal(modal.id));
     screens.auth.hidden = false;
     initAuth();
     return;
@@ -103,15 +148,17 @@ export function renderScreen() {
     return;
   }
 
+  writeRoute();
+  if (!routeRestored && readRoute(routeAtBoot)) {
+    routeRestored = true;
+    queueMicrotask(() => void applyRoute(routeAtBoot));
+  }
+
   if (activeScreen === "dashboard") {
     screens.dashboard.hidden = false;
     syncDashboardUserProfile();
     void loadAccountProfile().then(syncDashboardUserProfile);
     initSales();
-    initCalculator();
-    initReports();
-    initBackup();
-    initSalesImport();
     switchDashboardTab(state.activeTab || "overview");
     return;
   }
@@ -130,8 +177,6 @@ export function renderScreen() {
 
   screens.hub.hidden = false;
   initHub();
-  initBackup();
-  initSalesImport();
   refreshSaveIndicator();
 }
 
@@ -162,11 +207,12 @@ window.addEventListener("dashboard:account-profile-updated", syncDashboardUserPr
 const tabScope = sessionStorage.getItem("dashboard-tab-id") || crypto.randomUUID();
 sessionStorage.setItem("dashboard-tab-id", tabScope);
 const sync = createSync({
+  incremental: true,
   scope: tabScope,
   storage: localStorage,
   user: () => loadSession()?.username || "",
   snapshot: getBusinessSnapshot,
-  request: body => apiRequest("/api/state", { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(60000) }),
+  request: body => apiRequest("/api/state", { method: body.changes ? "PATCH" : "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(60000) }),
   status: (status, message) => {
     if (status === "saved") localStorage.setItem("dashboard-vendas-last-saved-v1", new Date().toISOString());
     setSaveStatus(status, message);
@@ -183,9 +229,8 @@ window.addEventListener("beforeunload", event => {
   if (sync.pending()) { event.preventDefault(); event.returnValue = ""; }
 });
 document.getElementById("syncLoadRemoteButton")?.addEventListener("click", async () => {
-  sync.discard();
-  await loadBusinessStateFromServer();
-  document.getElementById("syncConflictModal")?.classList.remove("open");
+  if (!await loadBusinessStateFromServer({ discardPending: true })) return;
+  closeModal("syncConflictModal");
   renderScreen();
 });
 document.getElementById("syncExportPendingButton")?.addEventListener("click", () => {
@@ -219,10 +264,15 @@ async function retryServerStateLoad(button) {
 }
 
 /* ═══ LOAD FROM SERVER ═══ */
-async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false } = {}) {
+async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false, discardPending = false } = {}) {
   if (!loadSession()) return false;
   try {
-    const result = await apiRequest("/api/state");
+    const navigation = loadNavigation();
+    const month = navigation.currentMonth || "";
+    // Rascunhos antigos podem conter meses fora do carregamento inicial.
+    const query = sync.hasDraft() ? "" : `?initial=1${month ? `&month=${encodeURIComponent(month)}` : ""}`;
+    const result = await apiRequest(`/api/state${query}`);
+    if (discardPending) sync.discard();
     const remote = sync.initialize(result?.state || {});
     const normalized = normalizeState(
       {
@@ -238,10 +288,15 @@ async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false
     state.goals = normalized.goals || {}; 
     state.platforms = normalized.platforms;
     state.db = normalized.db;
+    state.periods = result.state.periods || Object.keys(normalized.db);
+    loadedPeriods = new Set([...(result.state.loadedPeriods || []), ...Object.keys(normalized.db)]);
     state.currentMonth = normalized.currentMonth;
     state.pricing = normalized.pricing;
     state.currentScreen = normalized.currentScreen;
     state.activeTab = normalized.activeTab || state.activeTab || "overview";
+    if (navigation.currentMonth && state.db[navigation.currentMonth]) state.currentMonth = navigation.currentMonth;
+    if (navigation.activeTab) state.activeTab = navigation.activeTab;
+    if (navigation.currentScreen) state.currentScreen = navigation.currentScreen;
     setActiveScreen(state.currentScreen || "hub");
     if (!sync.pending()) setSaveStatus("idle");
     return true;
@@ -254,6 +309,50 @@ async function loadBusinessStateFromServer({ migrateLocal = false, quiet = false
   }
 }
 
+let loadedPeriods = new Set();
+let historyFlight = Promise.resolve();
+export function ensureHistory(periods = null) {
+  const owner = loadSession()?.username;
+  const run = async () => {
+    const wanted = periods || getAvailablePeriods();
+    const missing = wanted.filter(month => !loadedPeriods.has(month));
+    if (!missing.length) return;
+    if (sync.pending() && !await sync.flush()) throw new Error("Há alterações pendentes. Aguarde o salvamento antes de carregar outro período.");
+    const query = periods ? `periods=${encodeURIComponent(missing.join(","))}&` : "";
+    let result;
+    try { result = await apiRequest(`/api/state?${query}version=${encodeURIComponent(sync.version() || "")}`); }
+    catch (error) {
+      if (error.status === 409 && !sync.pending()) {
+        await loadBusinessStateFromServer({ quiet: true });
+        throw new Error("Os dados mudaram em outra sessão e foram atualizados. Abra o período novamente.");
+      }
+      throw error;
+    }
+    if (loadSession()?.username !== owner) throw new Error("A sessão mudou. Abra a área novamente.");
+    if (!sync.hydrate(result.state)) throw new Error("Os dados foram editados durante o carregamento. Aguarde o salvamento e tente novamente.");
+    Object.assign(state.db, result.state.db);
+    state.periods = result.state.periods || Object.keys(result.state.db);
+    (result.state.loadedPeriods || state.periods).forEach(month => loadedPeriods.add(month));
+  };
+  const flight = historyFlight.catch(() => {}).then(run);
+  historyFlight = flight;
+  return flight;
+}
+
+export async function ensurePeriod(month) {
+  const date = parsePeriodKey(month);
+  const all = getAvailablePeriods();
+  const previous = all.filter(key => sortPeriodKeys([key, month])[0] === key && key !== month).at(-1);
+  const index = ALL_MONTHS.indexOf(date.month);
+  const wanted = [month, previous];
+  for (let offset = 1; offset <= 2; offset++) {
+    const earlier = new Date(date.year, index - offset, 1);
+    wanted.push(`${earlier.getFullYear()}-${ALL_MONTHS[earlier.getMonth()]}`);
+  }
+  await ensureHistory([...new Set(wanted.filter(Boolean))]);
+  state.db[month] ||= { days: [], returns: {} };
+}
+
 /* ═══ AÇÕES GLOBAIS ═══ */
 export async function saveNow() {
   saveState({ localOnly: true });
@@ -263,7 +362,8 @@ export async function saveNow() {
 }
 
 export async function openImportBackupModal() {
-  openModal("importBackupModal");
+  try { await ensureHistory(); const feature = await import("./features/backup/backup.export.js"); feature.init(); openModal("importBackupModal"); }
+  catch (error) { toastError(error.message); }
 }
 
 export function openSetupScreen() {
@@ -272,10 +372,12 @@ export function openSetupScreen() {
     setup: document.getElementById("setupScreen"),
     hub: document.getElementById("hubScreen"),
     dashboard: document.getElementById("dashboardScreen"),
-    dailyClose: document.getElementById("dailyCloseScreen")
+    dailyClose: document.getElementById("dailyCloseScreen"),
+    account: document.getElementById("accountScreen")
   };
   Object.values(screens).forEach((s) => { if (s) s.hidden = true; });
   screens.setup.hidden = false;
+  renderWorkspace("setup", Boolean(state.auth?.username && state.platforms.length));
   initPlatforms();
 }
 
@@ -300,6 +402,8 @@ function closeMobileSidebar() {
   const overlay = document.querySelector(".sidebar-overlay");
   sidebar?.classList.remove("open");
   overlay?.classList.remove("visible");
+  sidebar?.toggleAttribute("inert", window.innerWidth <= 860);
+  document.querySelectorAll("#menuToggleButton, [data-workspace-menu]").forEach(button => button.setAttribute("aria-expanded", "false"));
 }
 
 function openSidebarSubmenu(trigger, menu) {
@@ -397,6 +501,11 @@ function bindSidebarActions() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (document.getElementById("dashboardSidebar")?.classList.contains("open")) {
+      const trigger = document.getElementById(document.getElementById("dashboardSidebar").dataset.returnFocus || "menuToggleButton");
+      closeMobileSidebar();
+      trigger?.focus();
+    }
     const openMenu = document.querySelector("[data-sidebar-menu-trigger][aria-expanded='true']");
     if (openMenu) {
       event.preventDefault();
@@ -418,7 +527,7 @@ function bindSidebarActions() {
     }
   });
 
-  window.addEventListener("resize", () => { closeSidebarSubmenus(); positionUserPopover(); });
+  window.addEventListener("resize", () => { closeSidebarSubmenus(); closeMobileSidebar(); positionUserPopover(); });
   window.addEventListener("scroll", () => closeSidebarSubmenus(), true);
 
   // 1. Sidebar
@@ -442,17 +551,25 @@ function bindSidebarActions() {
   });
 
   document.addEventListener("click", event => {
+    const screen = event.target.closest("[data-screen-nav]");
+    if (screen) { event.preventDefault(); setActiveScreen(screen.dataset.screenNav); renderScreen(); }
+    if (event.target.closest("[data-open-sales-import]")) void openSalesSheetImport();
     if (event.target.closest("#dashboardRegisterSalesButton")) { switchDashboardTab("entries"); document.getElementById("inputDate")?.focus(); }
     if (event.target.closest("#sidebarManagePlatformsButton")) { closeMobileSidebar(); openSetupScreen(); }
     if (event.target.closest("#sidebarBackupsButton")) { closeMobileSidebar(); openImportBackupModal(); }
   });
   // 2. Tabs do dashboard
   document.addEventListener("click", (event) => {
-    const tab = event.target.closest(".sidebar-item[data-dashboard-tab]");
+    const tab = event.target.closest("[data-dashboard-tab], [data-dashboard-open]");
     if (!tab) return;
     event.preventDefault();
-    switchDashboardTab(tab.dataset.dashboardTab);
+    if (activeScreen !== "dashboard") {
+      state.activeTab = tab.dataset.dashboardTab || tab.dataset.dashboardOpen;
+      setActiveScreen("dashboard"); renderScreen();
+    } else switchDashboardTab(tab.dataset.dashboardTab || tab.dataset.dashboardOpen);
     closeMobileSidebar();
+    const title = document.getElementById("dashboardPageTitle");
+    title.tabIndex = -1; title.focus();
   });
 
   // 4. Seletor de período (modal de mês)
@@ -471,13 +588,10 @@ function bindSidebarActions() {
         document.getElementById("periodYearInput")?.value || new Date().getFullYear()
       );
       const period = `${year}-${month}`;
-      const exists = Boolean(state.db[period]);
+      const exists = getAvailablePeriods().includes(period);
       if (exists) {
-        state.currentMonth = period;
-        saveState();
+        void switchDashboardPeriod(year, month);
         closeModal("addMonthModal");
-        renderTabs();
-        renderAll();
       } else {
         selectMonth(month);
       }
@@ -487,6 +601,19 @@ function bindSidebarActions() {
     if (event.target.closest("#confirmAddMonthButton")) {
       event.preventDefault();
       confirmAddMonth();
+      return;
+    }
+    if (event.target.closest("#openDeleteMonthButton")) {
+      const month = state.currentMonth;
+      if (!window.confirm(`Excluir ${month}? As vendas, devoluções e a meta deste período serão removidas.`)) return;
+      delete state.db[month];
+      delete state.goals[month];
+      state.periods = (state.periods || []).filter(period => period !== month);
+      loadedPeriods.delete(month);
+      const remaining = sortPeriodKeys([...new Set([...(state.periods || []), ...Object.keys(state.db)])]);
+      state.currentMonth = remaining.at(-1) || `${new Date().getFullYear()}-${ALL_MONTHS[new Date().getMonth()]}`;
+      saveState(); saveNavigation(); closeModal("addMonthModal");
+      void ensurePeriod(state.currentMonth).then(() => { renderTabs(); renderAll(); writeRoute(); }).catch(error => toastError(error.message));
       return;
     }
   });
@@ -513,7 +640,7 @@ function bindSidebarActions() {
       const month = document.getElementById("dashboardMonthSelect")?.value;
       if (!year) return;
       const sameMonthPeriod = `${year}-${month}`;
-      const availablePeriods = sortPeriodKeys(Object.keys(state.db).filter((period) => period.startsWith(`${year}-`)));
+      const availablePeriods = sortPeriodKeys(getAvailablePeriods().filter((period) => period.startsWith(`${year}-`)));
       const targetPeriod = state.db[sameMonthPeriod]
         ? sameMonthPeriod
         : availablePeriods.at(-1);
@@ -523,7 +650,8 @@ function bindSidebarActions() {
 
   // 5. Hamburger mobile
   document.addEventListener("click", (event) => {
-    if (!event.target.closest("#menuToggleButton")) return;
+    const menuButton = event.target.closest("#menuToggleButton, [data-workspace-menu]");
+    if (!menuButton) return;
     event.preventDefault();
     const sidebar = document.getElementById("dashboardSidebar");
     if (!sidebar) return;
@@ -533,13 +661,18 @@ function bindSidebarActions() {
       overlay = document.createElement("div");
       overlay.className = "sidebar-overlay";
       overlay.addEventListener("click", () => {
-        sidebar.classList.remove("open");
-        overlay.classList.remove("visible");
+        const trigger = document.getElementById(sidebar.dataset.returnFocus || "menuToggleButton");
+        closeMobileSidebar();
+        trigger?.focus();
       });
      document.querySelector(".app")?.appendChild(overlay);
     }
     sidebar.classList.toggle("open");
     overlay.classList.toggle("visible");
+    sidebar.toggleAttribute("inert", !sidebar.classList.contains("open"));
+    document.querySelectorAll("#menuToggleButton, [data-workspace-menu]").forEach(button => button.setAttribute("aria-expanded", String(sidebar.classList.contains("open"))));
+    sidebar.dataset.returnFocus = menuButton.id;
+    if (sidebar.classList.contains("open")) (sidebar.querySelector(".sidebar-item.active") || sidebar.querySelector("button"))?.focus();
   });
 
   // 6. Topbar da tela de fechamento diário
@@ -596,7 +729,8 @@ export function switchDashboardTab(name) {
   const target = valid.includes(name) ? name : "overview";
 
   state.activeTab = target;
-  saveState();
+  saveNavigation();
+  writeRoute();
 
   document.querySelectorAll(".sidebar-item[data-dashboard-tab]").forEach((b) => {
     const active = b.dataset.dashboardTab === target;
@@ -617,7 +751,7 @@ export function switchDashboardTab(name) {
     p.hidden = !active;
   });
   const pages = {
-    overview: ["Visão geral", "Acompanhe suas vendas e o progresso da meta"], entries: ["Lançamentos", "Registre vendas e devoluções por plataforma"],
+    overview: ["Desempenho de vendas", "Acompanhe suas vendas e resultados nos marketplaces"], entries: ["Lançamentos", "Registre suas vendas e devoluções por marketplace"],
     daily: ["Vendas diárias", "Acompanhe a evolução das vendas no período"], weekly: ["Semanas", "Compare os resultados de cada semana"],
     platforms: ["Desempenho por plataforma", "Compare o desempenho e acompanhe pedidos"], trends: ["Tendência", "Acompanhe a evolução dos últimos meses"],
     projection: ["Metas e projeção", "Planeje a meta e acompanhe o resultado esperado"], calculator: ["Calculadora de preço", "Simule preço, margem e lucro por plataforma"],
@@ -627,22 +761,33 @@ export function switchDashboardTab(name) {
   document.getElementById("dashboardPageSubtitle").textContent = pages[target][1];
   document.querySelector(".dashboard-period-controls").hidden = ["calculator", "roas"].includes(target);
   document.getElementById("dashboardRegisterSalesButton").hidden = target !== "overview";
+  document.getElementById("dashboardImportSalesButton").hidden = !["overview", "entries", "daily"].includes(target);
   document.getElementById("dashboardScreen").dataset.page = target;
   const k = document.getElementById("kpiRow");
   if (k) k.hidden = target !== "overview";
 
   // Renderiza a tendência quando a aba é aberta
   if (target === "trends") {
-    import("./features/trends/trends.ui.js").then((m) => m.init?.()).catch(console.error);
+    Promise.all([ensureHistory(), loadCharts()]).then(() => import("./features/trends/trends.ui.js")).then(m => { if (state.activeTab === target) m.init?.(); }).catch(error => toastError(error.message));
   }
-  if (target === "platforms") initPlatformAnalytics();
-  if (target === "roas") initRoasCalculator();
+  const features = {
+    platforms: "./features/platforms/analytics.ui.js",
+    calculator: "./features/calculator/pricing.ui.js",
+    roas: "./features/calculator/roas.ui.js"
+  };
+  if (features[target]) {
+    const ready = target === "platforms" ? Promise.all([ensureHistory(), loadCharts()]) : Promise.resolve();
+    ready.then(() => import(features[target])).then(module => { if (state.activeTab === target) module.init(); }).catch(error => toastError(error.message));
+  }
+  if (["overview", "daily", "trends", "projection"].includes(target)) loadCharts().then(() => { if (state.activeTab === target) renderAll(); }).catch(error => toastError(error.message));
   if (target === "overview") renderTrackingAlerts();
+  renderAll();
 }
 
 /* ═══ BOOT ═══ */
 async function init() {
   showGlobalLoader();
+  initWorkspace();
   hydrateAppIcons();
   bindModalDismiss();
   bindSidebarActions();
@@ -704,7 +849,8 @@ window.dashboard = {
   openSetupScreen,
   openReport,
   renderAll,
-  state
+  state,
+  ensureHistory, ensurePeriod
 };
 
 void init();

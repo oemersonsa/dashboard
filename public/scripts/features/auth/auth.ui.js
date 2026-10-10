@@ -140,6 +140,7 @@ export async function handleLogout() {
   state.auth = null;
   state.platforms = [];
   state.db = {};
+  state.periods = [];
   state.goals = {};
   window.dashboard.setActiveScreen("hub");
   window.dashboard.renderScreen();

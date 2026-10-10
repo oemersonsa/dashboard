@@ -1,60 +1,59 @@
-// public/scripts/ui/modal.js
+const origins = new Map();
+let bound = false;
+const focusable = root => [...root.querySelectorAll('button, input, select, textarea, a[href], [tabindex="0"]')]
+  .filter(el => !el.disabled && !el.hidden && el.getClientRects().length);
 
 export function openModal(id) {
-  const m = document.getElementById(id);
-  if (m) m.classList.add("open");
+  const overlay = document.getElementById(id);
+  if (!overlay || overlay.classList.contains("open")) return;
+  origins.set(id, document.activeElement);
+  const dialog = overlay.querySelector(".modal") || overlay.firstElementChild;
+  dialog.setAttribute("role", "dialog"); dialog.setAttribute("aria-modal", "true"); dialog.tabIndex = -1;
+  const title = dialog.querySelector(".mtitle, [id$='Title']");
+  if (title) { title.id ||= id + "Title"; dialog.setAttribute("aria-labelledby", title.id); }
+  overlay.querySelectorAll(".mclose").forEach(button => button.setAttribute("aria-label", "Fechar janela"));
+  overlay.classList.add("open");
+  document.querySelector(".app")?.setAttribute("inert", "");
+  document.body.style.overflow = "hidden";
+  (focusable(dialog)[0] || dialog).focus();
 }
 
 export function closeModal(id) {
-  const m = document.getElementById(id);
-  if (m) m.classList.remove("open");
-  if (id === "importBackupModal") {
-    document.querySelectorAll("[data-import-mode]").forEach((b) => {
-      b.classList.toggle("active", b.dataset.importMode === "merge");
-    });
+  const overlay = document.getElementById(id);
+  if (!overlay) return;
+  overlay.classList.remove("open");
+  window.dispatchEvent(new CustomEvent("dashboard:modal-closed", { detail: { id } }));
+  if (!document.querySelector(".moverlay.open")) {
+    document.querySelector(".app")?.removeAttribute("inert"); document.body.style.removeProperty("overflow");
   }
+  const origin = origins.get(id); origins.delete(id);
+  if (origin?.isConnected && origin.getClientRects().length) origin.focus();
+  if (id === "importBackupModal") document.querySelectorAll("[data-import-mode]").forEach(button => {
+    button.classList.toggle("active", button.dataset.importMode === "merge");
+  });
 }
 
-let bound = false;
-
 export function bindModalDismiss() {
-  if (bound) {
-    //console.log("[modal] já estava bound");
-    return;
-  }
+  if (bound) return;
   bound = true;
-
-  //console.log("[modal] bindModalDismiss: registrando listeners globais");
-
-  // Delegação: cobre qualquer modal, atual ou futuro
-  document.addEventListener("click", (event) => {
-    // 1. Clique em botão com data-close-modal
-    const closeBtn = event.target.closest("[data-close-modal]");
-    if (closeBtn) {
-      console.log("[modal] X clicado para:", closeBtn.dataset.closeModal);
-      event.preventDefault();
-      event.stopPropagation();
-      closeModal(closeBtn.dataset.closeModal);
-      return;
-    }
-
-    // 2. Clique no overlay (fora do .modal)
-    const overlay = event.target.closest(".moverlay");
-    if (overlay && event.target === overlay) {
-      //console.log("[modal] overlay clicado:", overlay.id);
-      closeModal(overlay.id);
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-close-modal]");
+    if (button) { event.preventDefault(); closeModal(button.dataset.closeModal); return; }
+    if (event.target.matches(".moverlay.open")) closeModal(event.target.id);
+  });
+  document.addEventListener("keydown", event => {
+    const overlay = [...document.querySelectorAll(".moverlay.open")].at(-1);
+    if (!overlay || event.defaultPrevented) return;
+    if (event.key === "Escape") { event.preventDefault(); closeModal(overlay.id); }
+    if (event.key === "Tab") {
+      const elements = focusable(overlay); const first = elements[0]; const last = elements.at(-1);
+      if (!first) { event.preventDefault(); overlay.firstElementChild.focus(); }
+      else if (event.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !overlay.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
     }
   });
-
-  // 3. ESC fecha
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    const openM = document.querySelector(".moverlay.open");
-    if (openM) {
-      //console.log("[modal] ESC fechou:", openM.id);
-      closeModal(openM.id);
-    }
+  document.addEventListener("focusin", event => {
+    const overlay = [...document.querySelectorAll(".moverlay.open")].at(-1);
+    if (overlay && !overlay.contains(event.target)) (focusable(overlay)[0] || overlay.firstElementChild).focus();
   });
-
-  //console.log("[modal] listeners registrados");
 }

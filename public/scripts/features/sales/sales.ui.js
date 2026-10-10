@@ -5,13 +5,15 @@
 import {
   state,
   saveState,
+  saveNavigation,
+  getAvailablePeriods,
   sortPeriodKeys,
   getPeriodYear,
   getPeriodMonth,
   getPeriodLabel,
   parsePeriodKey
 } from "../../core/state.js";
-import { R, RS, escapeHtml, escapeAttribute, alphaColor } from "../../core/format.js";
+import { R, RS, escapeHtml, escapeAttribute, alphaColor, parseMoney } from "../../core/format.js";
 import { DASH_HTML as dash, ALL_MONTHS, SHORT } from "../../core/constants.js";
 import { appIcon } from "../../ui/app-icons.js";
 import { platformBadge, platformIcon } from "../../ui/icons.js";
@@ -20,6 +22,7 @@ import { toast, toastSuccess, toastError } from "../../ui/toast.js";
 import { openModal, closeModal } from "../../ui/modal.js";
 import {
   calcTotals,
+  withTotalsCache,
   getComparisonPeriod,
   getWeekBuckets,
   getMonthDays,
@@ -47,7 +50,7 @@ export function init() {
   renderSaleInputs();
   renderTabs();
   const im = document.getElementById("inputMonth");
-  if (im) im.value = state.currentMonth;
+  if (im && !im.value) im.value = state.currentMonth;
   syncDateWithMonth();
   renderAll();
   const rm = document.getElementById("returnMonth");
@@ -58,19 +61,21 @@ export function init() {
 
 /* ═══ RENDER ALL ═══ */
 export function renderAll() {
+  return withTotalsCache(renderActivePanel);
+}
+function renderActivePanel() {
   renderTrackingAlerts();
   if (!state.platforms.length || !state.db[state.currentMonth]) return;
-  renderKPIs();
-  renderOverviewTrend();
-  renderComparePicker();
-  renderDailyChart();
-  renderDailyTable();
-  renderPlatformBars();
-  renderWeekly(state.currentMonth);
-  renderBestDays();
-  renderPlatformTable();
-  renderMonthCompare();
-  initProjection();
+  const tab = state.activeTab || "overview";
+  if (tab === "overview") {
+    renderKPIs(); renderOverviewTrend(); renderPlatformBars(); renderOverviewRecent();
+    renderBestDays(); renderPlatformTable(); renderMonthCompare();
+  } else if (tab === "daily") {
+    renderComparePicker(); renderDailyChart();
+    renderOverviewRecent("dailyInlineTable", Infinity);
+    if (document.getElementById("dailyDetailsModal")?.classList.contains("open")) renderDailyTable();
+  } else if (tab === "weekly") renderWeekly(state.currentMonth);
+  else if (tab === "projection") initProjection();
 }
 
 export function renderTrackingAlerts() {
@@ -92,14 +97,15 @@ export function renderTrackingAlerts() {
           ? "Meta em atenção"
           : "Meta em risco";
     alerts.push(`<div class="goal-progress-alert" role="status">
-      <span class="metric-icon blue">${appIcon("target")}</span>
-      <div class="goal-progress-heading"><strong>Meta do mês</strong><span>${p.percent.toFixed(0)}% concluído</span></div>
-      <div class="goal-progress-track" role="progressbar" aria-label="Progresso da meta de vendas líquidas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, Math.max(0, p.percent)).toFixed(1)}"><div class="goal-progress-fill" style="width:${progressWidth}%"></div></div>
+      <div class="goal-progress-heading"><strong>${appIcon("target")}Meta mensal de vendas</strong><span>${R(p.target)}</span></div>
+      <strong class="goal-progress-percent">${p.percent.toFixed(0)}%</strong>
+      <div class="goal-progress-track" role="progressbar" aria-label="Progresso da meta de vendas após devoluções" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, Math.max(0, p.percent)).toFixed(1)}"><div class="goal-progress-fill" style="width:${progressWidth}%"></div></div>
       <div class="goal-progress-stat"><span>Realizado</span><strong>${R(p.realized)}</strong></div>
-      <div class="goal-progress-stat"><span>Meta</span><strong>${R(p.target)}</strong></div>
       <div class="goal-progress-stat"><span>Faltam</span><strong>${R(p.remaining)}</strong></div>
-      <span class="goal-status-chip" style="color:${colorVar}" title="Projeção: ${R(p.projected)}"><i></i>${statusCopy}</span>
+      <span class="goal-status-chip" style="color:${colorVar}"><i></i>${statusCopy}<small>Projeção: ${R(p.projected)}</small></span>
     </div>`);
+  } else {
+    alerts.push(`<div class="goal-progress-alert"><div class="goal-progress-heading"><strong>${appIcon("target")}Meta mensal de vendas</strong></div><p class="goal-empty">Defina uma meta de vendas após devoluções para acompanhar seu progresso.</p><button class="btn btn-secondary" data-dashboard-open="projection" type="button">Definir meta</button></div>`);
   }
 
   const comparison = getComparisonPeriod(state.currentMonth);
@@ -141,6 +147,13 @@ export function renderTrackingAlerts() {
 
   el.innerHTML = alerts.join("");
   el.hidden = alerts.length === 0;
+}
+
+function renderOverviewRecent(id = "overviewRecentTable", limit = 5) {
+  const table = document.getElementById(id);
+  if (!table) return;
+  const days = [...(state.db[state.currentMonth]?.days || [])].sort((a, b) => Number(b.d.slice(0, 2)) - Number(a.d.slice(0, 2))).slice(0, limit);
+  table.innerHTML = `<thead><tr><th>Data</th>${state.platforms.filter(p => !p.archived).map(p => `<th>${escapeHtml(p.name)}</th>`).join("")}<th>Total de vendas</th><th>Pedidos</th></tr></thead><tbody>${days.map(day => `<tr><td>${escapeHtml(day.d)}/${state.currentMonth.slice(0, 4)}</td>${state.platforms.filter(p => !p.archived).map(p => `<td>${R(Number(day[p.key] || 0))}</td>`).join("")}<td><strong>${R(state.platforms.reduce((sum, p) => sum + Number(day[p.key] || 0), 0))}</strong></td><td>${state.platforms.reduce((sum, p) => sum + Number(day[`orders_${p.key}`] || 0), 0)}</td></tr>`).join("") || `<tr><td colspan="${state.platforms.filter(p => !p.archived).length + 3}">Nenhuma venda registrada neste mês.</td></tr>`}</tbody>`;
 }
 
 /* ═══ KPIs ═══ */
@@ -202,13 +215,13 @@ function renderKPIs() {
       ${context ? `<p>${escapeHtml(context)}</p>` : ""}
       ${allocatedReturns ? "<p>Devoluções proporcionais às vendas no recorte de dias.</p>" : ""}
     </div>`;
-    return `<article class="kpi-card ${cls}" tabindex="0" aria-describedby="${id}"><span class="metric-icon ${color}">${appIcon(icon)}</span><div class="kpi-body"><div class="kpi-label">${name}</div><strong class="kpi-value">${count ? detailFormat(current) : RS(current)}</strong><div class="kpi-change">${change}</div></div>${tooltip}</article>`;
+    return `<article class="kpi-card ${cls}" tabindex="0" aria-describedby="${id}"><span class="metric-icon ${color}">${appIcon(icon)}</span><div class="kpi-body"><div class="kpi-label">${name}</div><strong class="kpi-value">${count ? detailFormat(current) : R(current)}</strong><div class="kpi-change">${change}</div></div>${tooltip}</article>`;
   };
   el.innerHTML = [
     metric("Pedidos", t.orders, pt?.orders, "orders", "blue", "kpi-card--volume", "", false, true),
     metric("Vendas brutas", t.gross, pt?.gross, "money", "green", "kpi-card--gross", "Soma das vendas antes das devoluções"),
     metric("Devoluções", t.totalRet, pt?.totalRet, "returns", "red", "kpi-card--returns", "", true),
-    metric("Vendas líquidas", t.net, pt?.net, "report", "blue", "kpi-card--net", "Bruto menos devoluções. Não desconta taxas ou custos"),
+    metric("Vendas após devoluções", t.net, pt?.net, "report", "blue", "kpi-card--net", "Bruto menos devoluções. Não desconta taxas ou custos"),
     metric("Ticket médio", t.orders > 0 ? t.gross / t.orders : 0, pt?.orders > 0 ? pt.gross / pt.orders : 0, "ticket", "purple", "kpi-card--ticket", "Vendas brutas divididas pelo número de pedidos")
   ].join("");
 }
@@ -252,7 +265,18 @@ function renderOverviewTrend() {
     const last = bucket[bucket.length - 1].label;
     grouped.push({
       label: overviewTrendPeriod === "month" && bucketSize === 30 ? getPeriodLabel(state.currentMonth) : bucketSize === 1 ? first : `${first}–${last}`,
-      value: bucket.reduce((total, item) => total + item.gross, 0)
+      value: bucket.reduce((total, item) => total + item.gross, 0),
+      previous: bucket.reduce((total, item) => {
+        const prior = new Date(item.date);
+        if (overviewTrendPeriod === "month") {
+          const day = prior.getDate(); prior.setDate(1); prior.setMonth(prior.getMonth() - 1);
+          const last = new Date(prior.getFullYear(), prior.getMonth() + 1, 0).getDate();
+          if (day > last) return total;
+          prior.setDate(day);
+        } else prior.setDate(prior.getDate() - 30);
+        const period = `${prior.getFullYear()}-${ALL_MONTHS[prior.getMonth()]}`;
+        return state.db[period] ? (total ?? 0) + getOverviewTrendDay(prior).gross : total;
+      }, null)
     });
   }
 
@@ -279,28 +303,29 @@ function renderOverviewTrend() {
   }
 
   if (typeof Chart === "undefined") return;
-  if (overviewTrendChart) overviewTrendChart.destroy();
   const css = getComputedStyle(document.body);
   const gridColor = css.getPropertyValue("--border").trim() || "rgba(128,128,128,.18)";
   const mutedColor = css.getPropertyValue("--muted").trim() || "#86868b";
   const accentColor = css.getPropertyValue("--accent").trim() || "#e8ff47";
-  overviewTrendChart = new Chart(canvas.getContext("2d"), {
-    type: "line",
+  const config = {
+    type: "bar",
     data: {
       labels: grouped.map((item) => item.label),
       datasets: [{
         label: "Vendas brutas",
         data: grouped.map((item) => item.value),
         borderColor: accentColor,
-        backgroundColor: `${accentColor}20`,
-        borderWidth: 2,
+        backgroundColor: `${accentColor}cc`,
+        borderWidth: 0,
+        borderRadius: 3,
+        maxBarThickness: 15,
         tension: 0.32,
         fill: true,
         pointRadius: 2,
         pointHoverRadius: 4,
         pointBackgroundColor: accentColor,
         pointBorderColor: accentColor
-      }]
+      }, ...(grouped.some(item => item.previous !== null) ? [{ type: "line", label: "Período anterior", data: grouped.map(item => item.previous), borderColor: mutedColor, borderDash: [5, 5], borderWidth: 2, pointRadius: 2, tension: .25, fill: false }] : [])]
     },
     options: {
       responsive: true,
@@ -308,15 +333,20 @@ function renderOverviewTrend() {
       animation: { duration: 350 },
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (item) => `Vendas brutas: ${RS(Number(item.raw || 0))}` } }
+        legend: { display: grouped.some(item => item.previous !== null), labels: { color: mutedColor, usePointStyle: true, boxWidth: 8 } },
+        tooltip: { callbacks: { label: (item) => `${item.dataset.label}: ${R(Number(item.raw || 0))}` } }
       },
       scales: {
         x: { grid: { display: false }, ticks: { color: mutedColor, maxTicksLimit: bucketSize === 1 ? 10 : 8, maxRotation: 0 }, border: { display: false } },
         y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: mutedColor, callback: (value) => Number(value) >= 1000 ? `R$ ${(Number(value) / 1000).toLocaleString("pt-BR")}k` : `R$ ${Number(value).toLocaleString("pt-BR")}` }, border: { display: false } }
       }
     }
-  });
+  };
+  if (overviewTrendChart) {
+    overviewTrendChart.data = config.data;
+    overviewTrendChart.options = config.options;
+    overviewTrendChart.update("none");
+  } else overviewTrendChart = new Chart(canvas.getContext("2d"), config);
 }
 
 function getOverviewTrendDay(date) {
@@ -438,7 +468,7 @@ function renderDailyChartLegend(platforms) {
 function renderDailyChart() {
   const data = state.db[state.currentMonth];
   const c = document.getElementById("dailyChart");
-  if (!c || !data) return;
+  if (!c || !data || !window.Chart) return;
 
   // ⬇️ Mostra skeleton antes de desenhar
   showChartSkeleton("dailyChart");
@@ -469,11 +499,13 @@ function renderDailyChart() {
 
   // ─── Sem dados para mostrar? ───
   const ctx = c.getContext("2d");
-  if (dailyChart) dailyChart.destroy();
+
 
   if (!platformsWithData.length || !data.days.length) {
+    if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     renderDailyChartLegend([]);
+    hideChartSkeleton("dailyChart");
     return;
   }
 
@@ -583,7 +615,7 @@ function renderDailyChart() {
   const gridColor = css.getPropertyValue("--border").trim() || "rgba(0,0,0,0.06)";
   const mutedColor = css.getPropertyValue("--muted-2").trim() || "#6e6e73";
 
-  dailyChart = new Chart(ctx, {
+  const config = {
     type: "bar",
     data: {
       labels: data.days.map((d) => d.d),
@@ -686,7 +718,12 @@ function renderDailyChart() {
         }
       }
     }
-  });
+  };
+  if (dailyChart) {
+    dailyChart.data = config.data;
+    dailyChart.options = config.options;
+    dailyChart.update("none");
+  } else dailyChart = new Chart(ctx, config);
 
   // ─── Legenda HTML ───
   renderDailyChartLegend(sorted);
@@ -729,8 +766,8 @@ function renderDailyTable() {
     return `<tr><td>${d.d}</td>${active.map((p) => {
       const v = Number(d[p.key] || 0);
       const ov = Math.max(0, Math.round(Number(d[`orders_${p.key}`] || 0)));
-      return `<td><span class="ceditable${v === 0 ? " czero" : ""}" contenteditable="true" data-day-index="${di}" data-platform-key="${p.key}">${v === 0 ? "-" : v.toFixed(2)}</span></td>` +
-        `<td><span class="ceditable${ov === 0 ? " czero" : ""}" contenteditable="true" data-day-index="${di}" data-platform-key="orders_${p.key}">${ov === 0 ? "-" : ov}</span></td>`;
+      return `<td><input class="ceditable finput" type="text" inputmode="decimal" aria-label="${escapeAttribute(p.name)} vendas em ${escapeAttribute(d.d)}" data-day-index="${di}" data-platform-key="${escapeAttribute(p.key)}" value="${v.toFixed(2)}"></td>` +
+        `<td><input class="ceditable finput" type="number" inputmode="numeric" min="0" step="1" aria-label="${escapeAttribute(p.name)} pedidos em ${escapeAttribute(d.d)}" data-day-index="${di}" data-platform-key="orders_${escapeAttribute(p.key)}" value="${ov}"></td>`;
     }).join("")}<td style="color:var(--muted2);font-size:11px">${rt > 0 ? RS(rt) : "-"}</td></tr>`;
   }).join("");
 
@@ -750,7 +787,7 @@ function renderPlatformBars() {
    // Se ainda não tem dados, mostra skeleton
   const hasData = Object.values(totals.sales || {}).some((v) => Number(v) > 0);
   if (!hasData) {
-    showPlatformBarsSkeleton(5);
+    c.innerHTML = '<div class="empty-state"><p>Ainda não há vendas neste mês.</p><button type="button" class="btn btn-primary" data-dashboard-tab="entries">Registrar vendas</button><button type="button" class="btn btn-secondary" data-open-sales-import>Importar planilha</button></div>';
     return;
   }
 
@@ -774,30 +811,14 @@ function renderPlatformBars() {
   const totalReturns = rows.reduce((s, r) => s + r.returns, 0);
 
   c.innerHTML = `
-    <div class="pb-table-head" aria-hidden="true">
-      <span>Plataforma</span><span>Vendas brutas</span><span>Devoluções</span><span>Vendas líquidas</span>
-    </div>
-    <div class="pb-list">${rows.map(({ platform, gross, returns, net }) => {
+    <div class="marketplace-list">${rows.map(({ platform, gross, returns, net }) => {
     const wp = max > 0 ? (net / max) * 100 : 0;
     const returnRate = gross > 0 ? (returns / gross) * 100 : 0;
     return `
-      <div class="pb-entry">
-        <div class="pb-row">
-          <div class="pb-name">${platformIcon(platform)}<span>${escapeHtml(platform.name)}</span></div>
-          <div class="pb-cell pb-gross"><span class="pb-mobile-label">Vendas brutas</span><span>${R(gross)}</span></div>
-          <div class="pb-cell pb-returns"><span class="pb-mobile-label">Devoluções</span><span>${returns > 0 ? R(returns) : "—"}</span>${returns > 0 ? `<em>${returnRate.toFixed(1)}%</em>` : ""}</div>
-          <div class="pb-cell pb-net"><span class="pb-mobile-label">Vendas líquidas</span><strong>${R(net)}</strong></div>
-        </div>
-        <div class="pb-track" role="img" aria-label="Líquido equivalente a ${wp.toFixed(0)}% do maior valor entre plataformas"><div class="pb-fill" style="width:${wp.toFixed(1)}%;background:${getPlatformVisualColor(platform)}"></div></div>
-      </div>
+      <div class="marketplace-item" title="Vendas brutas: ${R(gross)} · Devoluções: ${R(returns)} (${returnRate.toFixed(1)}%)">${platformIcon(platform)}<div class="marketplace-data"><div><span>${escapeHtml(platform.name)}</span><strong>${R(net)}</strong></div><div class="marketplace-track"><span><i style="width:${wp.toFixed(1)}%;background:${getPlatformVisualColor(platform)}"></i></span><small>${totals.net > 0 ? (net / totals.net * 100).toFixed(1) : "0,0"}%</small></div></div></div>
     `;
   }).join("")}</div>
-    <div class="pb-total">
-      <span class="pb-total-label">Total do mês</span>
-      <span class="pb-total-gross"><strong>${R(totalGross)}</strong><small>em vendas</small></span>
-      <span class="pb-total-returns"><strong>${R(totalReturns)}</strong><small>em devoluções</small></span>
-      <span class="pb-total-net"><strong>${R(totalGross - totalReturns)}</strong><small>líquido</small></span>
-    </div>
+    <p class="marketplace-note">Vendas após devoluções · total ${R(totalGross - totalReturns)}</p>
   `;
 }
 
@@ -907,24 +928,87 @@ function renderMonthCompare() {
 }
 
 /* ═══ SALE INPUTS ═══ */
+let inputSignature = "";
+let inputOwner = "";
+let undoEntry = null;
+const draftKey = () => `kanri-sales-draft:${state.auth?.username || ""}`;
+
 export function renderSaleInputs() {
   const el = document.getElementById("saleInputs");
   if (!el) return;
-  el.innerHTML = state.platforms.filter((p) => !p.archived).map((p) => `
-    <div class="fg">
-      <label class="flabel">${platformBadge(p)}</label>
-      <input type="number" class="finput" id="sale_${escapeAttribute(p.key)}" placeholder="0,00" step="0.01" min="0">
-    </div>
-    <div class="fg">
-      <label class="flabel">${platformBadge(p, true)}</label>
-      <input type="number" class="finput" id="orders_${escapeAttribute(p.key)}" placeholder="0" step="1" min="0">
-    </div>
-  `).join("");
+  const signature = JSON.stringify([state.auth?.username, state.platforms.filter(p => !p.archived)]);
+  if (signature === inputSignature) return;
+  if (inputOwner !== state.auth?.username) {
+    document.getElementById("inputDate").value = "";
+    document.getElementById("saleEntryMode").value = "add";
+    inputOwner = state.auth?.username;
+  }
+  inputSignature = signature;
+  undoEntry = null;
+  document.getElementById("undoSaleButton").hidden = true;
+  document.getElementById("undoDailyEntryButton").hidden = true;
+  el.innerHTML = '<div class="sales-column-labels" aria-hidden="true"><span>Plataforma</span><span>Vendas (R$)</span><span>Pedidos</span></div>' + state.platforms.filter(p => !p.archived).map(p => `
+    <div class="sale-platform-row">
+      <div class="sale-platform-name">${platformBadge(p)}</div>
+      <div class="fg"><label class="flabel" for="sale_${escapeAttribute(p.key)}">Vendas (R$)</label>
+      <input type="text" inputmode="decimal" class="finput" id="sale_${escapeAttribute(p.key)}" placeholder="0,00" aria-describedby="saleEntryError"></div>
+      <div class="fg"><label class="flabel" for="orders_${escapeAttribute(p.key)}">Pedidos</label>
+      <input type="number" inputmode="numeric" class="finput" id="orders_${escapeAttribute(p.key)}" placeholder="0" step="1" min="0" aria-describedby="saleEntryError"></div>
+    </div>`).join("");
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(draftKey()) || "{}");
+    for (const [id, value] of Object.entries(draft)) {
+      const input = document.getElementById(id);
+      if (input && (id.startsWith("sale_") || id.startsWith("orders_") || ["inputDate", "inputMonth", "saleEntryMode"].includes(id))) input.value = value;
+    }
+  } catch {}
+}
+
+function persistSaleDraft() {
+  const draft = {};
+  document.querySelectorAll("#saleInputs input, #inputDate, #inputMonth, #saleEntryMode").forEach(input => { draft[input.id] = input.value; });
+  sessionStorage.setItem(draftKey(), JSON.stringify(draft));
+  renderEntryPreview();
+}
+
+function getEntryChanges() {
+  const changes = {};
+  for (const p of state.platforms.filter(p => !p.archived)) {
+    for (const [id, key, orders] of [[`sale_${p.key}`, p.key, false], [`orders_${p.key}`, `orders_${p.key}`, true]]) {
+      const input = document.getElementById(id);
+      input?.removeAttribute("aria-invalid");
+      if (!input?.value.trim()) continue;
+      const value = orders ? Number(input.value) : parseMoney(input.value);
+      if (!Number.isFinite(value) || value < 0 || (orders && !Number.isInteger(value))) {
+        input.setAttribute("aria-invalid", "true");
+        throw new Error(`${p.name}: informe ${orders ? "uma quantidade inteira de pedidos" : "um valor válido, como 1.234,56"}, maior ou igual a zero.`);
+      }
+      changes[key] = value;
+    }
+  }
+  return changes;
+}
+
+function renderEntryPreview() {
+  const el = document.getElementById("saleEntryPreview");
+  const error = document.getElementById("saleEntryError");
+  if (!el || !error) return;
+  error.hidden = true;
+  try {
+    const date = document.getElementById("inputDate").value.split("-");
+    const month = document.getElementById("inputMonth").value;
+    const existing = state.db[month]?.days?.find(day => day.d === `${date[2]}/${date[1]}`) || {};
+    const changes = getEntryChanges();
+    const adding = document.getElementById("saleEntryMode").value === "add";
+    const active = state.platforms.filter(p => !p.archived);
+    const result = key => key in changes ? (adding ? Number(existing[key] || 0) : 0) + changes[key] : Number(existing[key] || 0);
+    el.innerHTML = `<table><thead><tr><th>Plataforma</th><th>Atual</th><th>Após lançamento</th></tr></thead><tbody>${active.map(p => `<tr><td>${platformBadge(p)}</td><td>${R(Number(existing[p.key] || 0))}</td><td><strong>${R(result(p.key))}</strong></td></tr>`).join("")}</tbody></table><div class="entry-summary"><div><span>Total de vendas do dia</span><strong>${R(active.reduce((sum, p) => sum + result(p.key), 0))}</strong></div><div><span>Pedidos do dia</span><strong>${active.reduce((sum, p) => sum + result(`orders_${p.key}`), 0)}</strong></div></div>${Object.keys(changes).length ? "" : '<p class="card-sub">Preencha vendas ou pedidos para conferir o resultado antes de registrar.</p>'}`;
+  } catch (err) { error.textContent = err.message; error.hidden = false; el.replaceChildren(); }
 }
 
 /* ═══ TABS / PERÍODO ═══ */
 export function renderTabs() {
-  const am = sortPeriodKeys([...new Set([...Object.keys(state.db), state.currentMonth])]);
+  const am = sortPeriodKeys([...new Set([...getAvailablePeriods(), state.currentMonth])]);
   const combined = document.getElementById("dashboardPeriodSelect");
   if (combined) { combined.innerHTML = am.map(period => `<option value="${escapeAttribute(period)}">${escapeHtml(getPeriodLabel(period))}</option>`).join(""); combined.value = state.currentMonth; }
   const cy = getPeriodYear(state.currentMonth);
@@ -957,7 +1041,8 @@ export function renderTabs() {
 
   ["inputMonth", "returnMonth"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.innerHTML = opts;
+    const previous = el?.value;
+    if (el) { el.innerHTML = opts; if (am.includes(previous)) el.value = previous; }
   });
 }
 
@@ -973,23 +1058,29 @@ export function syncDateWithMonth() {
   const today = new Date();
   const d = Math.min(today.getDate(), getMonthDays(m));
   const suggested = `${p.year}-${String(mi + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  if (di.value !== suggested) di.value = suggested;
+  const prefix = `${p.year}-${String(mi + 1).padStart(2, "0")}-`;
+  di.min = `${prefix}01`;
+  di.max = `${prefix}${getMonthDays(m)}`;
+  if (!di.value.startsWith(prefix)) di.value = suggested;
+  renderEntryPreview();
 }
 
-export function switchMonth(month) {
+export async function switchMonth(month) {
+  try { await window.dashboard.ensurePeriod(month); } catch (error) { toastError(error.message); return; }
   state.currentMonth = month;
-  saveState();
+  saveNavigation();
   renderTabs();
   const im = document.getElementById("inputMonth");
   if (im) im.value = month;
   syncDateWithMonth();
   renderAll();
+  window.dispatchEvent(new CustomEvent("dashboard:period-changed"));
 }
 
 export function switchDashboardPeriod(year, month) {
   const period = `${Number(year)}-${month}`;
-  if (!state.db[period] && period !== state.currentMonth) return;
-  switchMonth(period);
+  if (!getAvailablePeriods().includes(period)) return;
+  return switchMonth(period);
 }
 
 /* ═══ MODAL DE MÊS ═══ */
@@ -1000,7 +1091,7 @@ export function openAddMonth() {
   if (yi) yi.value = cy;
   refreshMonthPickerForYear();
   const m = document.getElementById("addMonthModal");
-  if (m) m.classList.add("open");
+  if (m) openModal("addMonthModal");
 }
 
 export function refreshMonthPickerForYear() {
@@ -1036,6 +1127,7 @@ export function confirmAddMonth() {
   const year = Number(
     document.getElementById("periodYearInput")?.value || getPeriodYear(state.currentMonth)
   );
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return toastError("Informe um ano entre 2000 e 2100.");
   const period = `${year}-${newMonthSel}`;
   if (!state.db[period]) state.db[period] = { days: [], returns: {} };
   state.currentMonth = period;
@@ -1044,6 +1136,7 @@ export function confirmAddMonth() {
   renderTabs();
   renderAll();
   toastSuccess(`${getPeriodLabel(period)} criado`);
+  window.dispatchEvent(new CustomEvent("dashboard:period-changed"));
 }
 
 /* ═══ HELPERS ═══ */
@@ -1075,8 +1168,10 @@ function bindEvents() {
 
   const compareSel = document.getElementById("dailyCompareMonth");
   if (compareSel) {
-    compareSel.addEventListener("change", (e) => {
-      compareMonthKey = e.target.value;
+    compareSel.addEventListener("change", async (e) => {
+      const requested = e.target.value;
+      try { if (requested) await window.dashboard.ensureHistory([requested]); } catch (error) { toastError(error.message); return; }
+      compareMonthKey = requested;
       renderDailyChart();
     });
   }
@@ -1125,11 +1220,10 @@ function bindEvents() {
     });
   }
 
-  document.getElementById("inputMonth")?.addEventListener("change", syncDateWithMonth);
-  // ... resto do bindEvents continua igual
-
-
-  document.getElementById("inputMonth")?.addEventListener("change", syncDateWithMonth);
+  document.getElementById("inputMonth")?.addEventListener("change", async () => {
+    const month = document.getElementById("inputMonth").value;
+    try { await window.dashboard.ensureHistory([month]); syncDateWithMonth(); persistSaleDraft(); } catch (error) { toastError(error.message); }
+  });
 
   document.querySelectorAll(".itab").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1140,21 +1234,30 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll("#saleInputs, #inputDate, #inputMonth, #saleEntryMode").forEach(el => {
+    el.addEventListener("input", persistSaleDraft);
+    el.addEventListener("change", persistSaleDraft);
+  });
+  document.getElementById("undoSaleButton")?.addEventListener("click", undoLastEntry);
+  document.getElementById("undoDailyEntryButton")?.addEventListener("click", undoLastEntry);
   document.getElementById("registerSaleButton")?.addEventListener("click", addSale);
   document.getElementById("clearSaleButton")?.addEventListener("click", clearSale);
   document.getElementById("openDailyDetailsButton")
-    ?.addEventListener("click", () => openModal("dailyDetailsModal"));
+    ?.addEventListener("click", () => { renderDailyTable(); openModal("dailyDetailsModal"); });
 
   const dt = document.getElementById("dailyDetailsTable");
   if (dt) {
     dt.addEventListener("focusin", (e) => {
       const cell = e.target.closest(".ceditable");
       if (!cell) return;
-      const r = document.createRange();
-      r.selectNodeContents(cell);
-      const s = window.getSelection();
-      s.removeAllRanges();
-      s.addRange(r);
+      cell.dataset.originalValue = cell.value;
+      cell.select();
+    });
+    dt.addEventListener("keydown", event => {
+      const cell = event.target.closest(".ceditable");
+      if (!cell) return;
+      if (event.key === "Escape" && cell.value !== cell.dataset.originalValue) { event.preventDefault(); event.stopPropagation(); cell.value = cell.dataset.originalValue; cell.blur(); }
+      if (event.key === "Enter") { event.preventDefault(); cell.blur(); }
     });
     dt.addEventListener("blur", (e) => {
       const cell = e.target.closest(".ceditable");
@@ -1164,7 +1267,11 @@ function bindEvents() {
   }
 }
 
-function addSale() {
+async function addSale() {
+  const button = document.getElementById("registerSaleButton");
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
   const mEl = document.getElementById("inputMonth");
   const dEl = document.getElementById("inputDate");
   if (!mEl || !dEl) return;
@@ -1182,41 +1289,43 @@ function addSale() {
     return toast("A data foi ajustada para o período selecionado");
   }
 
+  try { await window.dashboard.ensureHistory([month]); } catch (error) { return toastError(error.message); }
   if (!state.db[month]) state.db[month] = { days: [], returns: {} };
   const label = `${parts[2]}/${parts[1]}`;
-  const entry = { d: label };
-  let hasValue = false;
-
-  state.platforms.forEach((p) => {
-    const v = parseFloat(document.getElementById(`sale_${p.key}`)?.value || 0) || 0;
-    entry[p.key] = v;
-    const o = Math.max(0, Math.round(parseFloat(document.getElementById(`orders_${p.key}`)?.value || 0) || 0));
-    entry[`orders_${p.key}`] = o;
-    if (v > 0) hasValue = true;
-  });
-
-  if (!hasValue) return toastError("Insira ao menos um valor");
-
-  const ei = state.db[month].days.findIndex((d) => d.d === label);
-  if (ei >= 0) {
-    state.platforms.forEach((p) => {
-      state.db[month].days[ei][p.key] = Number(state.db[month].days[ei][p.key] || 0) + Number(entry[p.key] || 0);
-      const ok = `orders_${p.key}`;
-      state.db[month].days[ei][ok] = Math.max(0, Math.round(Number(state.db[month].days[ei][ok] || 0) + Number(entry[ok] || 0)));
-    });
-  } else {
-    state.db[month].days.push(entry);
-    state.db[month].days.sort((a, b) => {
-      const [da, ma] = (a.d || "").split("/").map(Number);
-      const [db, mb] = (b.d || "").split("/").map(Number);
-      return ma !== mb ? ma - mb : da - db;
-    });
-  }
+  let changes;
+  try { changes = getEntryChanges(); } catch (error) { renderEntryPreview(); return toastError(error.message); }
+  if (!Object.keys(changes).length) return toastError("Preencha ao menos um valor ou quantidade de pedidos");
+  const ei = state.db[month].days.findIndex(d => d.d === label);
+  const before = ei >= 0 ? structuredClone(state.db[month].days[ei]) : null;
+  const entry = before ? { ...before } : { d: label };
+  const adding = document.getElementById("saleEntryMode").value === "add";
+  for (const [key, value] of Object.entries(changes)) entry[key] = adding ? Math.round((Number(entry[key] || 0) + value) * 100) / 100 : value;
+  if (ei >= 0) state.db[month].days[ei] = entry;
+  else state.db[month].days.push(entry);
+  state.db[month].days.sort((a, b) => Number(a.d.slice(0, 2)) - Number(b.d.slice(0, 2)));
+  undoEntry = { owner: state.auth?.username, month, label, before, after: structuredClone(entry) };
+  document.getElementById("undoSaleButton").hidden = false;
+  document.getElementById("undoDailyEntryButton").hidden = false;
 
   saveState();
   if (month === state.currentMonth) renderAll();
   clearSale();
   toastSuccess(`Vendas registradas em ${getPeriodLabel(month)}`);
+  } finally { button.disabled = false; }
+}
+
+function undoLastEntry() {
+  if (!undoEntry || undoEntry.owner !== state.auth?.username) return;
+  const { month, label, before, after } = undoEntry;
+  const days = state.db[month]?.days;
+  const index = days?.findIndex(day => day.d === label);
+  if (index === undefined || index < 0 || JSON.stringify(days[index]) !== JSON.stringify(after)) return toastError("Esse lançamento mudou desde a última edição. Confira os valores antes de alterar.");
+  if (before) days[index] = before;
+  else days.splice(index, 1);
+  undoEntry = null;
+  document.getElementById("undoSaleButton").hidden = true;
+  document.getElementById("undoDailyEntryButton").hidden = true;
+  saveState(); renderAll(); renderEntryPreview(); toastSuccess("Alteração desfeita");
 }
 
 function clearSale() {
@@ -1226,13 +1335,26 @@ function clearSale() {
     const o = document.getElementById(`orders_${p.key}`);
     if (o) o.value = "";
   });
+  persistSaleDraft();
 }
 
 function updateCell(di, key, el) {
-  const rv = parseFloat((el.textContent || "").replace(/[^0-9.,]/g, "").replace(",", ".")) || 0;
+  const rv = parseMoney(el.value ?? el.textContent);
+  if (!Number.isFinite(rv) || rv < 0) {
+    el.setAttribute("aria-invalid", "true");
+    toastError("Informe um valor válido, como 1.234,56, maior ou igual a zero.");
+    return;
+  }
   const isOrder = key === "orders" || key.startsWith("orders_");
+  if (isOrder && !Number.isInteger(rv)) return toastError("Informe uma quantidade inteira de pedidos.");
   const v = isOrder ? Math.max(0, Math.round(rv)) : rv;
+  if (Number(state.db[state.currentMonth].days[di][key] || 0) === v) return;
+  el.removeAttribute("aria-invalid");
+  const before = structuredClone(state.db[state.currentMonth].days[di]);
   state.db[state.currentMonth].days[di][key] = v;
+  undoEntry = { owner: state.auth?.username, month: state.currentMonth, label: before.d, before, after: structuredClone(state.db[state.currentMonth].days[di]) };
+  document.getElementById("undoSaleButton").hidden = false;
+  document.getElementById("undoDailyEntryButton").hidden = false;
   saveState();
   renderAll();
   toastSuccess("Valor atualizado");

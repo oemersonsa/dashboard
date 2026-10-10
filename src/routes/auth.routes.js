@@ -21,7 +21,7 @@ async function login(req, res) {
   }
 
   const user = await auth.getUser(username);
-  if (!user || user.provider !== "local" || !auth.verifyPassword(password, user.passwordHash)) {
+  if (!user || user.provider !== "local" || !await auth.verifyPassword(password, user.passwordHash)) {
     return sendJson(res, 401, { error: "invalid_credentials" });
   }
 
@@ -49,7 +49,7 @@ async function register(req, res) {
 
   await auth.saveUser(username, {
     provider: "local",
-    passwordHash: auth.hashPassword(password),
+    passwordHash: await auth.hashPassword(password),
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
@@ -75,7 +75,7 @@ async function migrateLocal(req, res) {
   if (!existing) {
     await auth.saveUser(username, {
       provider: "local",
-      passwordHash: auth.hashPassword(password),
+      passwordHash: await auth.hashPassword(password),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
@@ -84,7 +84,7 @@ async function migrateLocal(req, res) {
   if (existing.provider !== "local") {
     return sendJson(res, 409, { error: "provider_mismatch" });
   }
-  if (!auth.verifyPassword(password, existing.passwordHash)) {
+  if (!await auth.verifyPassword(password, existing.passwordHash)) {
     return sendJson(res, 409, { error: "migration_password_mismatch" });
   }
   sendJson(res, 200, { ok: true, migrated: false });
@@ -168,13 +168,13 @@ async function changePassword(req, res, authenticatedUser) {
   if (!user || user.provider !== "local") {
     return sendJson(res, 404, { error: "local_user_not_found" });
   }
-  if (!auth.verifyPassword(currentPassword, user.passwordHash)) {
+  if (!await auth.verifyPassword(currentPassword, user.passwordHash)) {
     return sendJson(res, 401, { error: "invalid_current_password" });
   }
 
   await auth.saveUser(username, {
     ...user,
-    passwordHash: auth.hashPassword(newPassword),
+    passwordHash: await auth.hashPassword(newPassword),
     updatedAt: new Date().toISOString()
   });
 

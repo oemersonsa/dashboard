@@ -47,6 +47,10 @@ export function sortPeriodKeys(periods) {
   });
 }
 
+export function getAvailablePeriods() {
+  return sortPeriodKeys([...new Set([...(state.periods || []), ...Object.keys(state.db), state.currentMonth].filter(Boolean))]);
+}
+
 export function normalizeMonthName(month) {
   const raw = String(month || "").trim();
   if (!raw) return getDefaultMonth();
@@ -329,6 +333,18 @@ export function saveState(options = {}) {
   if (!options.localOnly) {
     window.dispatchEvent(new CustomEvent("dashboard:save-request"));
   }
+}
+
+export function saveNavigation() {
+  const username = loadSession()?.username;
+  if (username) localStorage.setItem(`dashboard-navigation-v1:${username}`, JSON.stringify({
+    currentMonth: state.currentMonth, currentScreen: state.currentScreen, activeTab: state.activeTab
+  }));
+}
+
+export function loadNavigation() {
+  try { return JSON.parse(localStorage.getItem(`dashboard-navigation-v1:${loadSession()?.username}`) || "{}"); }
+  catch { return {}; }
 }
 
 export function getBusinessSnapshot() {

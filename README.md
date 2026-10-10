@@ -13,8 +13,10 @@ O nome do pacote permanece `dashboard-vendas`, atualmente na versão `5.0.0`.
 - Tela inicial com resumo do mês, vendas, pedidos, devoluções, progresso da meta e dias lançados.
 - Menu lateral com áreas de vendas, análises, gestão e ferramentas.
 - Seleção de mês e ano, criação e exclusão de períodos e persistência da aba selecionada.
+- Atalhos para registrar vendas e importar planilhas no hub; URLs por área, com suporte ao botão Voltar do navegador.
 - Interface responsiva, navegação por teclado, indicadores de carregamento e mensagens de resultado.
-- Temas claro, escuro e automático, acompanhando o sistema.
+- Identidade visual com fundo azul escuro, cartões de indicadores e ações em ciano; menu compartilhado entre painel, início, conta e fechamento diário.
+- Tema escuro por padrão, com opções claro e automático em Minha conta → Aparência. A escolha fica salva no navegador.
 
 ### Conta e autenticação
 
@@ -35,6 +37,9 @@ O nome do pacote permanece `dashboard-vendas`, atualmente na versão `5.0.0`.
 ### Vendas, pedidos e devoluções
 
 - Lançamento diário de valores e quantidade de pedidos por plataforma.
+- Prévia do total antes de registrar, escolha explícita entre adicionar e substituir os campos preenchidos, e opção de desfazer a última alteração. Campos vazios preservam os valores existentes.
+- Entradas monetárias brasileiras, incluindo `1.234,56`, com validação; edição da tabela com Enter para confirmar e Escape para cancelar.
+- Rascunhos de lançamentos e fechamento diário mantidos por usuário durante a sessão do navegador.
 - Registro de devoluções por plataforma no período selecionado.
 - Visão geral com vendas brutas, vendas após devoluções, pedidos, ticket médio, participação das plataformas e acompanhamento da meta.
 - Tendência na visão geral por mês selecionado ou 30 dias corridos, com agrupamento diário, semanal, quinzenal ou mensal.
@@ -45,7 +50,7 @@ O nome do pacote permanece `dashboard-vendas`, atualmente na versão `5.0.0`.
 
 ### Análises e tendências
 
-- Análise por plataforma ou consolidada nos últimos 30, 90, 180 ou 365 dias, ou em intervalo personalizado.
+- Análise por plataforma ou consolidada no mês selecionado, nos últimos 30, 90, 180 ou 365 dias, ou em intervalo personalizado.
 - Indicadores de vendas, pedidos, médias diárias e variação contra o intervalo anterior equivalente.
 - Gráfico diário, participação das plataformas e tabela de desempenho.
 - Comparativo de até 12 meses com vendas, vendas após devoluções, pedidos ou ticket médio.
@@ -55,6 +60,7 @@ O nome do pacote permanece `dashboard-vendas`, atualmente na versão `5.0.0`.
 
 - Meta mensal configurável, acompanhada no hub, na visão geral e na área de projeção.
 - Progresso, alertas de risco, projeção de fechamento e média diária necessária para atingir a meta.
+- Gráfico acumulado de vendas após devoluções, comparado com a meta e a projeção. As devoluções mensais são distribuídas proporcionalmente às vendas para essa visualização.
 
 ### Calculadora de preço
 
@@ -76,6 +82,7 @@ Os perfis iniciais de tarifas são estimativas editáveis. Ajuste os valores às
 ### Importação de planilhas
 
 - Leitura de arquivos `.csv`, `.xlsx` e `.xls`, com seleção de aba, período de destino e mapeamento de colunas.
+- Leitura e consolidação da planilha em Web Worker, com indicação de progresso e cancelamento ao fechar a janela. Datas textuais do CSV são preservadas sem conversão automática para o formato americano.
 - Prévia dos dados e conflitos antes de confirmar a importação.
 - Opção de ignorar ou substituir valores já existentes por plataforma e data.
 - Reconhecimento de exportações da Shein e do Mercado Livre, agrupando os dados para os lançamentos do painel.
@@ -103,6 +110,8 @@ O fluxo usa arquivos fornecidos pelo usuário. O projeto não implementa conexã
 - Salvamento do estado no servidor, com indicador de andamento e último salvamento.
 - Cópia local das alterações pendentes por usuário e recuperação após falhas ou recarregamento.
 - Controle de versão do estado para detectar conflitos entre abas e evitar sobrescrita silenciosa.
+- Salvamento incremental: vendas alteradas por data e plataforma, devoluções por período, metas e configurações de preço. A navegação é guardada localmente por usuário e não dispara gravações de negócio.
+- Consulta inicial limitada aos períodos necessários. Análises históricas e backups carregam o restante sob demanda, preservando a exportação completa.
 - Validação de dados de negócio e proteção contra substituição acidental por um estado sem plataformas.
 
 ## Tecnologias e arquitetura
@@ -142,7 +151,10 @@ public/ contém a interface compartilhada entre os dois modos.
 - As migrations em `src/db/migrations/` são executadas antes de o servidor começar a receber requisições.
 - Ambos os modos usam o banco configurado em `TURSO_DATABASE_URL`. Com Turso remoto, o desktop também precisa de conexão para carregar e salvar dados.
 - Os testes usam bancos libSQL locais isolados; não dependem das credenciais do banco de produção.
-- Chart.js e html2canvas são copiados de `node_modules` para `public/vendor/` pelo `postinstall`. O leitor XLSX também está em `public/vendor/`; a exportação Excel possui carregamento de fallback via CDN.
+- Chart.js e html2canvas são copiados de `node_modules` para `public/vendor/` pelo `postinstall`. O leitor XLSX também está em `public/vendor/`.
+- Chart.js, html2canvas e XLSX são carregados conforme a funcionalidade utilizada; exportações Excel usam o arquivo local de XLSX.
+- Apenas o painel ativo é renderizado; gráficos existentes são atualizados e os totais são reutilizados durante cada renderização.
+- `npm run build` consolida o CSS em arquivo com hash e prepara versões Brotli/gzip dos recursos. Com `NODE_ENV=production`, o servidor usa o HTML preparado e o CSS com cache prolongado; os demais recursos mantêm revalidação por ETag. O build também roda no `postinstall`.
 
 ## Como rodar
 
@@ -213,6 +225,10 @@ npm start
 npm run start:electron
 ```
 
+Após editar os arquivos da interface, execute `npm run build` antes de iniciar com `NODE_ENV=production`. No desenvolvimento, o servidor usa os fontes diretamente e ignora versões comprimidas que ficaram mais antigas que o arquivo original.
+
+Se aparecer uma mensagem de porta em uso (`EADDRINUSE`), confira se o Kanri já está aberto em `http://localhost:3000`. Para reiniciá-lo, use Ctrl+C no terminal do servidor anterior e execute `npm run dev` novamente. O modo web fecha a conexão com o banco antes de encerrar, inclusive quando a inicialização falha.
+
 O Electron usa a porta já definida no ambiente ou seu padrão `37171`, ajustando a origem para o servidor interno. Não há script `dev:watch` nem empacotamento de instalador desktop no `package.json` atual.
 
 No primeiro acesso, crie um usuário, cadastre as plataformas e comece os lançamentos ou importe um backup/planilha.
@@ -278,6 +294,7 @@ Content-Type: application/json
 | `POST` | `/api/auth/change-password` | Altera senha com `username`, `currentPassword` e `newPassword` |
 | `GET` | `/api/state` | Retorna o estado de negócio em `{ state }` |
 | `POST` | `/api/state` | Substitui o estado validado; aceita `expectedUpdatedAt` para verificar a versão |
+| `PATCH` | `/api/state` | Aplica apenas as alterações informadas em `changes`; exige `expectedUpdatedAt` e retorna `{ ok, updatedAt }` |
 | `GET` | `/api/platforms` | Lista plataformas do usuário |
 | `POST` | `/api/platforms` | Salva plataformas |
 | `GET` | `/api/sales` | Lista vendas |
@@ -292,6 +309,10 @@ Content-Type: application/json
 As chaves atuais de período combinam ano e nome do mês, por exemplo `2026-Outubro`. Codifique o parâmetro de caminho quando necessário. O estado de negócio reúne `platforms`, `db`, `goals`, `currentMonth`, `currentScreen`, `activeTab`, `pricing` e `updatedAt`.
 
 A substituição do estado verifica `expectedUpdatedAt` quando enviado e retorna `409` com `state_conflict` se outra gravação alterou a versão. As rotas `/api/` possuem limite de 30 requisições por minuto por IP, com exceção dos endereços de loopback locais; o corpo das requisições é limitado a 10 MiB. Erros são retornados em JSON com o campo `error`.
+
+`GET /api/state?initial=1&month=2026-Outubro` retorna os períodos necessários para a tela inicial, a lista `periods` e os `loadedPeriods`. `GET /api/state?periods=2026-Janeiro,2026-Fevereiro&version=...` busca períodos específicos e rejeita uma versão desatualizada. Sem parâmetros, a resposta continua contendo o histórico completo para compatibilidade.
+
+O PATCH aceita `platforms` (cadastro completo), `pricing`, `goals` (mapa de período para meta ou `null`) e `months`. Cada mês contém `days` (estado dos dias alterados), `deletedDays` e `returns` (apenas plataformas alteradas); um mês com valor `null` é excluído. As gravações permanecem numa única transação, com validação e controle de versão. A migration 007 preserva também períodos vazios e dias explicitamente zerados.
 
 ## Deploy
 

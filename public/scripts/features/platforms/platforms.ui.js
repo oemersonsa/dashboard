@@ -17,6 +17,7 @@ function getPlatforms() { return state.platforms || []; }
 
 function resetForm() {
   editingKey = null;
+  document.getElementById("platformFormTitle").textContent = "Adicionar plataforma";
   const n = document.getElementById("platformName");
   const s = document.getElementById("platformShort");
   const c = document.getElementById("platformColor");
@@ -86,6 +87,7 @@ function startEdit(key) {
   const p = getPlatforms().find((x) => x.key === key);
   if (!p) return;
   editingKey = key;
+  document.getElementById("platformFormTitle").textContent = "Editar plataforma";
   const n = document.getElementById("platformName");
   const s = document.getElementById("platformShort");
   const c = document.getElementById("platformColor");

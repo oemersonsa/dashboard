@@ -47,6 +47,7 @@ export async function importBackupFile(file, mode = "merge", confirmed = false) 
       openModal("backupPreviewModal");
       return;
     }
+    await window.dashboard.ensureHistory();
     const pa = state.auth ? { ...state.auth } : null;
     const ps = loadSession();
     const rs = normalizeState(src, MARKETPLACE_PRICING_PRESETS);
@@ -64,6 +65,7 @@ export async function importBackupFile(file, mode = "merge", confirmed = false) 
       mergeImported(rs);
     }
 
+    state.periods = Object.keys(state.db);
     saveState();
     if (ps && state.auth?.username === ps.username) {
       saveSession(ps.username, ps.provider, ps.serverSessionToken);

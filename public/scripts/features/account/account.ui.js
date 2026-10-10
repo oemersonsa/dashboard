@@ -75,6 +75,7 @@ function renderPhoto(profile) {
 }
 
 function renderForm(profile) {
+  document.getElementById("accountUsernameInput").value = currentUsername();
   const displayName = document.getElementById("accountDisplayNameInput");
   if (displayName) displayName.value = profile.displayName;
   draftAvatar = profile.avatarData;

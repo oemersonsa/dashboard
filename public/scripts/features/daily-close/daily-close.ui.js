@@ -4,10 +4,12 @@ import { platformBadge } from "../../ui/icons.js";
 import { toast, toastSuccess, toastError } from "../../ui/toast.js";
 
 let bound = false;
+let signature = "";
+const draftKey = () => `kanri-close-draft:${state.auth?.username || ""}`;
 
 export function init() {
   const di = document.getElementById("dailyCloseDate");
-  if (di && !di.value) di.valueAsDate = new Date();
+  if (di && !di.value) { const date = new Date(); di.value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
   render();
   if (!bound) { bindEvents(); bound = true; }
 }
@@ -61,6 +63,9 @@ function render() {
   const g = document.getElementById("dailyClosePlatformGrid");
   if (!g) return;
 
+  const next = JSON.stringify([state.auth?.username, state.platforms.filter(p => !p.archived)]);
+  if (signature === next) { updatePreview(); return; }
+  signature = next;
   g.innerHTML = state.platforms.filter((p) => !p.archived).map((p) => `
     <article class="daily-close-platform">
       <div class="daily-close-platform-head">
@@ -78,10 +83,16 @@ function render() {
     </article>
   `).join("");
 
+  try { const draft = JSON.parse(sessionStorage.getItem(draftKey()) || "{}");
+    for (const [id, value] of Object.entries(draft)) { const input = document.getElementById(id); if (input) input.value = value; }
+  } catch {}
   updatePreview();
 }
 
 function updatePreview() {
+  const draft = {};
+  document.querySelectorAll("[data-daily-close-input], #dailyCloseDate").forEach(input => { draft[input.id] = input.value; });
+  try { sessionStorage.setItem(draftKey(), JSON.stringify(draft)); } catch {}
   const entries = getEntries();
   const p = document.getElementById("dailyClosePreview");
   const t = document.getElementById("dailyCloseTotals");

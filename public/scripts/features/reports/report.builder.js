@@ -6,6 +6,7 @@ import { openModal, closeModal } from "../../ui/modal.js";
 import { calcTotals, getComparisonPeriod } from "../sales/sales.calc.js";
 import { exportReportCsv, exportReportXlsx } from "./report.export.js";
 import { toast, toastSuccess, toastError } from "../../ui/toast.js";
+import { loadImageExporter } from "../../core/libraries.js";
 
 let bound = false;
 
@@ -73,7 +74,7 @@ export async function exportReportPNG() {
   const b = document.getElementById("exportReportButton");
   const t = document.getElementById("reportTitle")?.textContent || "Relatório";
   const preview = document.querySelector("#reportModal .rmodal");
-  if (!preview || !window.html2canvas) {
+  if (!preview) {
     return window.dashboard?.toastError("Não foi possível exportar");
   }
 
@@ -100,6 +101,7 @@ export async function exportReportPNG() {
   document.body.appendChild(er);
 
   try {
+    await loadImageExporter();
     await document.fonts?.ready;
     const images = [...exportPreview.querySelectorAll(".platform-icon-img")];
     images.forEach((image) => {
@@ -195,7 +197,6 @@ async function handleExportXlsx() {
 }
 
 function bindEvents() {
-  document.getElementById("reportButton")?.addEventListener("click", openReport);
   document.getElementById("exportReportButton")?.addEventListener("click", exportReportPNG);
   document.getElementById("exportReportCsvButton")?.addEventListener("click", handleExportCsv);
   document.getElementById("exportReportXlsxButton")?.addEventListener("click", handleExportXlsx);

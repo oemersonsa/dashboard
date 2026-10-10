@@ -4,18 +4,41 @@ import { toastError, toastSuccess } from "../../ui/toast.js";
 import { openModal, closeModal } from "../../ui/modal.js";
 import { ALL_MONTHS } from "../../core/constants.js";
 import { renderAll } from "./sales.ui.js";
-import { groupSheinOrders, isSheinExport, parseSheinDate } from "./shein-import.calc.js";
-import { groupMercadoLivreOrders, isMercadoLivreExport } from "./mercado-livre-import.calc.js";
+import { parseDate } from "./sales-sheet.calc.js";
 
-const SHEETJS_URL = "/vendor/xlsx.full.min.js";
+let sheetWorker;
+let fileGeneration = 0;
+let selectionGeneration = 0;
+let workerSequence = 0;
+window.addEventListener("dashboard:modal-closed", event => {
+  if (event.detail.id === "salesSheetImportModal") { ++fileGeneration; ++selectionGeneration; stopWorker(); }
+});
+const workerRequests = new Map();
+function stopWorker() {
+  sheetWorker?.terminate(); sheetWorker = null;
+  workerRequests.forEach(({ reject }) => reject(new Error("Leitura cancelada"))); workerRequests.clear();
+}
+function readInWorker(type, data, transfer = []) {
+  if (!sheetWorker) {
+    sheetWorker = new Worker("/scripts/features/sales/sales-sheet.worker.js");
+    sheetWorker.onmessage = ({ data }) => {
+      if (data.progress) { const preview = document.getElementById("salesSheetPreview"); if (preview) preview.textContent = data.progress; return; }
+      const request = workerRequests.get(data.id);
+      if (!request) return; workerRequests.delete(data.id);
+      if (data.error) request.reject(new Error(data.error)); else request.resolve(data.result);
+    };
+    sheetWorker.onerror = () => stopWorker();
+  }
+  const id = ++workerSequence;
+  return new Promise((resolve, reject) => { workerRequests.set(id, { resolve, reject }); sheetWorker.postMessage({ id, type, ...data }, transfer); });
+}
 let bound = false;
 let pendingRows = [];
 let pendingPeriod = "";
 let sourceMatrix = [];
 let sourceHeaders = [];
 let headerIndex = 0;
-let sourceWorkbook = null;
-let sourceReader = null;
+
 let sourceSheet = "";
 let sourceMarketplace = "";
 let sourcePlatformKey = "";
@@ -58,7 +81,7 @@ export function openSalesSheetImport() {
   pendingRows = [];
   sourceMatrix = [];
   sourceHeaders = [];
-  sourceWorkbook = null;
+  ++fileGeneration; stopWorker();
   sourceSheet = "";
   sourcePlatformKey = "";
   sourceMarketplace = "";
@@ -75,6 +98,7 @@ export function openSalesSheetImport() {
 async function handleFile(event) {
   const file = event.target.files?.[0];
   if (!file) return;
+  const generation = ++fileGeneration; stopWorker();
   pendingRows = [];
   sourceMatrix = [];
   sourceHeaders = [];
@@ -87,65 +111,29 @@ async function handleFile(event) {
   if (status) status.innerHTML = '<p class="card-sub">Lendo planilha…</p>';
   try {
     if (file.size > 10 * 1024 * 1024) throw new Error("O arquivo deve ter no máximo 10 MB.");
-    const XLSX = await loadSheetJs();
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
-    sourceWorkbook = workbook;
-    sourceReader = XLSX;
-    const parsed = findTable(XLSX, workbook);
+    const buffer = await file.arrayBuffer();
+    const parsed = await readInWorker("read", { buffer, platforms: state.platforms }, [buffer]);
+    if (generation !== fileGeneration) return;
     const sheetSelect = document.getElementById("salesImportSheet");
-    sheetSelect.innerHTML = workbook.SheetNames.map(name => `<option value="${escapeAttribute(name)}">${escapeHtml(name)}</option>`).join("");
-    sheetSelect.value = parsed.name;
+    sheetSelect.innerHTML = parsed.sheets.map(name => `<option value="${escapeAttribute(name)}">${escapeHtml(name)}</option>`).join("");
+    sheetSelect.value = parsed.table.name;
     document.getElementById("salesImportSource").hidden = false;
-    selectSheet(parsed.name);
+    await selectSheet(parsed.table.name, parsed.table);
   } catch (error) {
+    if (generation !== fileGeneration) return;
     pendingRows = [];
     clearPreview();
     if (status) status.innerHTML = `<div class="empty-state" role="alert">${escapeHtml(error.message || "Não foi possível ler a planilha.")}</div>`;
   }
 }
 
-function findTable(XLSX, workbook, sheetName) {
-  const tables = [];
-  for (const name of sheetName ? [sheetName] : workbook.SheetNames) {
-    const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" });
-    const candidates = matrix.slice(0, 30).map((row, index) => ({
-      index,
-      row,
-      score: row.reduce((score, cell) => {
-        const header = normalize(cell);
-        return score + (/data|date|dia|venda|valor|faturamento|pedido|order|sales|amount/.test(header) ? 1 : 0);
-      }, 0) + (() => {
-        const dateColumn = row.findIndex(cell => /^(data|date|dia)(\s|$)/.test(normalize(cell)));
-        return dateColumn < 0 ? 0 : matrix.slice(index + 1, index + 11).filter(next => parseDate(next[dateColumn])).length * 100;
-      })()
-    })).filter((item) => item.row.filter((cell) => String(cell || "").trim()).length >= 2);
-    const candidate = candidates.sort((a, b) => b.score - a.score)[0];
-    const index = candidate?.index ?? -1;
-    if (index >= 0 && matrix.length > index + 1) {
-      const headers = matrix[index].map((cell, column) => String(cell || "").trim() || `Coluna ${column + 1}`);
-      const marketplace = isSheinExport(headers) ? "shein" : isMercadoLivreExport(headers) ? "mercado livre" : "";
-      if (marketplace) {
-        const platforms = state.platforms.filter(platform => !platform.archived && normalize(platform.name).includes(marketplace));
-        if (!platforms.length) throw new Error(`Cadastre uma plataforma ${marketplace === "shein" ? "Shein" : "Mercado Livre"} para importar esta exportação.`);
-        const platform = platforms.find(item => item.key === sourcePlatformKey) || platforms.find(item => normalize(item.name) === marketplace) || platforms[0];
-        const platformName = platform.name;
-        const groupedHeaders = ["Data", `${platformName} vendas brutas`, `${platformName} pedidos`, `${platformName} devoluções`, `${platformName} cancelamentos`];
-        const details = marketplace === "shein" ? { rows: groupSheinOrders(headers, matrix.slice(index + 1)) } : groupMercadoLivreOrders(headers, matrix.slice(index + 1), index + 2);
-        tables.push({ matrix: [groupedHeaders, ...details.rows], headers: groupedHeaders, headerIndex: 0, name, score: candidate.score, marketplace, platformKey: platform.key, details });
-      } else {
-        tables.push({ matrix, headers, headerIndex: index, name, score: candidate.score });
-      }
-    }
-  }
-  if (tables.length) return tables.sort((a, b) => b.score - a.score)[0];
-  throw new Error("Não encontrei uma tabela com cabeçalho e linhas de dados.");
-}
-
-function selectSheet(name) {
+async function selectSheet(name, prepared) {
+  const selection = ++selectionGeneration;
   pendingRows = [];
   document.getElementById("salesSheetImportButton").disabled = true;
   try {
-    const parsed = findTable(sourceReader, sourceWorkbook, name);
+    const parsed = prepared || await readInWorker("select", { name, platforms: state.platforms, platformKey: sourcePlatformKey });
+    if (selection !== selectionGeneration) return;
     sourceSheet = name;
     sourceMarketplace = parsed.marketplace || "";
     sourcePlatformKey = parsed.platformKey || "";
@@ -206,14 +194,15 @@ function renderMapping() {
     el.insertAdjacentHTML("afterbegin", `<p class="card-sub" role="alert">O relatório tem ${sourceImportDetails.missingRefunds} linha(s) com status de cancelamento/devolução sem valor de reembolso. Devoluções e cancelamentos ficaram em “Não importar” para preservar seus totais atuais. Se mapear essas colunas, somente os valores preenchidos serão somados; o total estará incompleto.</p>`);
   }
   document.getElementById("salesImportPreviewButton")?.addEventListener("click", () => {
-    try { buildPreview(); } catch (error) { showImportError(error.message); }
+    void buildPreview().catch(error => showImportError(error.message));
   });
   document.getElementById("salesSheetImportButton").disabled = true;
   const preview = document.getElementById("salesSheetPreview");
   if (preview) preview.innerHTML = '<p class="card-sub">Associe as colunas e selecione “Conferir dados”.</p>';
 }
 
-function buildPreview() {
+async function buildPreview() {
+  await window.dashboard.ensureHistory([pendingPeriod]);
   const dateColumn = Number(document.getElementById("salesImportDateColumn")?.value);
   const platformColumns = [];
   document.querySelectorAll("[data-map-platform]").forEach((select) => {
@@ -310,7 +299,8 @@ function renderPreview() {
   if (sourceMarketplace === "mercado livre") el.insertAdjacentHTML("afterbegin", `<p class="card-sub">Mercado Livre: somente vendas do mês selecionado. Vendas brutas usam “Receita por produtos (BRL)” ou, quando ausente, preço unitário × unidades (${sourceImportDetails.estimatedSales} linha(s) no arquivo). Resumos de pacotes e linhas sem produto foram ignorados (${sourceImportDetails.skippedRows}). Reembolsos usam somente “Cancelamentos e reembolsos (BRL)”, em valor absoluto. Valores ausentes não foram estimados.</p>`);
 }
 
-function applyImport() {
+async function applyImport() {
+  try { await window.dashboard.ensureHistory([pendingPeriod]); } catch (error) { return toastError(error.message); }
   if (!pendingRows.length) return;
   const replace = document.querySelector('[data-sales-import-mode="replace"].active');
   let added = 0;
@@ -352,25 +342,6 @@ function applyImport() {
   pendingRows = [];
 }
 
-function parseDate(value) {
-  const sheinDate = parseSheinDate(value);
-  if (sheinDate) return sheinDate;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return { day: value.getDate(), month: value.getMonth() + 1, year: value.getFullYear() };
-  const text = String(value || "").trim().slice(0, 10);
-  if (text.length === 10 && text[4] === "-" && text[7] === "-") {
-    const [year, month, day] = text.split("-").map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth ? { day, month, year } : null;
-  }
-  const match = String(value || "").trim().match(/^(\d{1,2})[/.\-](\d{1,2})(?:[/.\-](\d{4}))?$/);
-  if (!match) return null;
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = match[3] ? Number(match[3]) : null;
-  const daysInMonth = new Date(year || 2024, month, 0).getDate();
-  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth ? { day, month, year } : null;
-}
-
 function parseNumber(value) {
   if (typeof value === "number") return value;
   const text = String(value ?? "").trim().replace(/R\$\s?/gi, "").replace(/\s/g, "");
@@ -401,16 +372,4 @@ function clearPreview() {
   const button = document.getElementById("salesSheetImportButton");
   if (preview) preview.innerHTML = '<p class="card-sub">Selecione uma planilha para conferir os dados antes de importar.</p>';
   if (button) button.disabled = true;
-}
-
-function loadSheetJs() {
-  if (window.XLSX) return Promise.resolve(window.XLSX);
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = SHEETJS_URL;
-    script.async = true;
-    script.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error("Não foi possível carregar o leitor de planilhas."));
-    script.onerror = () => reject(new Error("Não foi possível carregar o leitor de planilhas. Verifique a conexão e tente novamente."));
-    document.head.appendChild(script);
-  });
 }

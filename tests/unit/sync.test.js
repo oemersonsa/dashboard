@@ -13,6 +13,65 @@ function setup(request = vi.fn(async () => ({ state: { updatedAt: "v2" } }))) {
   return { sync, storage, request, status, conflict, expired, update: value => { state.goals.target = value; sync.schedule(); } };
 }
 describe("sincronização", () => {
+  it.each(["navigation", "already-saved", "different-edit", "legacy-saved"])("revisa rascunho antigo com segurança: %s", async scenario => {
+    vi.useFakeTimers();
+    const { storage } = setup();
+    const base = { platforms: [{ key: "ml", name: "ML" }], pricing: null, goals: {}, db: {
+      "2026-Janeiro": { days: [{ d: "01/01", ml: 10 }], returns: {} }
+    } };
+    const local = structuredClone(base);
+    local.activeTab = "entries";
+    if (scenario !== "navigation") local.db["2026-Janeiro"].days[0].ml = 20;
+    const remote = structuredClone(base);
+    remote.updatedAt = "new";
+    if (scenario === "already-saved" || scenario === "legacy-saved") {
+      remote.db["2026-Janeiro"].days[0].ml = 20;
+      remote.db["2026-Janeiro"].days.push({ d: "02/01", ml: 30 });
+    }
+    if (scenario === "legacy-saved") local.db = structuredClone(remote.db);
+    const draft = { state: local, version: "old", savedAt: 1, ...(scenario === "legacy-saved" ? {} : { base }) };
+    storage.setItem("dashboard-pending-v1:bob:old-tab", JSON.stringify(draft));
+    const conflict = vi.fn(); const request = vi.fn();
+    const sync = createSync({ storage, scope: "new-tab", user: () => "bob", snapshot: () => local,
+      request, status: vi.fn(), onConflict: conflict, onExpired: vi.fn(), incremental: true });
+    expect(sync.hasDraft()).toBe(true);
+    const result = sync.initialize(remote);
+    if (scenario === "different-edit") {
+      expect(conflict).toHaveBeenCalledOnce(); expect(result).toEqual(local);
+      expect(sync.pending()).toBeTruthy(); expect(await sync.flush()).toBe(false);
+    } else {
+      expect(conflict).not.toHaveBeenCalled(); expect(result).toEqual(remote);
+      expect(sync.hasDraft()).toBe(false);
+      expect(JSON.parse(storage.getItem("dashboard-recovery-v1:bob"))).toEqual(draft);
+    }
+    expect(request).not.toHaveBeenCalled();
+  });
+  it("preserva a base do rascunho e envia uma edição incremental após recarregar", async () => {
+    vi.useFakeTimers();
+    const { storage } = setup();
+    const remote = { updatedAt: "v1", platforms: [], pricing: null, goals: {}, db: { "2026-Outubro": { days: [], returns: {} } } };
+    let edited = structuredClone(remote);
+    const request = vi.fn(async () => ({ updatedAt: "v2" }));
+    const options = { storage, user: () => "bob", snapshot: () => edited, request, status: vi.fn(), onConflict: vi.fn(), onExpired: vi.fn(), incremental: true };
+    const first = createSync(options); first.initialize(remote);
+    edited.db["2026-Outubro"].days.push({ d: "01/10", ml: 10 }); first.schedule();
+    const restored = createSync(options); restored.initialize(remote);
+    await restored.flush();
+    expect(request.mock.calls[0][0].changes.months["2026-Outubro"].days).toEqual([{ d: "01/10", ml: 10 }]);
+    expect(request.mock.calls[0][0].state).toBeUndefined();
+    expect(restored.pending()).toBeNull();
+  });
+  it("meses carregados sob demanda passam a fazer parte da base, sem gerar edições", async () => {
+    vi.useFakeTimers(); const { storage } = setup();
+    const remote = { updatedAt: "v1", platforms: [], pricing: null, goals: {}, db: {} };
+    const edited = structuredClone(remote); const request = vi.fn();
+    const sync = createSync({ storage, user: () => "bob", snapshot: () => edited, request, status: vi.fn(), onConflict: vi.fn(), onExpired: vi.fn(), incremental: true });
+    sync.initialize(remote);
+    const db = { "2026-Janeiro": { days: [{ d: "01/01", ml: 100 }], returns: {} } };
+    expect(sync.hydrate({ updatedAt: "v1", db })).toBe(true); Object.assign(edited.db, db);
+    sync.schedule(); await sync.flush(); expect(request).not.toHaveBeenCalled();
+    expect(sync.hydrate({ updatedAt: "old", db })).toBe(false);
+  });
   it("confirma apenas a cópia enviada e envia a edição feita durante a requisição", async () => {
     vi.useFakeTimers();
     let release;

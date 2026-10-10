@@ -167,4 +167,76 @@ describe("API - State", () => {
     }
     expect((await request("/api/state")).data.state).toEqual(before.data.state);
   });
+
+  it("consulta apenas os períodos necessários, com histórico completo disponível para backup", async () => {
+    const full = await request("/api/state");
+    const initial = await request("/api/state?initial=1&month=2026-Dezembro");
+    expect(initial.status).toBe(200);
+    expect(initial.data.state.periods).toHaveLength(12);
+    expect(Object.keys(initial.data.state.db).sort()).toEqual(["2026-Dezembro", "2026-Novembro", "2026-Outubro"].sort());
+    expect(initial.data.state.db["2026-Dezembro"]).toEqual(full.data.state.db["2026-Dezembro"]);
+    const one = await request(`/api/state?periods=2026-Janeiro&version=${encodeURIComponent(full.data.state.updatedAt)}`);
+    expect(Object.keys(one.data.state.db)).toEqual(["2026-Janeiro"]);
+    expect(JSON.stringify(one.data).length).toBeLessThan(JSON.stringify(full.data).length / 4);
+    expect((await request("/api/state?periods=2026-Janeiro&version=stale")).status).toBe(409);
+    console.log("Payloads de leitura (bytes):", { full: Buffer.byteLength(JSON.stringify(full.data)), initial: Buffer.byteLength(JSON.stringify(initial.data)), oneMonth: Buffer.byteLength(JSON.stringify(one.data)) });
+  });
+
+  it("edita uma data sem recriar plataformas nem outras vendas e retorna só a versão", async () => {
+    const before = (await request("/api/state")).data.state;
+    const { queryAll } = require("../../src/db/index.js");
+    const ids = await queryAll("SELECT id FROM platforms ORDER BY id");
+    const untouched = await queryAll("SELECT id, amount FROM sales WHERE month = ? ORDER BY id", ["2026-Fevereiro"]);
+    const day = { ...before.db["2026-Janeiro"].days[0], ml: 4321.56 };
+    const payload = { expectedUpdatedAt: before.updatedAt, changes: { months: { "2026-Janeiro": { days: [day], deletedDays: [], returns: {} } } } };
+    const saved = await request("/api/state", { method: "PATCH", body: JSON.stringify(payload) });
+    expect(saved.status).toBe(200); expect(saved.data.state).toBeUndefined(); expect(saved.data.updatedAt).toBeTruthy();
+    const after = (await request("/api/state")).data.state;
+    expect(after.db["2026-Janeiro"].days[0].ml).toBe(4321.56);
+    expect(after.db["2026-Fevereiro"]).toEqual(before.db["2026-Fevereiro"]);
+    expect(await queryAll("SELECT id FROM platforms ORDER BY id")).toEqual(ids);
+    expect(await queryAll("SELECT id, amount FROM sales WHERE month = ? ORDER BY id", ["2026-Fevereiro"])).toEqual(untouched);
+    expect((await request("/api/state", { method: "PATCH", body: JSON.stringify(payload) })).status).toBe(409);
+    console.log("Payloads de gravação (bytes):", { full: Buffer.byteLength(JSON.stringify({ state: before, expectedUpdatedAt: before.updatedAt })), incremental: Buffer.byteLength(JSON.stringify(payload)) });
+  });
+
+  it("preserva dias zerados e meses vazios depois de recarregar", async () => {
+    const version = (await request("/api/state")).data.state.updatedAt;
+    const saved = await request("/api/state", { method: "PATCH", body: JSON.stringify({ expectedUpdatedAt: version, changes: { months: {
+      "2027-Janeiro": { days: [{ d: "01/01", ml: 0, orders_ml: 0 }], deletedDays: [], returns: {} },
+      "2027-Fevereiro": { days: [], deletedDays: [], returns: {} }
+    } } }) });
+    expect(saved.status).toBe(200);
+    const read = (await request("/api/state")).data.state;
+    expect(read.db["2027-Janeiro"].days[0].ml).toBe(0);
+    expect(read.db["2027-Fevereiro"].days).toEqual([]);
+  });
+
+  it("rejeita edições inválidas e não altera os dados", async () => {
+    const before = (await request("/api/state")).data.state;
+    const invalid = await request("/api/state", { method: "PATCH", body: JSON.stringify({ expectedUpdatedAt: before.updatedAt, changes: { months: {
+      "2026-Janeiro": { days: [{ d: "32/01", ml: -1 }], deletedDays: [], returns: {} }
+    } } }) });
+    expect(invalid.status).toBe(400);
+    expect((await request("/api/state")).data.state).toEqual(before);
+    expect((await request("/api/state", { method: "PATCH", body: JSON.stringify({ changes: {} }) })).status).toBe(400);
+    const unauthenticated = await fetch(`${serverInfo.url}/api/state`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: "{}" });
+    expect(unauthenticated.status).toBe(401);
+  });
+
+  it("desfaz a transação incremental inteira se um lote falhar", async () => {
+    const before = (await request("/api/state")).data.state;
+    const { client } = require("../../src/db/index.js");
+    const transaction = client.transaction.bind(client);
+    const spy = vi.spyOn(client, "transaction").mockImplementation(async (...args) => {
+      const tx = await transaction(...args); const batch = tx.batch.bind(tx);
+      if (args[0] === "write") tx.batch = async statements => { await batch(statements); throw new Error("patch_failure"); };
+      return tx;
+    });
+    try {
+      const failed = await request("/api/state", { method: "PATCH", body: JSON.stringify({ expectedUpdatedAt: before.updatedAt, changes: { goals: { "2026-Janeiro": { target: 999 } } } }) });
+      expect(failed.status).toBe(500);
+    } finally { spy.mockRestore(); }
+    expect((await request("/api/state")).data.state).toEqual(before);
+  });
 });

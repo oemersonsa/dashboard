@@ -34,15 +34,16 @@ describe("alerta de devoluções acima de 25%", () => {
     state.db[state.currentMonth].returns.sh = returns;
     renderTrackingAlerts();
     expect(banner.innerHTML).not.toContain("return-threshold-alert");
-    expect(banner.hidden).toBe(true);
+    expect(banner.innerHTML).not.toContain('role="alert"');
+    expect(banner.innerHTML).toContain("Definir meta");
   });
 
   it("retira o alerta quando as devoluções diminuem", () => {
     renderTrackingAlerts();
     state.db[state.currentMonth].returns.sh = 0;
     renderTrackingAlerts();
-    expect(banner.hidden).toBe(true);
-    expect(banner.innerHTML).toBe("");
+    expect(banner.innerHTML).not.toContain("return-threshold-alert");
+    expect(banner.innerHTML).toContain("Definir meta");
   });
 
   it("alerta com devoluções e nenhuma venda, sem dividir por zero", () => {

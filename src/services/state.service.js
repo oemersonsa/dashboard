@@ -1,78 +1,8 @@
 const { client, withTransaction, queryOne, queryAll } = require("../db");
-const platformsRepo = require("../db/repositories/platforms.repo");
-const salesRepo = require("../db/repositories/sales.repo");
-const returnsRepo = require("../db/repositories/returns.repo");
-const settingsRepo = require("../db/repositories/settings.repo");
-const goalsRepo = require("../db/repositories/goals.repo");
 const { nowIso } = require("../utils/dates");
 const { validateBusiness, validateMonth } = require("./business.validation");
 
-async function getBusinessState(userId) {
-  const platformRows = await platformsRepo.listByUser(userId);
-  const platforms = platformRows.map((row) => ({
-    key: row.platform_key,
-    name: row.name,
-    icon: row.icon,
-    color: row.color,
-    iconText: row.icon_text,
-    archived: Boolean(row.archived)
-  }));
-
-  const keyById = new Map(platformRows.map((row) => [row.id, row.platform_key]));
-  const dbState = {};
-
-  const salesRows = await salesRepo.listByUser(userId);
-  for (const sale of salesRows) {
-    const key = keyById.get(sale.platform_id);
-    if (!key) continue;
-    if (!dbState[sale.month]) dbState[sale.month] = { days: [], returns: {} };
-    let day = dbState[sale.month].days.find((item) => item.d === sale.date);
-    if (!day) {
-      day = { d: sale.date };
-      dbState[sale.month].days.push(day);
-    }
-    day[key] = Number(sale.amount || 0);
-    day[`orders_${key}`] = Math.max(0, Math.round(Number(sale.orders_count || 0)));
-  }
-
-  const returnsRows = await returnsRepo.listByUser(userId);
-  for (const item of returnsRows) {
-    const key = keyById.get(item.platform_id);
-    if (!key) continue;
-    if (!dbState[item.month]) dbState[item.month] = { days: [], returns: {} };
-    dbState[item.month].returns[key] = Number(item.amount || 0);
-  }
-
-  Object.values(dbState).forEach((monthData) => {
-    platforms.forEach((platform) => {
-      if (monthData.returns[platform.key] === undefined) monthData.returns[platform.key] = 0;
-      monthData.days.forEach((day) => {
-        if (day[platform.key] === undefined) day[platform.key] = 0;
-        if (day[`orders_${platform.key}`] === undefined) day[`orders_${platform.key}`] = 0;
-      });
-    });
-  });
-
-  // ─── Goals ───
-  const goalsRows = await goalsRepo.listByUser(userId);
-  const goals = {};
-  for (const g of goalsRows) {
-    const target = Number(g.target || 0);
-    if (target > 0) goals[g.month] = { target };
-  }
-
-  const settings = await settingsRepo.get(userId);
-  return {
-    platforms,
-    db: dbState,
-    goals,
-    currentMonth: settings?.current_month || Object.keys(dbState)[0] || "",
-    currentScreen: settings?.current_screen || "hub",
-    activeTab: settings?.active_tab || "overview",
-    pricing: settings?.pricing_json ? JSON.parse(settings.pricing_json) : null,
-    updatedAt: settings?.updated_at || ""
-  };
-}
+const { readBusinessState: getBusinessState } = require("./state.read.service");
 
 async function replaceBusinessState(userId, state, expectedUpdatedAt) {
   validateBusiness(state);
@@ -113,11 +43,16 @@ async function replaceBusinessState(userId, state, expectedUpdatedAt) {
 
     // Uma chamada remota por lote, em vez de uma por venda. Todos os lotes
     // permanecem na mesma transação, incluindo a verificação de versão.
-    const statements = [];
+    const statements = [
+      { sql: "DELETE FROM periods WHERE user_id = ?", args: [userId] },
+      { sql: "DELETE FROM logged_days WHERE user_id = ?", args: [userId] }
+    ];
 
     // Vendas
     for (const [month, monthData] of Object.entries(state.db || {})) {
+      statements.push({ sql: "INSERT INTO periods (user_id, month) VALUES (?, ?)", args: [userId, month] });
       for (const day of monthData.days || []) {
+        statements.push({ sql: "INSERT INTO logged_days (user_id, month, date) VALUES (?, ?, ?)", args: [userId, month, day.d] });
         for (const platform of platforms) {
           const platformId = platformIds.get(platform.key);
           if (!platformId || !day.d) continue;
@@ -219,12 +154,15 @@ async function replaceMonth(userId, month, monthData) {
 
   const stmts = [
     { sql: "DELETE FROM sales WHERE user_id = ? AND month = ?", args: [userId, month] },
-    { sql: "DELETE FROM returns WHERE user_id = ? AND month = ?", args: [userId, month] }
+    { sql: "DELETE FROM returns WHERE user_id = ? AND month = ?", args: [userId, month] },
+    { sql: "DELETE FROM logged_days WHERE user_id = ? AND month = ?", args: [userId, month] },
+    { sql: "INSERT OR IGNORE INTO periods (user_id, month) VALUES (?, ?)", args: [userId, month] }
   ];
   stmts.push({ sql: "UPDATE app_settings SET updated_at = ? WHERE user_id = ?", args: [ts, userId] });
 
   for (const day of monthData.days || []) {
     if (!day?.d) continue;
+    stmts.push({ sql: "INSERT INTO logged_days (user_id, month, date) VALUES (?, ?, ?)", args: [userId, month, day.d] });
     for (const key of keys) {
       const amount = Number(day[key] || 0);
       const orders = Math.max(0, Math.round(Number(day[`orders_${key}`] || 0)));
@@ -257,6 +195,9 @@ async function deleteMonth(userId, month) {
   await client.batch([
     { sql: "DELETE FROM sales WHERE user_id = ? AND month = ?", args: [userId, month] },
     { sql: "DELETE FROM returns WHERE user_id = ? AND month = ?", args: [userId, month] },
+    { sql: "DELETE FROM logged_days WHERE user_id = ? AND month = ?", args: [userId, month] },
+    { sql: "DELETE FROM periods WHERE user_id = ? AND month = ?", args: [userId, month] },
+    { sql: "DELETE FROM goals WHERE user_id = ? AND month = ?", args: [userId, month] },
     { sql: "UPDATE app_settings SET updated_at = ? WHERE user_id = ?", args: [nowIso(), userId] }
   ], "write");
 }

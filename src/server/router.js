@@ -106,6 +106,9 @@ async function handleRequest(req, res) {
       if (req.method === "POST" && url.pathname === "/api/state") {
         return await stateRoutes.saveState(req, res, authenticatedUser);
       }
+      if (req.method === "PATCH" && url.pathname === "/api/state") {
+        return await stateRoutes.patchState(req, res, authenticatedUser);
+      }
       if (req.method === "GET" && url.pathname === "/api/platforms") {
         return await platformsRoutes.list(req, res, authenticatedUser);
       }
@@ -143,7 +146,7 @@ async function handleRequest(req, res) {
 
     // ─── Static files ──────────────────────────────────────────────────
     if (req.method === "GET") {
-      return staticServer.serve(req, res, url);
+      return await staticServer.serve(req, res, url);
     }
 
     sendText(res, 404, "Not found");

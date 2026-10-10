@@ -33,7 +33,7 @@ export default defineConfig({
     env: {
       PORT: String(PORT),
       HOST,
-      NODE_ENV: "test",
+      NODE_ENV: process.env.KANRI_E2E_PRODUCTION === "1" ? "production" : "test",
       TURSO_DATABASE_URL: testDatabase,
       TURSO_AUTH_TOKEN: "",
     }

@@ -1,4 +1,4 @@
-import { state, parsePeriodKey, sortPeriodKeys, getPeriodMonth } from "../../core/state.js";
+import { getAvailablePeriods, state, parsePeriodKey, sortPeriodKeys, getPeriodMonth } from "../../core/state.js";
 import { ALL_MONTHS } from "../../core/constants.js";
 
 export function getMonthDays(month) {
@@ -31,7 +31,19 @@ export function getLastLoggedDay(month) {
   }, 0);
 }
 
+let totalsCache = null;
+export function withTotalsCache(render) {
+  const previous = totalsCache;
+  totalsCache = new Map();
+  try { return render(); } finally { totalsCache = previous; }
+}
 export function calcTotals(month, options = {}) {
+  if (!totalsCache) return calculateTotals(month, options);
+  const key = `${month}:${options.cutoffDay || 0}`;
+  if (!totalsCache.has(key)) totalsCache.set(key, calculateTotals(month, options));
+  return totalsCache.get(key);
+}
+function calculateTotals(month, options = {}) {
   const data = state.db[month];
   if (!data) return null;
 
@@ -74,7 +86,7 @@ export function calcTotals(month, options = {}) {
 }
 
 export function getComparisonPeriod(month) {
-  const sm = sortPeriodKeys(Object.keys(state.db));
+  const sm = getAvailablePeriods();
   const ci = sm.indexOf(month);
   const pn = ci > 0 ? sm[ci - 1] : null;
   const lastLoggedDay = getLastLoggedDay(month);
