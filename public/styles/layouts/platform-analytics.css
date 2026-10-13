@@ -21,6 +21,22 @@
 .platform-analytics-kpi > small.is-negative { color: var(--red); }
 .platform-analytics-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, .95fr); gap: var(--space-4); align-items: stretch; }
 .platform-chart-card, .platform-mix-card, .platform-performance-card { min-width: 0; }
+.platform-chart-column { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; order: 1; }
+.platform-chart-column .platform-chart-card { order: 0; }
+.platform-average-card { min-width: 0; flex: 1; }
+.platform-average-summary { border: 1px solid var(--border-2); border-radius: var(--radius-lg); margin-top: var(--space-5); padding: var(--space-5); }
+.platform-average-main { display: flex; align-items: center; gap: var(--space-5); }
+.platform-average-icon { display: flex; align-items: center; justify-content: center; flex: 0 0 72px; height: 72px; border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--accent); }
+.platform-average-icon svg { width: 44px; height: 44px; }
+.platform-average-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.platform-average-copy > span { color: var(--muted); font-size: var(--text-lg); font-weight: 600; }
+.platform-average-copy > strong { color: var(--text); font-size: clamp(28px, 3vw, 42px); line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.platform-average-copy > small { color: var(--muted); font-size: var(--text-base); }
+.platform-average-details { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border-2); margin-top: var(--space-5); padding-top: var(--space-4); gap: var(--space-5); }
+.platform-average-details > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.platform-average-details > div + div { border-left: 1px solid var(--border-2); padding-left: var(--space-5); }
+.platform-average-details span { color: var(--muted); font-size: var(--text-base); }
+.platform-average-details strong { color: var(--text); font-size: var(--text-xl); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .platform-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .platform-section-heading h2 { color: var(--text); font-size: var(--text-lg); font-weight: 650; margin: 0; }
 .platform-section-heading p { font-size: var(--text-sm); }
@@ -69,6 +85,14 @@
   .platform-analytics-chart-box { height: 235px; }
 }
 @media (max-width: 480px) {
+  .platform-average-summary { padding: var(--space-3); }
+  .platform-average-main { gap: var(--space-3); }
+  .platform-average-icon { flex-basis: 44px; height: 52px; }
+  .platform-average-icon svg { width: 32px; height: 32px; }
+  .platform-average-copy > strong { font-size: 27px; }
+  .platform-average-copy > span { font-size: var(--text-base); }
+  .platform-average-details { gap: var(--space-3); }
+  .platform-average-details > div + div { padding-left: var(--space-3); }
   .platform-analytics-kpis { gap: var(--space-2); }
   .platform-analytics-kpi { min-height: 103px; padding: var(--space-3); }
   .platform-analytics-kpi > span { font-size: var(--text-sm); }

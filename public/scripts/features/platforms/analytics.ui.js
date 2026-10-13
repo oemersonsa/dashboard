@@ -106,9 +106,25 @@ function render() {
   const subtitle = document.getElementById("platformChartSubtitle");
   if (subtitle) subtitle.textContent = `${key === "all" ? "Todas as plataformas" : state.platforms.find((p) => p.key === key)?.name || "Plataforma"} • ${metric === "sales" ? "Vendas brutas" : "Pedidos"} por dia`;
   renderChart(rows, range, key);
+  renderAverage(filteredRows(allRows, range, "all"));
   renderShare(rows, key);
   renderPlatformCards(rows, range, key);
   renderTable(rows, range, key);
+}
+
+function renderAverage(rows) {
+  const count = (state.platforms || []).length;
+  const total = sum(rows, "sales");
+  const values = {
+    platformAverageValue: R(count ? total / count : 0),
+    platformAverageTotal: R(total),
+    platformAverageCount: count.toLocaleString("pt-BR"),
+    platformAverageFormula: count ? `Total de vendas ÷ ${count} ${count === 1 ? "plataforma" : "plataformas"}` : "Nenhuma plataforma cadastrada"
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  });
 }
 
 function renderPlatformCards(rows, range, key) {

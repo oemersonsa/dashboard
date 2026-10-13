@@ -242,7 +242,19 @@
               <div class="platform-concept-cards" id="platformConceptCards"></div>
               <div class="platform-analytics-kpis" id="platformAnalyticsKpis" hidden></div>
               <div class="platform-analytics-grid">
+                <div class="platform-chart-column">
                 <section class="card platform-chart-card"><div class="platform-section-heading"><div><h2>Evolução das vendas e pedidos</h2><p id="platformChartSubtitle">Valores diários no período selecionado</p></div><div class="platform-metric-toggle" role="group" aria-label="Métrica do gráfico"><button type="button" class="active" data-platform-metric="sales" aria-pressed="true">Vendas</button><button type="button" data-platform-metric="orders" aria-pressed="false">Pedidos</button></div></div><div class="platform-analytics-chart-box"><canvas id="platformAnalyticsChart" aria-label="Gráfico de vendas no período selecionado"></canvas></div></section>
+                <section class="card platform-average-card" aria-labelledby="platformAverageTitle">
+                  <div class="platform-section-heading"><div><h2 id="platformAverageTitle">Média de vendas por plataforma</h2><p>Todas as plataformas • Período selecionado</p></div></div>
+                  <div class="platform-average-summary" aria-live="polite">
+                    <div class="platform-average-main">
+                      <div class="platform-average-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="currentColor"><rect x="6" y="29" width="7" height="13" rx="1"/><rect x="16" y="21" width="7" height="21" rx="1"/><rect x="26" y="7" width="7" height="35" rx="1"/><rect x="36" y="12" width="7" height="30" rx="1" opacity=".65"/></svg></div>
+                      <div class="platform-average-copy"><span>Média por plataforma</span><strong id="platformAverageValue">R$ 0,00</strong><small id="platformAverageFormula">Total de vendas ÷ 0 plataformas</small></div>
+                    </div>
+                    <div class="platform-average-details"><div><span>Total de vendas</span><strong id="platformAverageTotal">R$ 0,00</strong></div><div><span>Plataformas</span><strong id="platformAverageCount">0</strong></div></div>
+                  </div>
+                </section>
+                </div>
                 <section class="card platform-mix-card"><div class="platform-section-heading"><div><h2>Participação por plataforma</h2><p>Vendas brutas no período</p></div></div><div id="platformShare"></div></section>
               </div>
               <section class="card platform-performance-card"><div class="platform-section-heading"><div><h2>Desempenho por plataforma</h2><p>Clique em uma linha para filtrar a página por essa plataforma.</p></div></div><div class="platform-performance-wrap" role="region" aria-label="Desempenho por plataforma" tabindex="0"><table class="platform-performance-table" id="platformPerformanceTable"></table></div></section>

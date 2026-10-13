@@ -38,6 +38,51 @@ test.describe("Dashboard", () => {
     }, { timeout: 10000 });
   });
 
+  test("média por plataforma considera todas as vendas do período e acompanha os filtros", async ({ page }) => {
+    await page.setViewportSize({ width: 1586, height: 1000 });
+    await page.evaluate(async () => {
+      const app = window.dashboard;
+      await app.ensureHistory();
+      const amounts = [1268470.10, 415442.84, 352891.75, 25152.20, 16599.75, 12229.08, 7035.93, 355.06];
+      const names = ["Mercado Livre", "Shopee", "Shein", "Magalu", "Nuvem Shop", "Mercado Livre (Paraíso)", "TikTok", "Shopee (Paraíso)"];
+      app.state.platforms = amounts.map((_, i) => ({ key: `average-${i}`, name: names[i], icon: `P${i}`, color: "#1bd9eb" }));
+      app.state.db = {
+        "2026-Setembro": { days: [{ d: "01/09", ...Object.fromEntries(amounts.map((value, i) => [`average-${i}`, value])) }], returns: {} },
+        "2026-Outubro": { days: [{ d: "01/10", "average-0": 800 }], returns: {} }
+      };
+      app.state.currentMonth = "2026-Setembro";
+      app.renderScreen();
+    });
+    await page.locator('.sidebar-item[data-dashboard-tab="platforms"]').click();
+    await expect(page.locator("#platformAverageValue")).toContainText("262.272,09");
+    await expect(page.locator("#platformAverageTotal")).toContainText("2.098.176,71");
+    await expect(page.locator("#platformAverageCount")).toHaveText("8");
+    const chart = await page.locator(".platform-chart-card").boundingBox();
+    const average = await page.locator(".platform-average-card").boundingBox();
+    const share = await page.locator(".platform-mix-card").boundingBox();
+    expect(average.y).toBeGreaterThan(chart.y + chart.height);
+    expect(average.x).toBeCloseTo(chart.x, 0);
+    expect(average.width).toBeCloseTo(chart.width, 0);
+    expect(share.x).toBeLessThan(chart.x);
+    await page.screenshot({ path: "output/design/platform-average-desktop.png", fullPage: true });
+    await page.selectOption("#platformFilter", "average-0");
+    await page.click('[data-platform-metric="orders"]');
+    await expect(page.locator("#platformAverageValue")).toContainText("262.272,09");
+    await page.selectOption("#platformRange", "custom");
+    await page.fill("#platformDateFrom", "2026-10-01");
+    await page.fill("#platformDateTo", "2026-10-31");
+    await expect(page.locator("#platformAverageValue")).toContainText("100,00");
+    await expect(page.locator("#platformAverageTotal")).toContainText("800,00");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await page.locator(".platform-average-card").screenshot({ path: "output/design/platform-average-mobile.png" });
+    await page.fill("#platformDateTo", "2026-11-30");
+    await page.fill("#platformDateFrom", "2026-11-01");
+    await expect(page.locator("#platformAverageValue")).toContainText("0,00");
+    await expect(page.locator("#platformAverageTotal")).toContainText("0,00");
+    await expect(page.locator("#platformAverageCount")).toHaveText("8");
+  });
+
   test("navega pelo menu com teclado em uma tela pequena", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.locator("#dashboardSidebar")).toBeHidden();
