@@ -127,7 +127,7 @@ O fluxo usa arquivos fornecidos pelo usuário. O projeto não implementa conexã
 | Desktop | Electron 33 |
 | Testes | Vitest, cobertura V8 e Playwright |
 | Automação | GitHub Actions em Windows e Linux |
-| Deploy | Configuração Render e arquivo de deploy Railway |
+| Deploy | Vercel, Render e Railway |
 
 ```text
 Navegador                         Electron
@@ -232,6 +232,22 @@ Se aparecer uma mensagem de porta em uso (`EADDRINUSE`), confira se o Kanri já 
 O Electron usa a porta já definida no ambiente ou seu padrão `37171`, ajustando a origem para o servidor interno. Não há script `dev:watch` nem empacotamento de instalador desktop no `package.json` atual.
 
 No primeiro acesso, crie um usuário, cadastre as plataformas e comece os lançamentos ou importe um backup/planilha.
+
+## Deploy na Vercel
+
+1. Envie este código ao repositório Git e importe-o em **Add New → Project** na Vercel.
+2. Use a raiz do repositório como **Root Directory** e **Other** como framework. O `vercel.json` já define instalação, build, saída estática e rotas da função Node.js. Selecione **Node.js 22.x** nas configurações do projeto.
+3. Em **Environment Variables**, cadastre `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` com os valores do banco remoto. Para manter os dados atuais, use o mesmo banco da aplicação existente. Não envie o arquivo `.env` ao repositório.
+4. `APP_ORIGIN` é opcional: sem ela, o backend usa a URL automática do deploy. Para um domínio próprio, informe sua origem HTTPS, por exemplo `https://kanri.exemplo.com`. `PORT` e `HOST` não precisam ser configurados na Vercel.
+5. Faça o deploy e confira `/health`, `/health/database`, cadastro/login e salvamento de um lançamento.
+
+A instalação usa `npm ci --omit=dev`, dispensando o Electron e as ferramentas de teste no deploy. `npm run build:vercel` gera a interface otimizada em `dist/`, servida pela CDN. `/api/*` e os healthchecks usam a função `api/index.js`, que reaproveita o roteador existente sem abrir uma porta HTTP.
+
+O build executa `npm run db:migrate` antes da publicação. Falhas na conexão ou nas migrations interrompem o deploy. Configure as credenciais também no ambiente de build. Use um banco separado para **Preview**, pois esses deploys também executam migrations e permitem alterar dados. Evite deploys simultâneos contra um banco com migrations pendentes.
+
+O banco deve ser remoto: arquivos SQLite locais não persistem entre instâncias da Vercel. O limite de corpo da Vercel Functions é **4,5 MB**, inferior aos 10 MB aceitos pelo servidor local; backups/importações enviados à API devem ficar abaixo desse limite. O rate limit atual fica na memória de cada instância e não é um limite global compartilhado.
+
+Para validar a geração da interface localmente, execute `npm run build:vercel`. Esse comando não conecta ao banco. `npm run db:migrate` altera o banco indicado pelas variáveis de ambiente; execute-o apenas para o banco que deseja atualizar.
 
 ## Testes
 

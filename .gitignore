@@ -1,5 +1,6 @@
 # Dependências
 node_modules/
+.vercel/
 
 # Bancos de dados locais
 .data/

@@ -12,6 +12,8 @@
     "start:web": "node src/server.js",
     "dev": "node src/server.js",
     "build": "node scripts/build.cjs",
+    "build:vercel": "node scripts/build-vercel.cjs",
+    "db:migrate": "node scripts/migrate.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",

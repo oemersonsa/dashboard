@@ -6,6 +6,14 @@ async function readJsonBody(req) {
   if (!contentType.includes("application/json")) {
     throw Errors.unsupportedType();
   }
+  // A Vercel pode entregar o JSON já lido; nesse caso o stream está consumido.
+  if (req.body !== undefined) {
+    const raw = typeof req.body === "string" || Buffer.isBuffer(req.body)
+      ? req.body : JSON.stringify(req.body);
+    if (Buffer.byteLength(raw) > MAX_BODY_BYTES) throw Errors.tooLarge();
+    try { return JSON.parse(raw.toString()); }
+    catch { const error = new Error("invalid_json"); error.statusCode = 400; error.code = "invalid_json"; throw error; }
+  }
   const chunks = [];
   let total = 0;
   for await (const chunk of req) {

@@ -25,7 +25,7 @@ loadEnvFile(path.join(PROJECT_ROOT, ".env"));
 const config = {
   PORT: Number(process.env.PORT || 3000),
   HOST: String(process.env.HOST || "0.0.0.0"),
-  APP_ORIGIN: String(process.env.APP_ORIGIN || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, ""),
+  APP_ORIGIN: String(process.env.APP_ORIGIN || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${process.env.PORT || 3000}`)).replace(/\/$/, ""),
 
   // ─── Turso (banco remoto) ────────────────────────────────────────────
   TURSO_DATABASE_URL: String(process.env.TURSO_DATABASE_URL || "").trim(),

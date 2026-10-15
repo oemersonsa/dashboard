@@ -1,0 +1,14 @@
+.git
+dashboard.git
+.env
+.env.*
+.data*
+*.sqlite*
+node_modules
+coverage
+test-results
+playwright-report
+output
+dist
+tests
+prototipo-plataformas.svg
