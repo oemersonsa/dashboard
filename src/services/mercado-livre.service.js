@@ -56,10 +56,10 @@ function decrypt(value, user) {
     return JSON.parse(Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString());
   } catch { throw fail("ml_credentials_unavailable", 503); }
 }
-async function remote(path, options = {}) {
+async function remote(path, options = {}, includeStatus = false) {
   let response;
   try {
-    response = await fetch(API + path, { ...options, redirect: "error", signal: AbortSignal.timeout(15000) });
+    response = await fetch(API + path, { ...options, redirect: "error", signal: options.signal || AbortSignal.timeout(15000) });
   } catch { throw fail("ml_unavailable", 502); }
   const body = await response.json().catch(() => null);
   if (!response.ok) {
@@ -70,7 +70,7 @@ async function remote(path, options = {}) {
     throw fail(codes[response.status] || "ml_api_error", response.status === 429 ? 429 : 502);
   }
   if (!body || typeof body !== "object") throw fail("ml_invalid_response", 502);
-  return body;
+  return includeStatus ? { data: body, status: response.status } : body;
 }
 async function tokenRequest(params) {
   return remote("/oauth/token", {
@@ -176,11 +176,21 @@ function paging(input) {
 const money = value => Math.max(0, Math.round((Number(value) || 0) * 100));
 function orderRecord(order) {
   if (!order.id || !order.date_created || !Array.isArray(order.order_items)) throw fail("ml_invalid_response", 502);
-  const items = order.order_items.map(item => ({ title: String(item.item?.title || ""),
-    sku: String(item.item?.seller_sku || ""), quantity: Number(item.quantity) || 0, unitPrice: Number(item.unit_price) || 0 }));
+  if (!order.order_items.length || order.order_items.some(item => !Number.isInteger(item.quantity) || item.quantity <= 0 ||
+    typeof item.unit_price !== "number" || !Number.isFinite(item.unit_price) || item.unit_price < 0)) throw fail("ml_invalid_response", 502);
+  const cents = value => typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.round(value * 100) : null;
+  const items = order.order_items.map(item => ({ title: String(item.item?.title || ""), id: String(item.item?.id || ""),
+    sku: String(item.item?.seller_sku || item.item?.seller_custom_field || ""), quantity: Number(item.quantity) || 0,
+    unitPrice: Number(item.unit_price) || 0, saleFeeCents: cents(item.sale_fee) }));
+  const itemFeesKnown = items.length > 0 && items.every(item => item.saleFeeCents !== null);
+  const payments = order.payments || [];
+  const paymentFeesKnown = payments.length > 0 && payments.every(payment => cents(payment.marketplace_fee) !== null);
   return { id: String(order.id), packId: order.pack_id ? String(order.pack_id) : null,
     status: String(order.status || ""), dateCreated: order.date_created, currency: order.currency_id,
     grossCents: items.reduce((sum, item) => sum + money(item.unitPrice) * item.quantity, 0),
+    saleFeeCents: itemFeesKnown ? items.reduce((sum, item) => sum + item.saleFeeCents * item.quantity, 0)
+      : paymentFeesKnown ? payments.reduce((sum, payment) => sum + cents(payment.marketplace_fee), 0) : null,
+    refundsKnown: payments.length > 0 && payments.every(payment => cents(payment.transaction_amount_refunded) !== null),
     refundedCents: (order.payments || []).reduce((sum, payment) => sum + money(payment.transaction_amount_refunded), 0),
     items, shippingId: order.shipping?.id ? String(order.shipping.id) : null };
 }
@@ -300,9 +310,9 @@ async function returnDetails(user, id) {
 }
 async function disconnect(user) {
   await withTransaction(async tx => {
-    for (const table of ["ml_connections", "ml_oauth_states", "ml_records", "ml_sync_windows"]) {
+    for (const table of ["ml_connections", "ml_oauth_states", "ml_records", "ml_sync_windows", "ml_financials"]) {
       await tx.execute({ sql: `DELETE FROM ${table} WHERE user_id = ?`, args: [user] });
     }
   });
 }
-module.exports = { status, authorize, callback, sync, list, returnDetails, disconnect, range };
+module.exports = { status, authorize, callback, sync, list, returnDetails, disconnect, range, connection, remote, orderRecord };

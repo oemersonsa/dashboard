@@ -1,5 +1,6 @@
 const service = require("../services/mercado-livre.service");
 const dashboard = require("../services/mercado-livre-dashboard.service");
+const margins = require("../services/mercado-livre-margins.service");
 const config = require("../config/env");
 const { readJsonBody } = require("../middleware/body-parser");
 const BASE = "/api/integrations/mercado-livre";
@@ -21,6 +22,14 @@ async function callback(req, res, url) {
 }
 async function handle(req, res, user, url) {
   const suffix = url.pathname.slice(BASE.length);
+  if (req.method === "GET" && suffix === "/margins") return json(res, 200, await margins.list(user, Object.fromEntries(url.searchParams)));
+  const marginMatch = suffix.match(/^\/margins\/(\d+)(?:\/(refresh|costs))?$/);
+  if (marginMatch) {
+    const [, id, action] = marginMatch;
+    if (req.method === "GET" && !action) return json(res, 200, await margins.detail(user, id));
+    if (req.method === "POST" && action === "refresh") return json(res, 200, await margins.refresh(user, id));
+    if (req.method === "POST" && action === "costs") return json(res, 200, await margins.saveCosts(user, id, await readJsonBody(req)));
+  }
   if (req.method === "GET" && suffix === "") return json(res, 200, await service.status(user));
   if (req.method === "POST" && suffix === "/authorize") {
     const result = await service.authorize(user);
