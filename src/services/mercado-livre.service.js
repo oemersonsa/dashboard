@@ -63,8 +63,11 @@ async function remote(path, options = {}, includeStatus = false) {
   } catch { throw fail("ml_unavailable", 502); }
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    if (path === "/oauth/token" && response.status === 400 && body?.error === "invalid_grant") {
-      throw fail("ml_reconnect_required", 409);
+    if (path === "/oauth/token" && body?.error === "invalid_client") throw fail("ml_invalid_client", 409);
+    if (path === "/oauth/token" && body?.error === "invalid_request") throw fail("ml_invalid_oauth_request", 409);
+    if (path === "/oauth/token" && body?.error === "invalid_grant") {
+      const grant = new URLSearchParams(options.body).get("grant_type");
+      throw fail(grant === "authorization_code" ? "ml_invalid_authorization_code" : "ml_reconnect_required", 409);
     }
     const codes = { 401: "ml_reconnect_required", 403: "ml_permission_denied", 404: "ml_resource_not_found", 429: "ml_rate_limited" };
     throw fail(codes[response.status] || "ml_api_error", response.status === 429 ? 429 : 502);
@@ -79,9 +82,10 @@ async function tokenRequest(params) {
   });
 }
 function validTokens(tokens) {
-  if (!tokens.access_token || !tokens.refresh_token || !(Number(tokens.expires_in) > 0) || !tokens.user_id) {
+  if (!tokens.access_token || !(Number(tokens.expires_in) > 0) || !tokens.user_id) {
     throw fail("ml_invalid_response", 502);
   }
+  if (!tokens.refresh_token) throw fail("ml_offline_access_required", 409);
   return Date.now() + Number(tokens.expires_in) * 1000;
 }
 async function status(user) {
@@ -109,14 +113,16 @@ async function authorize(user) {
 async function callback(params, cookieState) {
   requireConfig();
   const state = params.get("state") || "";
-  if (!state || state !== cookieState || state.length > 100) throw fail("ml_invalid_oauth_state");
+  if (!state || state.length > 100) throw fail("ml_invalid_oauth_state");
+  if (!cookieState) throw fail("ml_oauth_cookie_missing");
+  if (state !== cookieState) throw fail("ml_oauth_browser_mismatch");
   const hash = crypto.createHash("sha256").update(state).digest("hex");
   const pending = await withTransaction(async tx => {
     const result = await tx.execute({ sql: "SELECT * FROM ml_oauth_states WHERE state_hash = ?", args: [hash] });
     await tx.execute({ sql: "DELETE FROM ml_oauth_states WHERE state_hash = ?", args: [hash] });
     return result.rows[0];
   });
-  if (!pending || Number(pending.expires_at) < Date.now()) throw fail("ml_invalid_oauth_state");
+  if (!pending || Number(pending.expires_at) < Date.now()) throw fail("ml_oauth_expired");
   if (params.has("error") || !params.get("code")) throw fail("ml_authorization_denied");
   const tokens = await tokenRequest({ grant_type: "authorization_code", code: params.get("code"),
     redirect_uri: config.ML_REDIRECT_URI, code_verifier: decrypt(pending.verifier, pending.user_id) });

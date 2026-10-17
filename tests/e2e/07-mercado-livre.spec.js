@@ -99,4 +99,9 @@ test("consulta pedidos, sincroniza e acompanha devoluções no desktop e celular
   await expect.poll(() => page.evaluate(() => window.dashboard.state.db["2026-Outubro"]?.days.find(day => day.d === "03/10")?.["mercado-livre"])).toBe(24.68);
   await expect.poll(() => page.evaluate(() => window.dashboard.state.currentMonth)).toBe("2026-Outubro");
   await expect(page.locator("#kpiRow")).toContainText("24,68");
+  await page.goto("/?ml=failed&ml_error=ml_oauth_cookie_missing#/account");
+  await expect(page.locator("#mlSummary")).toContainText("24,68");
+  await expect(page.locator("#mlNotice")).toContainText("mesmo navegador");
+  expect(page.url()).not.toContain("ml_error");
+  await expect(page.locator("#mlConnect")).toBeEnabled();
 });

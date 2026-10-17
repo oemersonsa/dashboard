@@ -17,6 +17,17 @@ const messages = {
   ml_connection_changed: "A conexão mudou durante a consulta. Atualize a página.",
   ml_resource_not_found: "Os detalhes desta devolução ainda não estão disponíveis.",
   ml_credentials_unavailable: "Não foi possível ler as credenciais. Verifique a chave no servidor e reconecte.",
+  ml_oauth_cookie_missing: "O retorno do Mercado Livre chegou sem a identificação desta tentativa. Abra o Kanri e conclua a autorização no mesmo navegador, mantendo os cookies do app habilitados.",
+  ml_oauth_browser_mismatch: "O retorno pertence a outra tentativa de conexão. Feche as tentativas antigas e clique em Conectar Mercado Livre novamente no mesmo navegador.",
+  ml_oauth_expired: "A tentativa expirou ou já foi utilizada. Clique em Conectar Mercado Livre e conclua a autorização em até 10 minutos.",
+  ml_invalid_oauth_state: "O Mercado Livre retornou sem uma identificação válida da tentativa. Inicie a conexão novamente pelo botão do Kanri.",
+  ml_authorization_denied: "A autorização foi recusada ou cancelada no Mercado Livre. Inicie uma nova tentativa e confira as permissões solicitadas.",
+  ml_invalid_client: "O Mercado Livre recusou o App ID ou Client Secret. Confira se ML_CLIENT_ID e ML_CLIENT_SECRET na Vercel pertencem à mesma aplicação e faça um novo deploy.",
+  ml_invalid_oauth_request: "O Mercado Livre recusou a troca da autorização. Confira a URL de retorno e a configuração PKCE da aplicação e inicie uma tentativa nova.",
+  ml_invalid_authorization_code: "O Mercado Livre recusou o código de autorização. Inicie uma tentativa nova pelo Kanri; se repetir, confira a URL de retorno e se está usando a conta principal da loja.",
+  ml_offline_access_required: "O Mercado Livre autorizou o acesso, mas não enviou o token de renovação. Confira o acesso offline da aplicação antes de reconectar.",
+  ml_invalid_response: "O Mercado Livre não retornou todos os dados necessários para concluir a conexão. Inicie uma nova tentativa.",
+  ml_callback_failed: "O servidor não conseguiu concluir o retorno da autorização. Consulte os logs da Vercel para identificar a falha.",
   ml_unavailable: "O Mercado Livre não respondeu. Tente novamente em instantes."
 };
 Object.assign(messages, {
@@ -44,6 +55,7 @@ let owner = "";
 let revision = 0;
 let resume = null;
 let dashboardPreview = null;
+let authorizationProblem = "";
 const el = id => document.getElementById(id);
 const translate = value => labels[value] || value || "—";
 const money = cents => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -209,8 +221,8 @@ async function refresh(requestedOwner, requestedRevision) {
     details.append(item);
   }
   details.hidden = explanations.length === 0;
-  notice(!canConnect ? "Conexão indisponível: confira os ajustes abaixo para habilitar o botão." : connected
-    ? `Conta conectada: ${status.nickname} (${status.sellerId}). Sincronize os pedidos, confira a prévia e confirme para atualizar o dashboard.` : "Conecte sua conta para consultar pedidos e devoluções.");
+  notice(authorizationProblem || (!canConnect ? "Conexão indisponível: confira os ajustes abaixo para habilitar o botão." : connected
+    ? `Conta conectada: ${status.nickname} (${status.sellerId}). Sincronize os pedidos, confira a prévia e confirme para atualizar o dashboard.` : "Conecte sua conta para consultar pedidos e devoluções."));
   el("mlData").hidden = !connected;
   if (connected) await loadRecords(requestedOwner, requestedRevision);
 }
@@ -218,6 +230,7 @@ export function init() {
   if (!el("mlIntegration")) return;
   if (owner !== state.auth?.username) {
     owner = state.auth?.username || "";
+    authorizationProblem = "";
     revision++;
     connected = false;
     resetDashboardPreview();
@@ -239,6 +252,7 @@ export function init() {
   if (!bound) {
     bound = true;
     el("mlConnect").addEventListener("click", () => void run(async (user, version) => {
+      authorizationProblem = "";
       const result = await apiRequest(`${BASE}/authorize`, { method: "POST" });
       if (user === state.auth?.username && version === revision) window.location.assign(result.url);
     }));
@@ -310,9 +324,14 @@ export function init() {
   }
   const outcome = new URLSearchParams(location.search).get("ml");
   if (outcome) {
-    if (outcome === "failed") toastError("A conexão não foi concluída. Confira a configuração e tente conectar novamente.");
     const url = new URL(location.href);
+    if (outcome === "failed") {
+      const code = url.searchParams.get("ml_error");
+      authorizationProblem = Object.prototype.hasOwnProperty.call(messages, code) ? messages[code] : messages.ml_callback_failed;
+      toastError(authorizationProblem);
+    } else { authorizationProblem = ""; }
     url.searchParams.delete("ml");
+    url.searchParams.delete("ml_error");
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   }
   void run(refresh);

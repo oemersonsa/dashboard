@@ -2,6 +2,7 @@ const service = require("../services/mercado-livre.service");
 const dashboard = require("../services/mercado-livre-dashboard.service");
 const margins = require("../services/mercado-livre-margins.service");
 const config = require("../config/env");
+const logger = require("../utils/logger");
 const { readJsonBody } = require("../middleware/body-parser");
 const BASE = "/api/integrations/mercado-livre";
 function json(res, status, body) {
@@ -14,9 +15,19 @@ function cookie(value, age) {
 async function callback(req, res, url) {
   const state = String(req.headers.cookie || "").split(";").map(item => item.trim()).find(item => item.startsWith("ml_oauth="))?.slice(9);
   let outcome = "connected";
+  let errorCode = "";
   try { await service.callback(url.searchParams, state); }
-  catch { outcome = "failed"; }
-  res.writeHead(303, { Location: `${config.APP_ORIGIN}/?ml=${outcome}#/account`,
+  catch (error) {
+    outcome = "failed";
+    const allowed = new Set(["ml_not_configured", "ml_invalid_oauth_state", "ml_oauth_cookie_missing", "ml_oauth_browser_mismatch", "ml_oauth_expired",
+      "ml_authorization_denied", "ml_invalid_client", "ml_invalid_oauth_request", "ml_offline_access_required", "ml_reconnect_required", "ml_invalid_authorization_code",
+      "ml_permission_denied", "ml_rate_limited", "ml_unavailable", "ml_invalid_response", "ml_credentials_unavailable"]);
+    errorCode = allowed.has(error.code) ? error.code : "ml_callback_failed";
+    const databaseCodes = new Set(["SQLITE_AUTH", "SQLITE_ERROR", "SQLITE_BUSY", "SERVER_ERROR", "AUTH_EXPIRED", "SQL_INPUT_ERROR"]);
+    logger.warn("Mercado Livre OAuth callback failed", { code: errorCode, databaseCode: databaseCodes.has(error.code) ? error.code : "" });
+  }
+  const result = new URLSearchParams({ ml: outcome, ...(errorCode ? { ml_error: errorCode } : {}) });
+  res.writeHead(303, { Location: `${config.APP_ORIGIN}/?${result}#/account`,
     "Set-Cookie": cookie("", 0), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   res.end();
 }

@@ -11,6 +11,8 @@ let claims = [];
 let tokenLifetime = 3600;
 let providerStatus = 200;
 let orderTotal;
+let oauthError = "";
+let noRefreshToken = false;
 
 async function request(path = "", { method = "GET", body, auth = token, headers = {}, ...options } = {}) {
   return nativeFetch(info.url + base + path, { method, redirect: "manual", ...options,
@@ -22,9 +24,10 @@ function mockProvider() {
     const parsed = new URL(url);
     expect(parsed.origin).toBe("https://api.mercadolibre.com");
     providerCalls.push({ url: parsed, options });
+    if (parsed.pathname === "/oauth/token" && oauthError) return new Response(JSON.stringify({ error: oauthError, message: "SENSITIVE_PROVIDER_MESSAGE" }), { status: 400 });
     if (providerStatus !== 200) return new Response(JSON.stringify({ error: "SENSITIVE_PROVIDER_MESSAGE" }), { status: providerStatus });
     let data;
-    if (parsed.pathname === "/oauth/token") data = { access_token: "secret-access", refresh_token: "secret-refresh", user_id: 123, expires_in: tokenLifetime };
+    if (parsed.pathname === "/oauth/token") data = { access_token: "secret-access", ...(noRefreshToken ? {} : { refresh_token: "secret-refresh" }), user_id: 123, expires_in: tokenLifetime };
     else if (parsed.pathname === "/users/me") data = { id: 123, nickname: "Loja teste" };
     else if (parsed.pathname === "/orders/search") data = { results: orders, paging: { total: orderTotal ?? orders.length } };
     else if (parsed.pathname === "/post-purchase/v1/claims/search") data = { data: claims, paging: { total: claims.length } };
@@ -63,7 +66,7 @@ beforeAll(async () => {
     else otherToken = result.sessionToken;
   }
 });
-afterEach(() => { vi.restoreAllMocks(); providerCalls = []; providerStatus = 200; tokenLifetime = 3600; orderTotal = undefined; });
+afterEach(() => { vi.restoreAllMocks(); providerCalls = []; providerStatus = 200; tokenLifetime = 3600; orderTotal = undefined; oauthError = ""; noRefreshToken = false; });
 afterAll(async () => { await require("../../src/server/index").stopServer(); await cleanupTestDb(); });
 
 describe("Mercado Livre integration", () => {
@@ -108,14 +111,31 @@ describe("Mercado Livre integration", () => {
     const start = await request("/authorize", { method: "POST" });
     const url = new URL((await start.json()).url);
     const path = `/callback?state=${url.searchParams.get("state")}&code=code`;
-    expect((await request(path, { auth: null })).headers.get("location")).toContain("failed");
+    expect((await request(path, { auth: null })).headers.get("location")).toContain("ml_error=ml_oauth_cookie_missing");
     await db.execute("UPDATE ml_oauth_states SET expires_at = 0");
-    expect((await request(path, { auth: null, headers: { Cookie: start.headers.get("set-cookie").split(";")[0] } })).headers.get("location")).toContain("failed");
+    expect((await request(path, { auth: null, headers: { Cookie: start.headers.get("set-cookie").split(";")[0] } })).headers.get("location")).toContain("ml_error=ml_oauth_expired");
     expect(providerCalls).toHaveLength(0);
     const denied = await request("/authorize", { method: "POST" });
     const deniedUrl = new URL((await denied.json()).url);
     expect((await request(`/callback?state=${deniedUrl.searchParams.get("state")}&error=access_denied`, { auth: null,
       headers: { Cookie: denied.headers.get("set-cookie").split(";")[0] } })).headers.get("location")).toContain("failed");
+  });
+  it("identifies callback failures without including provider messages or secrets", async () => {
+    mockProvider();
+    for (const [providerError, expected] of [["invalid_client", "ml_invalid_client"], ["invalid_grant", "ml_invalid_authorization_code"], ["invalid_request", "ml_invalid_oauth_request"], ["", "ml_offline_access_required"]]) {
+      oauthError = providerError; noRefreshToken = !providerError;
+      const start = await request("/authorize", { method: "POST" });
+      const state = new URL((await start.json()).url).searchParams.get("state");
+      const response = await request(`/callback?state=${state}&code=PRIVATE_CODE`, { auth: null, headers: { Cookie: start.headers.get("set-cookie").split(";")[0] } });
+      const target = response.headers.get("location");
+      expect(target).toContain(`ml_error=${expected}`);
+      expect(target).not.toContain("PRIVATE_CODE");
+      expect(target).not.toContain("SENSITIVE_PROVIDER_MESSAGE");
+      expect(target).not.toContain("secret-access");
+      expect(target).not.toContain("secret-refresh");
+      expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    }
+    expect(await (await request()).json()).toMatchObject({ connected: true });
   });
   it("upserts orders without duplicates and excludes buyer information", async () => {
     mockProvider();
