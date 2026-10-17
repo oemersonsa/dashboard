@@ -40,6 +40,12 @@ Object.assign(messages, {
   ml_save_pending: "Há alterações pendentes no dashboard. Conclua o salvamento antes de continuar.",
   ml_dashboard_reload_failed: "As vendas foram salvas. Atualize a página para carregar os novos totais."
 });
+Object.assign(messages, {
+  ml_scheduler_not_configured: "Para habilitar a atualização diária, configure CRON_SECRET na Vercel com pelo menos 16 caracteres e faça um novo deploy.",
+  ml_invalid_auto_sync_settings: "Não foi possível salvar a atualização diária. Tente novamente.",
+  ml_auto_sync_failed: "A atualização diária falhou. Tente atualizar novamente; se persistir, consulte os logs do servidor.",
+  ml_auto_sync_changed: "A configuração ou a conta mudou durante a atualização. Confira o destino e tente novamente."
+});
 const labels = { paid: "Pago", cancelled: "Cancelado", confirmed: "Confirmado", payment_required: "Aguardando pagamento",
   payment_in_process: "Pagamento em processamento", partially_paid: "Pago parcialmente", invalid: "Inválido",
   opened: "Aberta", closed: "Encerrada", dispute: "Mediação", claim: "Reclamação", return: "Devolução",
@@ -56,6 +62,7 @@ let revision = 0;
 let resume = null;
 let dashboardPreview = null;
 let authorizationProblem = "";
+let automatic = null;
 const el = id => document.getElementById(id);
 const translate = value => labels[value] || value || "—";
 const money = cents => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -63,6 +70,9 @@ function errorMessage(error) { return messages[error.message] || "Não foi poss�
 function params() { return { from: el("mlFrom").value, to: el("mlTo").value, kind: el("mlKind").value }; }
 function notice(text) { el("mlNotice").textContent = text; }
 function controls() {
+  el("mlAutoEnable").disabled = busy || !connected || !automatic?.schedulerConfigured;
+  el("mlAutoPause").disabled = busy;
+  el("mlAutoRun").disabled = busy || !connected || !automatic?.enabled;
   el("mlConnect").disabled = busy || !canConnect;
   el("mlDisconnect").disabled = busy;
   el("mlSync").disabled = busy || !connected;
@@ -72,6 +82,33 @@ function controls() {
   el("mlPrevious").disabled = busy || offset === 0;
   el("mlNext").disabled = busy || nextOffset === null;
   for (const id of ["mlFrom", "mlTo", "mlKind", "mlPlatform"]) el(id).disabled = busy;
+}
+function renderAutomatic(data) {
+  automatic = data;
+  el("mlAutoEnable").textContent = data.enabled ? "Salvar destino da atualização diária" : "Ativar atualização diária";
+  el("mlAutoPause").hidden = !data.enabled;
+  el("mlAutoRun").hidden = !data.enabled;
+  const destination = state.platforms.find(platform => platform.key === data.platformKey)?.name || data.platformKey;
+  let text = data.enabled ? `Atualização diária ativa para ${destination}.` : "Atualização diária desativada. Selecione a plataforma de destino e ative uma vez para começar.";
+  if (!data.schedulerConfigured) text += ` ${messages.ml_scheduler_not_configured}`;
+  if (data.lastSuccessAt) text += ` Última atualização concluída: ${new Date(data.lastSuccessAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} (Brasília).`;
+  if (data.running) text += " Atualização em andamento.";
+  else if (data.pending) text += " Há páginas pendentes. A próxima execução continuará a consulta; você também pode usar Atualizar vendas agora. O dashboard só muda após a consulta completa.";
+  if (data.lastError) text += ` Última tentativa: ${errorMessage(new Error(data.lastError))}`;
+  el("mlAutoStatus").textContent = text;
+}
+async function runAutomatic(user, version) {
+  if (!await window.dashboard.saveNow()) throw new Error("ml_save_pending");
+  if (user !== state.auth?.username || version !== revision) return;
+  const result = await apiRequest(`${BASE}/auto-sync/run`, { method: "POST" });
+  if (user !== state.auth?.username || version !== revision) return;
+  renderAutomatic(result.status);
+  if (result.failed) throw new Error(result.error);
+  if (result.completed) {
+    resetDashboardPreview();
+    if (!await window.dashboard.loadBusinessStateFromServer({ quiet: true })) throw new Error("ml_dashboard_reload_failed");
+    toastSuccess("Vendas do Mercado Livre atualizadas no dashboard.");
+  }
 }
 function resetDashboardPreview() {
   dashboardPreview = null;
@@ -195,6 +232,10 @@ async function refresh(requestedOwner, requestedRevision) {
   connected = status.connected;
   if (!connected) resetDashboardPreview();
   renderPlatforms();
+  const autoStatus = await apiRequest(`${BASE}/auto-sync`);
+  if (requestedOwner !== state.auth?.username || revision !== requestedRevision) return;
+  renderAutomatic(autoStatus);
+  if (autoStatus.enabled) el("mlPlatform").value = autoStatus.platformKey;
   const setup = status.configuration;
   const issues = setup?.issues || [];
   const wrongBrowserOrigin = Boolean(setup?.appOrigin && setup.appOrigin !== location.origin);
@@ -222,7 +263,7 @@ async function refresh(requestedOwner, requestedRevision) {
   }
   details.hidden = explanations.length === 0;
   notice(authorizationProblem || (!canConnect ? "Conexão indisponível: confira os ajustes abaixo para habilitar o botão." : connected
-    ? `Conta conectada: ${status.nickname} (${status.sellerId}). Sincronize os pedidos, confira a prévia e confirme para atualizar o dashboard.` : "Conecte sua conta para consultar pedidos e devoluções."));
+    ? `Conta conectada: ${status.nickname} (${status.sellerId}). Configure a atualização diária abaixo ou sincronize um intervalo manualmente.` : "Conecte sua conta para consultar pedidos e devoluções."));
   el("mlData").hidden = !connected;
   if (connected) await loadRecords(requestedOwner, requestedRevision);
 }
@@ -233,6 +274,7 @@ export function init() {
     authorizationProblem = "";
     revision++;
     connected = false;
+    automatic = null;
     resetDashboardPreview();
     el("mlPlatform").value = "";
     canConnect = false;
@@ -251,6 +293,22 @@ export function init() {
   }
   if (!bound) {
     bound = true;
+    el("mlAutoEnable").addEventListener("click", () => void run(async (user, version) => {
+      if (!await window.dashboard.saveNow()) throw new Error("ml_save_pending");
+      if (user !== state.auth?.username || version !== revision) return;
+      const data = await apiRequest(`${BASE}/auto-sync`, { method: "POST", body: JSON.stringify({ enabled: true, platformKey: el("mlPlatform").value }) });
+      if (user !== state.auth?.username || version !== revision) return;
+      renderAutomatic(data);
+      toastSuccess("Atualização diária ativada. Buscando as vendas agora.");
+      await runAutomatic(user, version);
+    }));
+    el("mlAutoPause").addEventListener("click", () => void run(async (user, version) => {
+      const data = await apiRequest(`${BASE}/auto-sync`, { method: "POST", body: JSON.stringify({ enabled: false }) });
+      if (user !== state.auth?.username || version !== revision) return;
+      renderAutomatic(data);
+      toastSuccess("Atualização diária pausada. As vendas já importadas foram preservadas.");
+    }));
+    el("mlAutoRun").addEventListener("click", () => void run(runAutomatic));
     el("mlConnect").addEventListener("click", () => void run(async (user, version) => {
       authorizationProblem = "";
       const result = await apiRequest(`${BASE}/authorize`, { method: "POST" });

@@ -14,6 +14,7 @@ const salesRoutes = require("../routes/sales.routes");
 const returnsRoutes = require("../routes/returns.routes");
 const monthRoutes = require("../routes/month.routes");
 const mercadoLivreRoutes = require("../routes/mercado-livre.routes");
+const cronRoutes = require("../routes/cron.routes");
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -47,6 +48,7 @@ async function handleRequest(req, res) {
   }
 
   try {
+    if (req.method === "GET" && url.pathname === "/api/cron/mercado-livre") return await cronRoutes.handle(req, res);
     // ─── Healthcheck ───────────────────────────────────────────────────
     if (req.method === "GET" && url.pathname === "/health") {
       return sendJson(res, 200, { status: "ok" });

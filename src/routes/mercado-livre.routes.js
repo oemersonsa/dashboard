@@ -1,6 +1,7 @@
 const service = require("../services/mercado-livre.service");
 const dashboard = require("../services/mercado-livre-dashboard.service");
 const margins = require("../services/mercado-livre-margins.service");
+const automatic = require("../services/mercado-livre-auto-sync.service");
 const config = require("../config/env");
 const logger = require("../utils/logger");
 const { readJsonBody } = require("../middleware/body-parser");
@@ -33,6 +34,12 @@ async function callback(req, res, url) {
 }
 async function handle(req, res, user, url) {
   const suffix = url.pathname.slice(BASE.length);
+  if (req.method === "GET" && suffix === "/auto-sync") return json(res, 200, await automatic.status(user));
+  if (req.method === "POST" && suffix === "/auto-sync") return json(res, 200, await automatic.configure(user, await readJsonBody(req)));
+  if (req.method === "POST" && suffix === "/auto-sync/run") {
+    const result = await automatic.runUser(user, { force: true });
+    return json(res, 200, { ...result, status: await automatic.status(user) });
+  }
   if (req.method === "GET" && suffix === "/margins") return json(res, 200, await margins.list(user, Object.fromEntries(url.searchParams)));
   const marginMatch = suffix.match(/^\/margins\/(\d+)(?:\/(refresh|costs))?$/);
   if (marginMatch) {

@@ -69,6 +69,25 @@ async function apply(user, input) {
   return withTransaction(async tx => {
     const data = await build(tx, user, input);
     if (input.fingerprint !== data.fingerprint) fail("ml_preview_expired");
+    return write(tx, user, data);
+  });
+}
+async function applyAutomatic(user, input, { lockId, sellerId }) {
+  return withTransaction(async tx => {
+    const job = (await tx.execute({ sql: `SELECT a.* FROM ml_auto_sync a JOIN ml_connections c
+      ON c.user_id=a.user_id AND c.seller_id=a.seller_id WHERE a.user_id=? AND a.enabled=1
+      AND a.lock_id=? AND a.lock_until > ? AND a.seller_id=? AND a.platform_key=?`,
+      args: [user, lockId, Date.now(), sellerId, input.platformKey] })).rows[0];
+    if (!job) fail("ml_auto_sync_changed");
+    const data = await build(tx, user, input);
+    const result = await write(tx, user, data);
+    await tx.execute({ sql: `UPDATE ml_auto_sync SET last_success_at=?, last_to_date=?, last_error=NULL,
+      last_changed_days=?, from_date=NULL, to_date=NULL, next_offset=0 WHERE user_id=? AND lock_id=?`,
+      args: [new Date().toISOString(), input.to, result.changedDays, user, lockId] });
+    return result;
+  });
+}
+async function write(tx, user, data) {
     if (!data.changedDays) return { ok: true, changedDays: 0, months: data.months };
     const timestamp = new Date(Math.max(Date.now(), (Date.parse(data.version) || 0) + 1)).toISOString();
     const writes = [];
@@ -90,6 +109,5 @@ async function apply(user, input) {
       ON CONFLICT(user_id) DO UPDATE SET updated_at=excluded.updated_at`, args: [user, timestamp] });
     await tx.batch(writes);
     return { ok: true, changedDays: data.changedDays, months: data.months, updatedAt: timestamp };
-  });
 }
-module.exports = { preview, apply };
+module.exports = { preview, apply, applyAutomatic };

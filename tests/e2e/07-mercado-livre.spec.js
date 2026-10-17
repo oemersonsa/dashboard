@@ -7,13 +7,20 @@ test("consulta pedidos, sincroniza e acompanha devoluções no desktop e celular
   let failSecondPage = true;
   let setupReady = false;
   let authToken = "";
+  let automatic = { enabled: false, schedulerConfigured: true, platformKey: "", lastSuccessAt: null, lastError: null, pending: false };
   await page.route(`**${base}**`, async route => {
     const url = new URL(route.request().url());
     let body;
     if (url.pathname === base) body = { configured: setupReady, connected: setupReady, nickname: "Loja teste", sellerId: "123",
       configuration: { issues: setupReady ? [] : ["origin_mismatch"], appOrigin: url.origin,
         redirectOrigin: setupReady ? url.origin : "https://public.example" } };
-    else if (url.pathname.endsWith("/records")) {
+    else if (url.pathname.endsWith("/auto-sync")) {
+      if (route.request().method() === "POST") automatic = { ...automatic, ...route.request().postDataJSON() };
+      body = automatic;
+    } else if (url.pathname.endsWith("/auto-sync/run")) {
+      automatic = { ...automatic, lastSuccessAt: "2026-10-17T09:00:00Z" };
+      body = { completed: true, changedDays: 0, status: automatic };
+    } else if (url.pathname.endsWith("/records")) {
       const claims = url.searchParams.get("kind") === "claims";
       body = { records: claims
         ? [{ id: "456", dateCreated: "2026-10-03T12:00:00-03:00", type: "return", resource: "order", resourceId: "111", reason: "PDD", status: "opened", hasReturn: true }]
@@ -99,6 +106,16 @@ test("consulta pedidos, sincroniza e acompanha devoluções no desktop e celular
   await expect.poll(() => page.evaluate(() => window.dashboard.state.db["2026-Outubro"]?.days.find(day => day.d === "03/10")?.["mercado-livre"])).toBe(24.68);
   await expect.poll(() => page.evaluate(() => window.dashboard.state.currentMonth)).toBe("2026-Outubro");
   await expect(page.locator("#kpiRow")).toContainText("24,68");
+  await page.locator('[data-screen-nav="account"]').click();
+  await expect(page.locator("#mlAutoStatus")).toContainText("desativada");
+  await page.locator("#mlAutoEnable").click();
+  await expect(page.locator("#mlAutoStatus")).toContainText("Atualização diária ativa para Mercado Livre");
+  await expect(page.locator("#mlAutoStatus")).toContainText("Última atualização concluída");
+  await expect(page.locator("#mlAutoRun")).toBeEnabled();
+  await page.locator("#mlIntegration").screenshot({ path: "output/design/mercado-livre-auto-sync.png" });
+  await page.locator("#mlAutoPause").click();
+  await expect(page.locator("#mlAutoStatus")).toContainText("desativada");
+  await expect(page.locator("#mlAutoRun")).toBeHidden();
   await page.goto("/?ml=failed&ml_error=ml_oauth_cookie_missing#/account");
   await expect(page.locator("#mlSummary")).toContainText("24,68");
   await expect(page.locator("#mlNotice")).toContainText("mesmo navegador");

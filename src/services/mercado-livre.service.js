@@ -316,7 +316,7 @@ async function returnDetails(user, id) {
 }
 async function disconnect(user) {
   await withTransaction(async tx => {
-    for (const table of ["ml_connections", "ml_oauth_states", "ml_records", "ml_sync_windows", "ml_financials"]) {
+    for (const table of ["ml_auto_sync", "ml_connections", "ml_oauth_states", "ml_records", "ml_sync_windows", "ml_financials"]) {
       await tx.execute({ sql: `DELETE FROM ${table} WHERE user_id = ?`, args: [user] });
     }
   });

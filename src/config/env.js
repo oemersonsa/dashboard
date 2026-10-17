@@ -30,6 +30,7 @@ const config = {
   ML_CLIENT_SECRET: String(process.env.ML_CLIENT_SECRET || "").trim(),
   ML_REDIRECT_URI: String(process.env.ML_REDIRECT_URI || "").trim(),
   ML_TOKEN_ENCRYPTION_KEY: String(process.env.ML_TOKEN_ENCRYPTION_KEY || "").trim(),
+  CRON_SECRET: String(process.env.CRON_SECRET || "").trim(),
 
   // ─── Turso (banco remoto) ────────────────────────────────────────────
   TURSO_DATABASE_URL: String(process.env.TURSO_DATABASE_URL || "").trim(),

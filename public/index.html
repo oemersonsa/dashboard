@@ -493,7 +493,7 @@
         <p id="mlNotice" role="status" aria-live="polite">Carregando conexão…</p>
         <ul id="mlConfigurationIssues" class="card-sub" hidden></ul>
         <div class="ml-actions"><button class="btn btn-primary" id="mlConnect" type="button" disabled>Conectar Mercado Livre</button><button class="btn btn-secondary" id="mlDisconnect" type="button" hidden>Desconectar</button></div>
-        <p class="card-sub">Conectar autoriza o acesso à conta. Para trazer as vendas ao dashboard, sincronize os pedidos e confirme a prévia abaixo. Desconectar remove as credenciais e o histórico da API; os lançamentos já aplicados no painel são preservados.</p>
+        <p class="card-sub">Conectar autoriza o acesso à conta. Ative a atualização diária para preencher as vendas automaticamente ou use a sincronização manual com prévia. Desconectar remove as credenciais e o histórico da API; os lançamentos já aplicados no painel são preservados.</p>
         <div id="mlData" hidden>
           <div class="ml-filters">
             <label class="fg"><span class="flabel">Data inicial</span><input class="finput" id="mlFrom" type="date"></label>
@@ -504,6 +504,16 @@
           <p class="card-sub">Até 31 dias por consulta, pela data de criação no horário de Brasília. Sincronize pedidos e reclamações separadamente. Repita a sincronização para atualizar status antigos. Os reembolsos informados podem incluir frete e não equivalem ao valor de produtos devolvidos.</p>
           <p id="mlSummary" aria-live="polite"></p>
           <div class="ml-filters"><label class="fg"><span class="flabel">Plataforma de destino no dashboard</span><select class="finput" id="mlPlatform"><option value="">Selecione a plataforma de destino</option></select></label></div>
+          <section class="ml-auto-sync" aria-labelledby="mlAutoHeading">
+            <h3 id="mlAutoHeading">Atualização diária das vendas</h3>
+            <p class="card-sub">Uma vez ao dia, por volta das 6h de Brasília, o Kanri busca os pedidos dos últimos 31 dias e atualiza as vendas e quantidades da plataforma escolhida, mesmo com o app fechado. Os totais dessas datas são substituídos pelos pedidos pagos em reais, sem duplicar vendas. Lançamentos manuais de vendas nessas datas também serão substituídos. Devoluções, frete, tarifas e outras plataformas não são alterados.</p>
+            <p id="mlAutoStatus" role="status" aria-live="polite">Carregando atualização diária…</p>
+            <div class="ml-actions">
+              <button class="btn btn-primary" id="mlAutoEnable" type="button">Ativar atualização diária</button>
+              <button class="btn btn-secondary" id="mlAutoPause" type="button" hidden>Pausar atualização diária</button>
+              <button class="btn btn-secondary" id="mlAutoRun" type="button" hidden>Atualizar vendas agora</button>
+            </div>
+          </section>
           <div class="ml-actions"><button class="btn btn-secondary" id="mlPrepareDashboard" type="button">Prévia para o dashboard</button></div>
           <section id="mlDashboardPreview" aria-labelledby="mlDashboardHeading" hidden>
             <h3 id="mlDashboardHeading">Conferir vendas para o dashboard</h3>

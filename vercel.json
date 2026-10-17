@@ -4,6 +4,7 @@
   "installCommand": "npm ci --omit=dev",
   "buildCommand": "npm run build:vercel && npm run db:migrate",
   "outputDirectory": "dist",
+  "crons": [{ "path": "/api/cron/mercado-livre", "schedule": "0 9 * * *" }],
   "functions": {
     "api/index.js": {
       "maxDuration": 60
