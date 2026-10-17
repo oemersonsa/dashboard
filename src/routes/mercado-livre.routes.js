@@ -1,4 +1,5 @@
 const service = require("../services/mercado-livre.service");
+const dashboard = require("../services/mercado-livre-dashboard.service");
 const config = require("../config/env");
 const { readJsonBody } = require("../middleware/body-parser");
 const BASE = "/api/integrations/mercado-livre";
@@ -31,6 +32,8 @@ async function handle(req, res, user, url) {
     return json(res, 200, { ok: true });
   }
   if (req.method === "POST" && suffix === "/sync") return json(res, 200, await service.sync(user, await readJsonBody(req)));
+  if (req.method === "POST" && suffix === "/dashboard/preview") return json(res, 200, await dashboard.preview(user, await readJsonBody(req)));
+  if (req.method === "POST" && suffix === "/dashboard/apply") return json(res, 200, await dashboard.apply(user, await readJsonBody(req)));
   if (req.method === "GET" && suffix === "/records") return json(res, 200, await service.list(user, Object.fromEntries(url.searchParams)));
   const match = suffix.match(/^\/claims\/(\d+)\/return$/);
   if (req.method === "GET" && match) return json(res, 200, await service.returnDetails(user, match[1]));

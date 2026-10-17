@@ -359,6 +359,7 @@ export async function saveNow() {
   sync.schedule();
   const saved = await sync.flush();
   if (saved) toastSuccess("Dados salvos no servidor");
+  return saved;
 }
 
 export async function openImportBackupModal() {

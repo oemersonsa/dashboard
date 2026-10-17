@@ -75,6 +75,19 @@ describe("Mercado Livre integration", () => {
     expect((await request("/authorize", { method: "POST" })).status).toBe(503);
     config.ML_CLIENT_SECRET = secret;
   });
+  it("reports configuration problems without returning credentials", async () => {
+    const previous = config.ML_REDIRECT_URI;
+    try {
+      config.ML_REDIRECT_URI = "https://other.example/api/integrations/mercado-livre/callback";
+      const result = await (await request()).json();
+      expect(result.configured).toBe(false);
+      expect(result.configuration).toEqual({ issues: ["origin_mismatch"], appOrigin: "https://kanri.example", redirectOrigin: "https://other.example" });
+      expect(JSON.stringify(result)).not.toContain(config.ML_CLIENT_SECRET);
+      expect(JSON.stringify(result)).not.toContain(config.ML_TOKEN_ENCRYPTION_KEY);
+      config.ML_REDIRECT_URI = "https://other.example/wrong-callback";
+      expect((await (await request()).json()).configuration.issues).toContain("invalid_redirect_uri");
+    } finally { config.ML_REDIRECT_URI = previous; }
+  });
   it("uses PKCE, a browser cookie, one-time state and encrypted credentials", async () => {
     mockProvider();
     const { url, cookie } = await connect();
@@ -84,7 +97,8 @@ describe("Mercado Livre integration", () => {
     expect(crypto.createHash("sha256").update(grant.get("code_verifier")).digest("base64url")).toBe(url.searchParams.get("code_challenge"));
     const row = await db.queryOne("SELECT tokens FROM ml_connections WHERE user_id = ?", ["ml-user"]);
     expect(row.tokens).not.toContain("secret-access");
-    expect(await (await request()).json()).toEqual({ configured: true, connected: true, sellerId: "123", nickname: "Loja teste" });
+    expect(await (await request()).json()).toMatchObject({ configured: true, connected: true, sellerId: "123", nickname: "Loja teste",
+      configuration: { issues: [], appOrigin: "https://kanri.example", redirectOrigin: "https://kanri.example" } });
     const replay = await request(`/callback?state=${url.searchParams.get("state")}&code=again`, { auth: null, headers: { Cookie: cookie } });
     expect(replay.headers.get("location")).toContain("ml=failed");
     expect(providerCalls).toHaveLength(2);
@@ -181,10 +195,60 @@ describe("Mercado Livre integration", () => {
     response = await request("/sync", { method: "POST", body: dates });
     expect(await response.json()).toEqual({ error: "ml_reconnect_required" });
   });
+  it("previews and replaces dashboard sales without duplicates or changes to other data", async () => {
+    mockProvider();
+    const stateService = require("../../src/services/state.service");
+    await stateService.replaceBusinessState("ml-user", {
+      platforms: [{ key: "ml", name: "Mercado Livre", icon: "ML", color: "#ffff00" }, { key: "other", name: "Outra", icon: "OT", color: "#ffffff" }],
+      db: { "2026-Outubro": { days: [{ d: "03/10", ml: 999, orders_ml: 9, other: 40, orders_other: 2 },
+        { d: "05/10", ml: 80, orders_ml: 1 }, { d: "20/10", ml: 70, orders_ml: 1 }], returns: { ml: 50 } } },
+      goals: {}, currentMonth: "2026-Outubro"
+    });
+    orders = [order, { ...order, id: 112, date_created: "2026-10-04T01:30:00.000Z" },
+      { ...order, id: 113, status: "cancelled" }, { ...order, id: 114, currency_id: "USD" }];
+    await request("/sync", { method: "POST", body: dates });
+    const input = { ...dates, platformKey: "ml" };
+    const preview = await (await request("/dashboard/preview", { method: "POST", body: input })).json();
+    expect(preview).toMatchObject({ grossCents: 4936, orders: 2, changedDays: 2, replacedDays: 2, excluded: 2 });
+    expect(preview.days.find(day => day.day === "03/10")).toMatchObject({ amountCents: 4936, orders: 2, previousCents: 99900 });
+    const applied = await request("/dashboard/apply", { method: "POST", body: { ...input, fingerprint: preview.fingerprint } });
+    expect(applied.status).toBe(200);
+    const state = await stateService.getBusinessState("ml-user");
+    expect(state.db["2026-Outubro"].days.find(day => day.d === "03/10")).toMatchObject({ ml: 49.36, orders_ml: 2, other: 40, orders_other: 2 });
+    expect(state.db["2026-Outubro"].days.find(day => day.d === "05/10")?.ml || 0).toBe(0);
+    expect(state.db["2026-Outubro"].days.find(day => day.d === "20/10")).toMatchObject({ ml: 70, orders_ml: 1 });
+    expect(state.db["2026-Outubro"].returns.ml).toBe(50);
+    const repeated = await (await request("/dashboard/preview", { method: "POST", body: input })).json();
+    expect(repeated.changedDays).toBe(0);
+    expect((await request("/dashboard/apply", { method: "POST", body: { ...input, fingerprint: repeated.fingerprint } })).status).toBe(200);
+  });
+  it("requires a complete sync and rejects previews invalidated by business or API changes", async () => {
+    mockProvider();
+    const input = { ...dates, platformKey: "ml" };
+    orders = [order];
+    orderTotal = 51;
+    await request("/sync", { method: "POST", body: dates });
+    expect(await (await request("/dashboard/preview", { method: "POST", body: input })).json()).toEqual({ error: "ml_sync_incomplete" });
+    orderTotal = undefined;
+    await request("/sync", { method: "POST", body: dates });
+    let preview = await (await request("/dashboard/preview", { method: "POST", body: input })).json();
+    await db.execute("UPDATE app_settings SET updated_at = ? WHERE user_id = ?", [new Date().toISOString(), "ml-user"]);
+    expect(await (await request("/dashboard/apply", { method: "POST", body: { ...input, fingerprint: preview.fingerprint } })).json()).toEqual({ error: "ml_preview_expired" });
+    preview = await (await request("/dashboard/preview", { method: "POST", body: input })).json();
+    orders = [];
+    await request("/sync", { method: "POST", body: dates });
+    expect(await (await request("/dashboard/apply", { method: "POST", body: { ...input, fingerprint: preview.fingerprint } })).json()).toEqual({ error: "ml_preview_expired" });
+    const empty = await (await request("/dashboard/preview", { method: "POST", body: input })).json();
+    expect(empty.orders).toBe(0);
+    expect(empty.grossCents).toBe(0);
+    expect((await request("/dashboard/preview", { method: "POST", body: input, auth: otherToken })).status).toBe(409);
+    expect((await request("/dashboard/preview", { method: "POST", body: { ...input, platformKey: "missing" } })).status).toBe(400);
+    expect((await request("/dashboard/apply", { method: "POST", body: input })).status).toBe(400);
+  });
   it("disconnects and clears credentials, pending grants and cached records", async () => {
     expect((await request("", { method: "DELETE" })).status).toBe(200);
     expect(await (await request()).json()).toMatchObject({ connected: false });
-    for (const table of ["ml_connections", "ml_oauth_states", "ml_records"]) {
+    for (const table of ["ml_connections", "ml_oauth_states", "ml_records", "ml_sync_windows"]) {
       expect(await db.queryOne(`SELECT * FROM ${table} WHERE user_id = ?`, ["ml-user"])).toBeNull();
     }
   });

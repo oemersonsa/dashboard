@@ -1,6 +1,7 @@
 import { apiRequest } from "../../core/api.js";
 import { state } from "../../core/state.js";
 import { toastSuccess, toastError } from "../../ui/toast.js";
+import { showGlobalLoader, hideGlobalLoader } from "../../ui/skeleton.js";
 
 const BASE = "/api/integrations/mercado-livre";
 const messages = {
@@ -18,6 +19,16 @@ const messages = {
   ml_credentials_unavailable: "Não foi possível ler as credenciais. Verifique a chave no servidor e reconecte.",
   ml_unavailable: "O Mercado Livre não respondeu. Tente novamente em instantes."
 };
+Object.assign(messages, {
+  ml_sync_incomplete: "Sincronize todos os pedidos deste intervalo antes de preparar a prévia para o dashboard.",
+  ml_sync_restart_required: "A sincronização mudou ou foi interrompida. Inicie o intervalo novamente.",
+  ml_platform_required: "Selecione uma plataforma ativa para receber as vendas.",
+  ml_orders_required: "Selecione Pedidos e vendas para atualizar o dashboard.",
+  ml_preview_expired: "Os dados mudaram depois da prévia. Prepare uma nova prévia antes de confirmar.",
+  ml_preview_required: "Prepare uma prévia antes de atualizar o dashboard.",
+  ml_save_pending: "Há alterações pendentes no dashboard. Conclua o salvamento antes de continuar.",
+  ml_dashboard_reload_failed: "As vendas foram salvas. Atualize a página para carregar os novos totais."
+});
 const labels = { paid: "Pago", cancelled: "Cancelado", confirmed: "Confirmado", payment_required: "Aguardando pagamento",
   payment_in_process: "Pagamento em processamento", partially_paid: "Pago parcialmente", invalid: "Inválido",
   opened: "Aberta", closed: "Encerrada", dispute: "Mediação", claim: "Reclamação", return: "Devolução",
@@ -26,11 +37,13 @@ const labels = { paid: "Pago", cancelled: "Cancelado", confirmed: "Confirmado", 
 let bound = false;
 let busy = false;
 let connected = false;
+let canConnect = false;
 let offset = 0;
 let nextOffset = null;
 let owner = "";
 let revision = 0;
 let resume = null;
+let dashboardPreview = null;
 const el = id => document.getElementById(id);
 const translate = value => labels[value] || value || "—";
 const money = cents => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -38,13 +51,55 @@ function errorMessage(error) { return messages[error.message] || "Não foi poss�
 function params() { return { from: el("mlFrom").value, to: el("mlTo").value, kind: el("mlKind").value }; }
 function notice(text) { el("mlNotice").textContent = text; }
 function controls() {
-  el("mlConnect").disabled = busy;
+  el("mlConnect").disabled = busy || !canConnect;
   el("mlDisconnect").disabled = busy;
   el("mlSync").disabled = busy || !connected;
   el("mlRefresh").disabled = busy || !connected;
+  el("mlPrepareDashboard").disabled = busy || !connected || el("mlKind").value !== "orders";
+  el("mlApplyDashboard").disabled = busy || !dashboardPreview?.data.changedDays;
   el("mlPrevious").disabled = busy || offset === 0;
   el("mlNext").disabled = busy || nextOffset === null;
-  for (const id of ["mlFrom", "mlTo", "mlKind"]) el(id).disabled = busy;
+  for (const id of ["mlFrom", "mlTo", "mlKind", "mlPlatform"]) el(id).disabled = busy;
+}
+function resetDashboardPreview() {
+  dashboardPreview = null;
+  el("mlDashboardPreview").hidden = true;
+  el("mlDashboardDays").replaceChildren();
+}
+function renderPlatforms() {
+  const select = el("mlPlatform");
+  const selected = select.value;
+  select.replaceChildren(new Option("Selecione a plataforma de destino", ""));
+  const platforms = state.platforms.filter(platform => !platform.archived);
+  platforms.forEach(platform => select.add(new Option(platform.name, platform.key)));
+  const matches = platforms.filter(platform => /mercado[\s_-]*livre/i.test(`${platform.name} ${platform.key}`));
+  select.value = platforms.some(platform => platform.key === selected) ? selected : matches.length === 1 ? matches[0].key : "";
+}
+async function prepareDashboard(user, version) {
+  resetDashboardPreview();
+  const input = { ...params(), platformKey: el("mlPlatform").value };
+  if (!input.platformKey) throw new Error("ml_platform_required");
+  if (!await window.dashboard.saveNow()) throw new Error("ml_save_pending");
+  if (user !== state.auth?.username || version !== revision) return;
+  const data = await apiRequest(`${BASE}/dashboard/preview`, { method: "POST", body: JSON.stringify(input) });
+  if (user !== state.auth?.username || version !== revision) return;
+  dashboardPreview = { input, data };
+  el("mlDashboardPreview").hidden = false;
+  el("mlDashboardTotals").textContent = `${data.platform.name}: ${money(data.grossCents)} em ${data.orders} pedidos pagos · ${data.from.split("-").reverse().join("/")} a ${data.to.split("-").reverse().join("/")}. ${data.changedDays} dias com alteração; ${data.replacedDays} com lançamentos existentes. ${data.excluded} pedidos excluídos por status ou moeda.`;
+  for (const day of data.days.filter(day => day.amountCents !== day.previousCents || day.orders !== day.previousOrders)) {
+    const row = document.createElement("tr");
+    cell(row, day.date.split("-").reverse().join("/"));
+    cell(row, money(day.previousCents));
+    cell(row, money(day.amountCents));
+    cell(row, day.previousOrders);
+    cell(row, day.orders);
+    el("mlDashboardDays").append(row);
+  }
+  if (!data.changedDays) {
+    const row = document.createElement("tr");
+    cell(row, "O dashboard já corresponde aos pedidos pagos deste intervalo.").colSpan = 5;
+    el("mlDashboardDays").append(row);
+  }
 }
 function cell(row, value) { const td = document.createElement("td"); td.textContent = value; row.append(td); return td; }
 function renderRows(data, kind) {
@@ -126,11 +181,36 @@ async function refresh(requestedOwner, requestedRevision) {
   const status = await apiRequest(BASE);
   if (requestedOwner !== state.auth?.username || revision !== requestedRevision) return;
   connected = status.connected;
+  if (!connected) resetDashboardPreview();
+  renderPlatforms();
+  const setup = status.configuration;
+  const issues = setup?.issues || [];
+  const wrongBrowserOrigin = Boolean(setup?.appOrigin && setup.appOrigin !== location.origin);
+  canConnect = Boolean(status.configured && !wrongBrowserOrigin);
   el("mlConnect").textContent = connected ? "Reconectar conta" : "Conectar Mercado Livre";
-  el("mlConnect").hidden = !status.configured;
+  el("mlConnect").hidden = false;
   el("mlDisconnect").hidden = !connected;
-  notice(!status.configured ? messages.ml_not_configured : connected
-    ? `Conta conectada: ${status.nickname} (${status.sellerId}).` : "Conecte sua conta para consultar pedidos e devoluções.");
+  const setupMessages = {
+    client_id_missing: "Preencha ML_CLIENT_ID no ambiente do servidor.",
+    client_secret_missing: "Preencha ML_CLIENT_SECRET no ambiente do servidor.",
+    invalid_encryption_key: "Configure ML_TOKEN_ENCRYPTION_KEY com uma chave de 32 bytes em base64.",
+    invalid_app_origin: "Configure APP_ORIGIN com o endereço HTTP ou HTTPS do app.",
+    invalid_redirect_uri: "Configure ML_REDIRECT_URI com o endereço de retorno cadastrado no Mercado Livre, terminado em /api/integrations/mercado-livre/callback.",
+    origin_mismatch: `APP_ORIGIN usa ${setup?.appOrigin}, mas ML_REDIRECT_URI retorna para ${setup?.redirectOrigin}. Configure ambos para a mesma origem e acesse o app por ela.`
+  };
+  const details = el("mlConfigurationIssues");
+  details.replaceChildren();
+  const explanations = issues.map(issue => setupMessages[issue]).filter(Boolean);
+  if (wrongBrowserOrigin) explanations.push(`Você está acessando ${location.origin}. A origem configurada é ${setup.appOrigin}; abra o app por essa origem ou ajuste a configuração do servidor.`);
+  if (!canConnect) explanations.push("Depois de ajustar as variáveis no servidor, reinicie o app ou faça um novo deploy e atualize esta página.");
+  for (const explanation of explanations) {
+    const item = document.createElement("li");
+    item.textContent = explanation;
+    details.append(item);
+  }
+  details.hidden = explanations.length === 0;
+  notice(!canConnect ? "Conexão indisponível: confira os ajustes abaixo para habilitar o botão." : connected
+    ? `Conta conectada: ${status.nickname} (${status.sellerId}). Sincronize os pedidos, confira a prévia e confirme para atualizar o dashboard.` : "Conecte sua conta para consultar pedidos e devoluções.");
   el("mlData").hidden = !connected;
   if (connected) await loadRecords(requestedOwner, requestedRevision);
 }
@@ -140,6 +220,10 @@ export function init() {
     owner = state.auth?.username || "";
     revision++;
     connected = false;
+    resetDashboardPreview();
+    el("mlPlatform").value = "";
+    canConnect = false;
+    el("mlConfigurationIssues").replaceChildren();
     offset = 0;
     nextOffset = null;
     resume = null;
@@ -166,10 +250,36 @@ export function init() {
       toastSuccess("Conexão removida deste aplicativo.");
     }));
     el("mlRefresh").addEventListener("click", () => void run(async (user, version) => { offset = 0; await loadRecords(user, version); }));
+    el("mlPrepareDashboard").addEventListener("click", () => void run(prepareDashboard));
+    el("mlPlatform").addEventListener("change", () => { resetDashboardPreview(); controls(); });
+    el("mlApplyDashboard").addEventListener("click", () => void run(async (user, version) => {
+      if (!dashboardPreview) return;
+      const prepared = dashboardPreview;
+      showGlobalLoader();
+      try {
+        if (!await window.dashboard.saveNow()) throw new Error("ml_save_pending");
+        if (user !== state.auth?.username || version !== revision) return;
+        const result = await apiRequest(`${BASE}/dashboard/apply`, { method: "POST",
+          body: JSON.stringify({ ...prepared.input, fingerprint: prepared.data.fingerprint }) });
+        if (user !== state.auth?.username || version !== revision) return;
+        resetDashboardPreview();
+        if (!await window.dashboard.loadBusinessStateFromServer({ quiet: true })) throw new Error("ml_dashboard_reload_failed");
+        const month = result.months[0];
+        await window.dashboard.ensurePeriod(month);
+        if (user !== state.auth?.username || version !== revision) return;
+        state.currentMonth = month;
+        state.activeTab = "overview";
+        window.dashboard.setActiveScreen("dashboard");
+        window.dashboard.renderScreen();
+        toastSuccess("Vendas e pedidos do Mercado Livre atualizados no dashboard.");
+      } catch (error) { resetDashboardPreview(); throw error; }
+      finally { hideGlobalLoader(); }
+    }));
     el("mlPrevious").addEventListener("click", () => void run(async (user, version) => { offset = Math.max(0, offset - 50); await loadRecords(user, version); }));
     el("mlNext").addEventListener("click", () => void run(async (user, version) => { offset = nextOffset ?? 0; await loadRecords(user, version); }));
     el("mlSync").addEventListener("click", () => void run(async (user, version) => {
       const input = params();
+      resetDashboardPreview();
       const selection = JSON.stringify(input);
       let page = resume?.selection === selection ? resume.offset : 0;
       let count = page;
@@ -187,10 +297,12 @@ export function init() {
       await loadRecords(user, version);
       notice(`Sincronização concluída: ${count} registros consultados. ${new Date().toLocaleString("pt-BR")}.`);
       toastSuccess("Dados do Mercado Livre atualizados.");
+      if (input.kind === "orders" && el("mlPlatform").value) await prepareDashboard(user, version);
     }));
     for (const id of ["mlFrom", "mlTo", "mlKind"]) el(id).addEventListener("change", () => {
       offset = 0;
       resume = null;
+      resetDashboardPreview();
       el("mlSync").textContent = "Sincronizar intervalo";
       notice("Consultando o histórico local. Use Sincronizar intervalo para atualizar os dados pela API.");
       void run(loadRecords);

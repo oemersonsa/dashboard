@@ -489,8 +489,9 @@
       <section class="card account-card ml-integration" id="mlIntegration" aria-labelledby="mlHeading">
         <div class="card-header"><div><h2 class="card-title" id="mlHeading">Mercado Livre</h2><p class="card-sub">Pedidos, vendas e acompanhamento de devoluções pela API.</p></div></div>
         <p id="mlNotice" role="status" aria-live="polite">Carregando conexão…</p>
+        <ul id="mlConfigurationIssues" class="card-sub" hidden></ul>
         <div class="ml-actions"><button class="btn btn-primary" id="mlConnect" type="button" disabled>Conectar Mercado Livre</button><button class="btn btn-secondary" id="mlDisconnect" type="button" hidden>Desconectar</button></div>
-        <p class="card-sub">A sincronização é manual e mantém um histórico separado dos lançamentos do dashboard. Desconectar remove as credenciais e este histórico local. Para revogar o acesso, remova também a aplicação na sua conta do Mercado Livre.</p>
+        <p class="card-sub">Conectar autoriza o acesso à conta. Para trazer as vendas ao dashboard, sincronize os pedidos e confirme a prévia abaixo. Desconectar remove as credenciais e o histórico da API; os lançamentos já aplicados no painel são preservados.</p>
         <div id="mlData" hidden>
           <div class="ml-filters">
             <label class="fg"><span class="flabel">Data inicial</span><input class="finput" id="mlFrom" type="date"></label>
@@ -500,6 +501,15 @@
           <div class="ml-actions"><button class="btn btn-primary" id="mlSync" type="button">Sincronizar intervalo</button><button class="btn btn-secondary" id="mlRefresh" type="button">Consultar dados salvos</button></div>
           <p class="card-sub">Até 31 dias por consulta, pela data de criação no horário de Brasília. Sincronize pedidos e reclamações separadamente. Repita a sincronização para atualizar status antigos. Os reembolsos informados podem incluir frete e não equivalem ao valor de produtos devolvidos.</p>
           <p id="mlSummary" aria-live="polite"></p>
+          <div class="ml-filters"><label class="fg"><span class="flabel">Plataforma de destino no dashboard</span><select class="finput" id="mlPlatform"><option value="">Selecione a plataforma de destino</option></select></label></div>
+          <div class="ml-actions"><button class="btn btn-secondary" id="mlPrepareDashboard" type="button">Prévia para o dashboard</button></div>
+          <section id="mlDashboardPreview" aria-labelledby="mlDashboardHeading" hidden>
+            <h3 id="mlDashboardHeading">Conferir vendas para o dashboard</h3>
+            <p id="mlDashboardTotals" aria-live="polite"></p>
+            <p class="card-sub">Ao confirmar, os valores de vendas e as quantidades da plataforma escolhida serão substituídos nas datas selecionadas, inclusive por zero em dias sem pedidos pagos. Isso evita somar novamente vendas já lançadas. Outras plataformas, datas fora do intervalo e devoluções já registradas serão preservadas. Entram apenas pedidos pagos em reais, pelo valor dos produtos; frete, tarifas e reembolsos não são aplicados aqui.</p>
+            <div class="ml-table-wrap"><table><thead><tr><th scope="col">Data</th><th scope="col">Vendas atuais</th><th scope="col">Vendas da API</th><th scope="col">Pedidos atuais</th><th scope="col">Pedidos da API</th></tr></thead><tbody id="mlDashboardDays"></tbody></table></div>
+            <div class="ml-actions"><button class="btn btn-primary" id="mlApplyDashboard" type="button" disabled>Confirmar substituição no dashboard</button></div>
+          </section>
           <div class="ml-table-wrap"><table><thead><tr><th scope="col">Identificador</th><th scope="col">Criação</th><th scope="col">Status</th><th scope="col">Itens / referência</th><th scope="col" id="mlValueHeading">Produtos / reembolsos</th></tr></thead><tbody id="mlRows"></tbody></table></div>
           <div class="ml-actions"><button class="btn btn-secondary" id="mlPrevious" type="button" disabled>Anterior</button><span id="mlPage"></span><button class="btn btn-secondary" id="mlNext" type="button" disabled>Próxima</button></div>
         </div>

@@ -12,16 +12,30 @@ function key() {
   if (!/^[A-Za-z0-9+/]{43}=$/.test(value || "")) throw fail("ml_not_configured", 503);
   return Buffer.from(value, "base64");
 }
-function configured() {
+function configuration() {
+  const issues = [];
+  if (!config.ML_CLIENT_ID) issues.push("client_id_missing");
+  if (!config.ML_CLIENT_SECRET) issues.push("client_secret_missing");
+  try { key(); } catch { issues.push("invalid_encryption_key"); }
+  let appOrigin = "";
+  let redirectOrigin = "";
   try {
-    key();
+    const app = new URL(config.APP_ORIGIN);
+    if (!["http:", "https:"].includes(app.protocol) || app.username || app.password) throw new Error();
+    appOrigin = app.origin;
+  } catch { issues.push("invalid_app_origin"); }
+  try {
     const redirect = new URL(config.ML_REDIRECT_URI);
-    return Boolean(config.ML_CLIENT_ID && config.ML_CLIENT_SECRET &&
-      redirect.origin === new URL(config.APP_ORIGIN).origin &&
-      redirect.pathname === "/api/integrations/mercado-livre/callback" && !redirect.search && !redirect.hash &&
-      !redirect.username && !redirect.password &&
-      (redirect.protocol === "https:" || (redirect.protocol === "http:" && ["localhost", "127.0.0.1"].includes(redirect.hostname))));
-  } catch { return false; }
+    if (redirect.pathname !== "/api/integrations/mercado-livre/callback" || redirect.search || redirect.hash ||
+      redirect.username || redirect.password || !(redirect.protocol === "https:" ||
+        (redirect.protocol === "http:" && ["localhost", "127.0.0.1"].includes(redirect.hostname)))) throw new Error();
+    redirectOrigin = redirect.origin;
+  } catch { issues.push("invalid_redirect_uri"); }
+  if (appOrigin && redirectOrigin && appOrigin !== redirectOrigin) issues.push("origin_mismatch");
+  return { issues, appOrigin, redirectOrigin };
+}
+function configured() {
+  return configuration().issues.length === 0;
 }
 function requireConfig() {
   if (!configured()) throw fail("ml_not_configured", 503);
@@ -72,7 +86,9 @@ function validTokens(tokens) {
 }
 async function status(user) {
   const row = await queryOne("SELECT seller_id, nickname FROM ml_connections WHERE user_id = ?", [user]);
-  return { configured: configured(), connected: Boolean(row), sellerId: row?.seller_id || null, nickname: row?.nickname || null };
+  const setup = configuration();
+  return { configured: setup.issues.length === 0, configuration: setup,
+    connected: Boolean(row), sellerId: row?.seller_id || null, nickname: row?.nickname || null };
 }
 async function authorize(user) {
   requireConfig();
@@ -181,6 +197,24 @@ async function sync(user, input) {
   const dates = range(input);
   const { kind, offset } = paging(input);
   const account = await connection(user);
+  let runId = "";
+  if (kind === "orders") {
+    if (offset === 0) {
+      runId = crypto.randomUUID();
+      await withTransaction(async tx => {
+        await tx.execute({ sql: `DELETE FROM ml_sync_windows WHERE user_id = ? AND seller_id = ?
+          AND from_date <= ? AND to_date >= ?`, args: [user, account.seller_id, dates.to, dates.from] });
+        await tx.execute({ sql: `INSERT INTO ml_sync_windows
+          (user_id, seller_id, from_date, to_date, run_id, next_offset) VALUES (?, ?, ?, ?, ?, 0)`,
+          args: [user, account.seller_id, dates.from, dates.to, runId] });
+      });
+    } else {
+      const run = await queryOne(`SELECT run_id, next_offset FROM ml_sync_windows
+        WHERE user_id = ? AND seller_id = ? AND from_date = ? AND to_date = ?`, [user, account.seller_id, dates.from, dates.to]);
+      if (!run || run.next_offset === null || Number(run.next_offset) !== offset) throw fail("ml_sync_restart_required", 409);
+      runId = run.run_id;
+    }
+  }
   const params = new URLSearchParams({ offset: String(offset), limit: String(PAGE_SIZE) });
   if (kind === "orders") {
     params.set("seller", account.seller_id);
@@ -205,18 +239,34 @@ async function sync(user, input) {
     return orderRecord(item);
   });
   const timestamp = new Date().toISOString();
+  const nextOffset = offset + source.length < page.paging.total ? offset + PAGE_SIZE : null;
   await withTransaction(async tx => {
     const current = await tx.execute({ sql: "SELECT generation FROM ml_connections WHERE user_id = ?", args: [user] });
     if (current.rows[0]?.generation !== account.generation) throw fail("ml_connection_changed", 409);
-    for (const record of records) {
-      await tx.execute({ sql: `INSERT INTO ml_records (user_id, seller_id, kind, resource_id, date_created, payload, synced_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, seller_id, kind, resource_id)
-        DO UPDATE SET date_created=excluded.date_created, payload=excluded.payload, synced_at=excluded.synced_at`,
-      args: [user, account.seller_id, kind, record.id, new Date(record.dateCreated).toISOString(), JSON.stringify(record), timestamp] });
+    if (kind === "orders") {
+      const run = (await tx.execute({ sql: `SELECT run_id, next_offset FROM ml_sync_windows
+        WHERE user_id = ? AND seller_id = ? AND from_date = ? AND to_date = ?`, args: [user, account.seller_id, dates.from, dates.to] })).rows[0];
+      if (run?.run_id !== runId || run.next_offset === null || Number(run.next_offset) !== offset) throw fail("ml_sync_restart_required", 409);
+    }
+    const writes = records.map(record => {
+      const created = new Date(record.dateCreated).toISOString();
+      if (created < new Date(dates.start).toISOString() || created > new Date(dates.end).toISOString()) throw fail("ml_invalid_response", 502);
+      return { sql: `INSERT INTO ml_records (user_id, seller_id, kind, resource_id, date_created, payload, synced_at, sync_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, seller_id, kind, resource_id)
+        DO UPDATE SET date_created=excluded.date_created, payload=excluded.payload, synced_at=excluded.synced_at, sync_id=excluded.sync_id`,
+      args: [user, account.seller_id, kind, record.id, created, JSON.stringify(record), timestamp, runId] };
+    });
+    if (writes.length) await tx.batch(writes);
+    if (kind === "orders") {
+      if (nextOffset === null) await tx.execute({ sql: `DELETE FROM ml_records WHERE user_id = ? AND seller_id = ? AND kind = 'orders'
+        AND date_created >= ? AND date_created <= ? AND sync_id <> ?`,
+        args: [user, account.seller_id, new Date(dates.start).toISOString(), new Date(dates.end).toISOString(), runId] });
+      await tx.execute({ sql: `UPDATE ml_sync_windows SET next_offset = ?, completed_at = ?
+        WHERE user_id = ? AND seller_id = ? AND from_date = ? AND to_date = ? AND run_id = ?`,
+        args: [nextOffset, nextOffset === null ? timestamp : null, user, account.seller_id, dates.from, dates.to, runId] });
     }
   });
-  return { count: records.length, total: page.paging.total,
-    nextOffset: offset + source.length < page.paging.total ? offset + PAGE_SIZE : null };
+  return { count: records.length, total: page.paging.total, nextOffset };
 }
 async function list(user, input) {
   const dates = range(input);
@@ -250,9 +300,9 @@ async function returnDetails(user, id) {
 }
 async function disconnect(user) {
   await withTransaction(async tx => {
-    for (const table of ["ml_connections", "ml_oauth_states", "ml_records"]) {
+    for (const table of ["ml_connections", "ml_oauth_states", "ml_records", "ml_sync_windows"]) {
       await tx.execute({ sql: `DELETE FROM ${table} WHERE user_id = ?`, args: [user] });
     }
   });
 }
-module.exports = { status, authorize, callback, sync, list, returnDetails, disconnect };
+module.exports = { status, authorize, callback, sync, list, returnDetails, disconnect, range };
