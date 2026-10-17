@@ -486,6 +486,24 @@
           </div>
         </div>
       </section>
+      <section class="card account-card ml-integration" id="mlIntegration" aria-labelledby="mlHeading">
+        <div class="card-header"><div><h2 class="card-title" id="mlHeading">Mercado Livre</h2><p class="card-sub">Pedidos, vendas e acompanhamento de devoluções pela API.</p></div></div>
+        <p id="mlNotice" role="status" aria-live="polite">Carregando conexão…</p>
+        <div class="ml-actions"><button class="btn btn-primary" id="mlConnect" type="button" disabled>Conectar Mercado Livre</button><button class="btn btn-secondary" id="mlDisconnect" type="button" hidden>Desconectar</button></div>
+        <p class="card-sub">A sincronização é manual e mantém um histórico separado dos lançamentos do dashboard. Desconectar remove as credenciais e este histórico local. Para revogar o acesso, remova também a aplicação na sua conta do Mercado Livre.</p>
+        <div id="mlData" hidden>
+          <div class="ml-filters">
+            <label class="fg"><span class="flabel">Data inicial</span><input class="finput" id="mlFrom" type="date"></label>
+            <label class="fg"><span class="flabel">Data final</span><input class="finput" id="mlTo" type="date"></label>
+            <label class="fg"><span class="flabel">Consultar</span><select class="finput" id="mlKind"><option value="orders">Pedidos e vendas</option><option value="claims">Reclamações e devoluções</option></select></label>
+          </div>
+          <div class="ml-actions"><button class="btn btn-primary" id="mlSync" type="button">Sincronizar intervalo</button><button class="btn btn-secondary" id="mlRefresh" type="button">Consultar dados salvos</button></div>
+          <p class="card-sub">Até 31 dias por consulta, pela data de criação no horário de Brasília. Sincronize pedidos e reclamações separadamente. Repita a sincronização para atualizar status antigos. Os reembolsos informados podem incluir frete e não equivalem ao valor de produtos devolvidos.</p>
+          <p id="mlSummary" aria-live="polite"></p>
+          <div class="ml-table-wrap"><table><thead><tr><th scope="col">Identificador</th><th scope="col">Criação</th><th scope="col">Status</th><th scope="col">Itens / referência</th><th scope="col" id="mlValueHeading">Produtos / reembolsos</th></tr></thead><tbody id="mlRows"></tbody></table></div>
+          <div class="ml-actions"><button class="btn btn-secondary" id="mlPrevious" type="button" disabled>Anterior</button><span id="mlPage"></span><button class="btn btn-secondary" id="mlNext" type="button" disabled>Próxima</button></div>
+        </div>
+      </section>
       <section class="card account-card" aria-labelledby="accountPasswordHeading">
         <div class="card-header"><div><h2 class="card-title" id="accountPasswordHeading">Segurança</h2><div class="card-sub">Altere a senha usada para entrar no sistema.</div></div></div>
         <div class="account-password-grid">

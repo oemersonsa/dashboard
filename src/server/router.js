@@ -13,6 +13,7 @@ const platformsRoutes = require("../routes/platforms.routes");
 const salesRoutes = require("../routes/sales.routes");
 const returnsRoutes = require("../routes/returns.routes");
 const monthRoutes = require("../routes/month.routes");
+const mercadoLivreRoutes = require("../routes/mercado-livre.routes");
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -64,6 +65,9 @@ async function handleRequest(req, res) {
     }
 
     // ─── Public auth routes ────────────────────────────────────────────
+    if (req.method === "GET" && url.pathname === `${mercadoLivreRoutes.BASE}/callback`) {
+      return await mercadoLivreRoutes.callback(req, res, url);
+    }
     if (req.method === "POST" && url.pathname === "/api/auth/register") {
       return await authRoutes.register(req, res);
     }
@@ -99,6 +103,10 @@ async function handleRequest(req, res) {
 
     if (url.pathname.startsWith("/api/")) {
       if (!authenticatedUser) return sendJson(res, 401, { error: "unauthorized" });
+
+      if (url.pathname === mercadoLivreRoutes.BASE || url.pathname.startsWith(`${mercadoLivreRoutes.BASE}/`)) {
+        return await mercadoLivreRoutes.handle(req, res, authenticatedUser, url);
+      }
 
       if (req.method === "GET" && url.pathname === "/api/state") {
         return await stateRoutes.getState(req, res, authenticatedUser);

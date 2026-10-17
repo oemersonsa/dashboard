@@ -89,7 +89,30 @@ Os perfis iniciais de tarifas são estimativas editáveis. Ajuste os valores às
 - Shein: cálculo bruto por preço × quantidade, contagem de pedidos por número e identificação de devoluções/cancelamentos pelo status.
 - Mercado Livre: receita por produtos ou preço × unidades quando necessário; exclusão de resumos de pacotes e linhas sem produto; reembolsos a partir da coluna de cancelamentos e reembolsos.
 
-O fluxo usa arquivos fornecidos pelo usuário. O projeto não implementa conexão automática com as APIs dos marketplaces. Para exportações reconhecidas, a plataforma correspondente deve estar cadastrada e ativa; confira a prévia e as regras exibidas antes de aplicar.
+O fluxo de planilhas usa arquivos fornecidos pelo usuário. Para exportações reconhecidas, a plataforma correspondente deve estar cadastrada e ativa; confira a prévia e as regras exibidas antes de aplicar. A conexão pela API do Mercado Livre está disponível separadamente em Minha conta.
+
+### API do Mercado Livre
+
+- Minha conta → Mercado Livre: conexão por OAuth Authorization Code com PKCE S256, estado de uso único e cookie HttpOnly para vincular o retorno ao navegador.
+- Tokens criptografados com AES-256-GCM no banco, separados por usuário. Access tokens e refresh tokens não são enviados ao frontend nem incluídos nos backups de negócio.
+- Renovação de tokens com bloqueio compartilhado no banco para evitar o uso simultâneo do mesmo refresh token entre instâncias.
+- Sincronização manual de pedidos/vendas e de reclamações/devoluções, em consultas separadas por data de criação. Intervalos de até 31 dias, em UTC−03:00; páginas de 50 registros e até 9.950 resultados por consulta. Reduza o intervalo para volumes maiores.
+- Atualização pelo identificador do recurso: repetir a sincronização atualiza o registro existente. Para acompanhar mudanças em pedidos antigos, sincronize novamente seu intervalo de criação. Não há processamento de notificações/webhooks ou agendamento nesta versão.
+- Lista paginada com status, itens, SKU, valor dos produtos e reembolsos informados pelos pagamentos. Os totais consolidados somam somente BRL; valores individuais preservam a moeda do pedido. O total de produtos pagos considera apenas o status `paid` atual, sem descontar tarifas, custos ou impostos. Reembolsos podem incluir frete e não representam o valor exato de produtos devolvidos.
+- Reclamações mostram referência e motivo; devoluções associadas permitem consultar status e rastreamento pelo endpoint v2 de pós-venda. Reclamações não são tratadas automaticamente como reembolsos.
+- Os registros da API ficam separados dos lançamentos manuais e das planilhas; não alteram os totais do dashboard. Esta versão permite consulta e acompanhamento, sem executar cancelamentos, reembolsos ou revisões de devoluções no marketplace.
+
+Para ativar a conexão:
+
+1. Cadastre uma aplicação no [portal de desenvolvedores do Mercado Livre](https://developers.mercadolivre.com.br/), habilite PKCE e conceda os acessos de leitura a pedidos e pós-venda, com acesso offline para renovação.
+2. Defina `ML_CLIENT_ID`, `ML_CLIENT_SECRET`, `ML_REDIRECT_URI` e `ML_TOKEN_ENCRYPTION_KEY` no ambiente do servidor (veja `.env.example`). A chave deve conter 32 bytes em base64; gere uma vez com `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` e preserve-a entre deploys. Alterar a chave exige reconectar as contas.
+3. Cadastre exatamente a mesma redirect URI no portal: `https://seu-dominio.com/api/integrations/mercado-livre/callback`. `APP_ORIGIN` deve apontar para essa mesma origem. Use um domínio HTTPS estável para conectar contas reais; o backend também aceita HTTP em localhost para testes, sujeito às regras do portal. O fluxo começa e termina no mesmo navegador e origem. No Electron, use o modo web no domínio configurado para autorizar a conta.
+4. Execute as migrations (`npm run db:migrate`; no servidor web também rodam ao iniciar), reinicie o servidor e abra Minha conta → Mercado Livre → Conectar.
+5. Selecione o intervalo e o tipo de consulta e clique em Sincronizar. Páginas concluídas permanecem salvas se uma consulta falhar. Se houver limite de requisições, aguarde um minuto e use Continuar sincronização na mesma tela; após recarregar a página, inicie novamente (os registros não duplicam).
+
+Desconectar remove credenciais, autorizações pendentes e histórico local dessa integração. Para revogar a autorização no provedor, remova também a aplicação na conta do Mercado Livre. Dados de compradores e endereços não são persistidos nessa integração. A validação automatizada usa respostas simuladas: a autorização real exige credenciais e uma conta de vendedor.
+
+Referências: [autenticação e autorização](https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao), [pedidos](https://developers.mercadolivre.com.br/pt_br/mercadolideres-lojas-oficiais/pedidos-e-opinioes), [reclamações](https://developers.mercadolivre.com.br/pt_br/atributos/gerenciar-reclamacoes) e [devoluções](https://developers.mercadolivre.com.br/pt_br/relatorios-de-faturamento/gerenciar-devolucoes).
 
 ### Fechamento diário
 

@@ -7,6 +7,15 @@
 }
 
 .account-page-heading { margin-bottom: var(--space-1); }
+.ml-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: var(--space-4) 0; }
+.ml-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); margin-top: var(--space-5); }
+.ml-table-wrap { overflow-x: auto; }
+.ml-table-wrap table { width: 100%; min-width: 680px; }
+.ml-table-wrap td { vertical-align: top; overflow-wrap: anywhere; max-width: 320px; }
+.ml-integration p { overflow-wrap: anywhere; }
+.ml-integration, #mlData { min-width: 0; }
+.account-main > .ml-integration { grid-column: 1 / -1; order: 1; }
+.account-main > .account-appearance { order: 2; }
 .account-page-heading .card-title { font-size: var(--text-2xl); }
 .account-card { padding: var(--space-6); }
 .account-card .card-header { margin-bottom: var(--space-5); }
