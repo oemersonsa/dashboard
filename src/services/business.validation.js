@@ -21,7 +21,8 @@ function validateMonth(month, data, keys) {
     for (const [key, value] of Object.entries(day)) {
       if (key === "d") continue;
       const orders = key.startsWith("orders_");
-      if (!keys.has(orders ? key.slice(7) : key)) invalid();
+      const refunds = key.startsWith("refunds_");
+      if (!keys.has(orders || refunds ? key.slice(orders ? 7 : 8) : key)) invalid();
       amount(value); if (orders && !Number.isInteger(value)) invalid();
     }
   }

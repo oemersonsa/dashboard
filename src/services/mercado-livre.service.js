@@ -192,6 +192,7 @@ function orderRecord(order) {
   const payments = order.payments || [];
   const paymentFeesKnown = payments.length > 0 && payments.every(payment => cents(payment.marketplace_fee) !== null);
   return { id: String(order.id), packId: order.pack_id ? String(order.pack_id) : null,
+    cancellationCode: String(order.cancel_detail?.code || ""),
     status: String(order.status || ""), dateCreated: order.date_created, currency: order.currency_id,
     grossCents: items.reduce((sum, item) => sum + money(item.unitPrice) * item.quantity, 0),
     saleFeeCents: itemFeesKnown ? items.reduce((sum, item) => sum + item.saleFeeCents * item.quantity, 0)
@@ -221,7 +222,7 @@ async function sync(user, input) {
         await tx.execute({ sql: `DELETE FROM ml_sync_windows WHERE user_id = ? AND seller_id = ?
           AND from_date <= ? AND to_date >= ?`, args: [user, account.seller_id, dates.to, dates.from] });
         await tx.execute({ sql: `INSERT INTO ml_sync_windows
-          (user_id, seller_id, from_date, to_date, run_id, next_offset) VALUES (?, ?, ?, ?, ?, 0)`,
+          (user_id, seller_id, from_date, to_date, run_id, next_offset, metrics_version) VALUES (?, ?, ?, ?, ?, 0, 2)`,
           args: [user, account.seller_id, dates.from, dates.to, runId] });
       });
     } else {
@@ -234,6 +235,8 @@ async function sync(user, input) {
   const params = new URLSearchParams({ offset: String(offset), limit: String(PAGE_SIZE) });
   if (kind === "orders") {
     params.set("seller", account.seller_id);
+    // Search as seller may omit cancelled orders unless explicitly requested.
+    params.set("order.status", "paid,cancelled");
     params.set("order.date_created.from", dates.start);
     params.set("order.date_created.to", dates.end);
     params.set("sort", "date_asc");

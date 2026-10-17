@@ -68,6 +68,22 @@ describe("sales.calc.js", () => {
   });
 
   describe("calcTotals", () => {
+    it("separa bruto e devoluções/cancelamentos sem descontar duas vezes", () => {
+      state.db["2026-Outubro"] = { days: [{ d: "17/10", ml: 29484.98, orders_ml: 83, refunds_ml: 5509 }], returns: {} };
+      const total = calcTotals("2026-Outubro");
+      expect(total.gross).toBe(29484.98);
+      expect(total.totalRet).toBe(5509);
+      expect(total.net).toBeCloseTo(23975.98, 2);
+      expect(total.orders).toBe(83);
+    });
+    it("usa a data dos descontos importados no recorte e soma ajustes manuais separadamente", () => {
+      state.db["2026-Outubro"] = { days: [
+        { d: "01/10", ml: 1000, refunds_ml: 100 },
+        { d: "20/10", ml: 1000, refunds_ml: 500 }
+      ], returns: { ml: 200 } };
+      expect(calcTotals("2026-Outubro")).toMatchObject({ gross: 2000, totalRet: 800, net: 1200 });
+      expect(calcTotals("2026-Outubro", { cutoffDay: 10 })).toMatchObject({ gross: 1000, totalRet: 200, net: 800 });
+    });
     it("calcula vendas por plataforma", () => {
       const t = calcTotals("2026-Setembro");
       expect(t.sales.ml).toBe(3500);

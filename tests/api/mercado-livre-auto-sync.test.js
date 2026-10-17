@@ -13,7 +13,7 @@ const request = (path, { method = "GET", body, auth = token } = {}) => nativeFet
 const cron = secret => nativeFetch(info.url + "/api/cron/mercado-livre", { headers: secret ? { Authorization: `Bearer ${secret}` } : {} });
 const enable = () => automatic.configure("daily-user", { enabled: true, platformKey: "ml" });
 async function sales() {
-  return db.queryAll("SELECT p.platform_key, s.month, s.date, s.amount, s.orders_count FROM sales s JOIN platforms p ON s.platform_id=p.id ORDER BY p.platform_key, month, date");
+  return db.queryAll("SELECT p.platform_key, s.month, s.date, s.amount, s.orders_count, s.refund_amount FROM sales s JOIN platforms p ON s.platform_id=p.id ORDER BY p.platform_key, month, date");
 }
 beforeAll(async () => {
   resetTestDb();
@@ -102,7 +102,48 @@ describe("daily Mercado Livre sales", () => {
     expect(await sales()).toHaveLength(1);
     orders[0].status = "cancelled";
     await automatic.runUser("daily-user", { force: true });
-    expect(await sales()).toEqual([]);
+    expect(await sales()).toMatchObject([{ amount: 24.68, refund_amount: 24.68, orders_count: 1 }]);
+  });
+  it("keeps gross sales and refunds separate through repeat sync, state saves and backup normalization", async () => {
+    const template = orders[0];
+    orders = [
+      { ...template, id: 1, order_items: [{ quantity: 1, unit_price: 23975.98 }] },
+      { ...template, id: 2, status: "cancelled", order_items: [{ quantity: 1, unit_price: 3330 }] },
+      { ...template, id: 3, status: "cancelled", order_items: [{ quantity: 1, unit_price: 2179 }] },
+      { ...template, id: 4, status: "cancelled", cancel_detail: { code: "pack_splitted" }, order_items: [{ quantity: 1, unit_price: 9000 }] },
+      { ...template, id: 5, status: "payment_required", order_items: [{ quantity: 1, unit_price: 500 }] }
+    ];
+    await enable();
+    expect(await automatic.runUser("daily-user")).toMatchObject({ completed: true });
+    expect(await sales()).toMatchObject([{ amount: 29484.98, refund_amount: 5509, orders_count: 3 }]);
+    const saved = await stateService.getBusinessState("daily-user");
+    const { normalizeMonthData } = await import("../../public/scripts/core/state.js");
+    const { validateBackup } = await import("../../public/scripts/features/backup/backup.validation.js");
+    validateBackup({ version: 3, state: saved });
+    const month = Object.keys(saved.db)[0];
+    const normalized = { ...saved, db: { ...saved.db, [month]: normalizeMonthData(saved.db[month], saved.platforms) } };
+    expect(normalized.db[month].days[0]).toMatchObject({ refunds_ml: 5509, ml: 29484.98 });
+    await stateService.replaceBusinessState("daily-user", normalized);
+    expect((await stateService.getBusinessState("daily-user")).db[month].days[0]).toMatchObject({ refunds_ml: 5509 });
+    const current = await stateService.getBusinessState("daily-user");
+    const day = current.db[month].days[0];
+    await require("../../src/services/state.patch.service").patchBusinessState("daily-user", {
+      months: { [month]: { days: [{ ...day, other: 100, orders_other: 1 }], deletedDays: [], returns: {} } }
+    }, current.updatedAt);
+    expect((await stateService.getBusinessState("daily-user")).db[month].days[0]).toMatchObject({ refunds_ml: 5509, other: 100 });
+    expect(await automatic.runUser("daily-user", { force: true })).toMatchObject({ completed: true, changedDays: 0 });
+  });
+  it("updates refunds independently of gross totals and requires a new complete metric snapshot", async () => {
+    await enable();
+    await automatic.runUser("daily-user");
+    orders[0].payments = [{ transaction_amount_refunded: 100 }];
+    expect(await automatic.runUser("daily-user", { force: true })).toMatchObject({ completed: true, changedDays: 1 });
+    expect(await sales()).toMatchObject([{ amount: 24.68, refund_amount: 24.68 }]);
+    await db.execute("UPDATE ml_sync_windows SET metrics_version=0");
+    await expect(dashboard.preview("daily-user", { ...automatic.dateRange(), platformKey: "ml" })).rejects.toMatchObject({ code: "ml_sync_incomplete" });
+    orders[0].payments = [{ transaction_amount_refunded: 5 }];
+    await automatic.runUser("daily-user", { force: true });
+    expect(await sales()).toMatchObject([{ amount: 24.68, refund_amount: 5 }]);
   });
   it("preserves other platforms, returns and dates outside the rolling window", async () => {
     const dates = automatic.dateRange();

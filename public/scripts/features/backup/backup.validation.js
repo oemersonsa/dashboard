@@ -30,7 +30,8 @@ export function validateBackup(payload) {
       for (const [key, value] of Object.entries(day)) {
         if (key === "d") continue;
         const orders = key.startsWith("orders_");
-        if (!keys.has(orders ? key.slice(7) : key) || !amount(value) || (orders && !Number.isInteger(value))) fail("Valor de venda ou quantidade inválido no backup.");
+        const refunds = key.startsWith("refunds_");
+        if (!keys.has(orders || refunds ? key.slice(orders ? 7 : 8) : key) || !amount(value) || (orders && !Number.isInteger(value))) fail("Valor de venda ou quantidade inválido no backup.");
       }
     }
     for (const [key, value] of Object.entries(data.returns)) if (!keys.has(key) || !amount(value)) fail("Devolução inválida no backup.");

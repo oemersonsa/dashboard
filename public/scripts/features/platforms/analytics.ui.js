@@ -146,6 +146,10 @@ function renderPlatformCards(rows, range, key) {
       const selected = sum(rows.filter(row => row.date.getFullYear() === period.year && row.date.getMonth() === index), "sales", platform.key);
       const fullMonth = range.from <= from && range.to >= to;
       returns += Number(data.returns?.[platform.key] || 0) * (fullMonth ? 1 : total.sales[platform.key] > 0 ? selected / total.sales[platform.key] : 0);
+      returns += data.days.reduce((sum, day) => {
+        const date = new Date(period.year, index, Number(day.d.slice(0, 2)));
+        return sum + (date >= range.from && date <= range.to ? Number(day[`refunds_${platform.key}`] || 0) : 0);
+      }, 0);
     }
     return `<article class="card platform-concept-card"><h2 class="card-title">${platformBadge(platform)}</h2><div class="platform-card-values"><div><span>Vendas brutas</span><strong>${R(gross)}</strong></div><div><span>Devoluções</span><strong>${R(returns)}</strong></div><div><span>Vendas após devoluções</span><strong>${R(gross - returns)}</strong></div><div><span>Pedidos</span><strong>${orders.toLocaleString("pt-BR")}</strong></div></div></article>`;
   }).join("");

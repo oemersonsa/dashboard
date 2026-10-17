@@ -36,16 +36,16 @@ test("consulta pedidos, sincroniza e acompanha devoluções no desktop e celular
       }
       body = { count: input.offset === 0 ? 50 : 1, total: 51, nextOffset: input.offset === 0 ? 50 : null };
     } else if (url.pathname.endsWith("/dashboard/preview")) body = { platform: { key: "mercado-livre", name: "Mercado Livre" },
-      grossCents: 2468, orders: 1, from: "2026-10-01", to: "2026-10-17", changedDays: 1, replacedDays: 0, excluded: 0,
+      grossCents: 2468, refundCents: 500, netCents: 1968, orders: 1, from: "2026-10-01", to: "2026-10-17", changedDays: 1, replacedDays: 0, excluded: 0,
       months: ["2026-Outubro"], fingerprint: "preview-fingerprint",
-      days: [{ date: "2026-10-03", day: "03/10", month: "2026-Outubro", amountCents: 2468, previousCents: 0, orders: 1, previousOrders: 0 }] };
+      days: [{ date: "2026-10-03", day: "03/10", month: "2026-Outubro", amountCents: 2468, refundCents: 500, previousRefundCents: 0, previousCents: 0, orders: 1, previousOrders: 0 }] };
     else if (url.pathname.endsWith("/dashboard/apply")) {
       const input = route.request().postDataJSON();
       expect(input.fingerprint).toBe("preview-fingerprint");
       const headers = { Authorization: `Bearer ${authToken}` };
       const state = (await (await page.request.get("/api/state", { headers })).json()).state;
       const patch = await page.request.patch("/api/state", { headers, data: { expectedUpdatedAt: state.updatedAt,
-        changes: { months: { "2026-Outubro": { days: [{ d: "03/10", [input.platformKey]: 24.68, [`orders_${input.platformKey}`]: 1 }], deletedDays: [], returns: {} } } } } });
+        changes: { months: { "2026-Outubro": { days: [{ d: "03/10", [input.platformKey]: 24.68, [`orders_${input.platformKey}`]: 1, [`refunds_${input.platformKey}`]: 5 }], deletedDays: [], returns: {} } } } } });
       expect(patch.ok()).toBeTruthy();
       body = { ok: true, changedDays: 1, months: ["2026-Outubro"] };
     } else if (url.pathname.endsWith("/return")) body = { id: "789", status: "pending", shipments: [{ status: "shipped", trackingNumber: "ABC123" }] };
@@ -106,6 +106,10 @@ test("consulta pedidos, sincroniza e acompanha devoluções no desktop e celular
   await expect.poll(() => page.evaluate(() => window.dashboard.state.db["2026-Outubro"]?.days.find(day => day.d === "03/10")?.["mercado-livre"])).toBe(24.68);
   await expect.poll(() => page.evaluate(() => window.dashboard.state.currentMonth)).toBe("2026-Outubro");
   await expect(page.locator("#kpiRow")).toContainText("24,68");
+  await expect(page.locator(".kpi-card--returns")).toContainText("Devoluções e cancelamentos");
+  await expect(page.locator(".kpi-card--returns")).toContainText("5,00");
+  await expect(page.locator(".kpi-card--net")).toContainText("19,68");
+  await page.locator("#kpiRow").screenshot({ path: "output/design/mercado-livre-gross-refunds.png" });
   await page.locator('[data-screen-nav="account"]').click();
   await expect(page.locator("#mlAutoStatus")).toContainText("desativada");
   await page.locator("#mlAutoEnable").click();

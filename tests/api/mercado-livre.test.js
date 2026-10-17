@@ -229,12 +229,13 @@ describe("Mercado Livre integration", () => {
     await request("/sync", { method: "POST", body: dates });
     const input = { ...dates, platformKey: "ml" };
     const preview = await (await request("/dashboard/preview", { method: "POST", body: input })).json();
-    expect(preview).toMatchObject({ grossCents: 4936, orders: 2, changedDays: 2, replacedDays: 2, excluded: 2 });
-    expect(preview.days.find(day => day.day === "03/10")).toMatchObject({ amountCents: 4936, orders: 2, previousCents: 99900 });
+    expect(preview).toMatchObject({ grossCents: 7404, refundCents: 3468, netCents: 3936, orders: 3, changedDays: 2, replacedDays: 2, excluded: 1 });
+    expect(preview.days.find(day => day.day === "03/10")).toMatchObject({ amountCents: 7404, refundCents: 3468, orders: 3, previousCents: 99900 });
+    expect(providerCalls.find(call => call.url.pathname === "/orders/search").url.searchParams.get("order.status")).toBe("paid,cancelled");
     const applied = await request("/dashboard/apply", { method: "POST", body: { ...input, fingerprint: preview.fingerprint } });
     expect(applied.status).toBe(200);
     const state = await stateService.getBusinessState("ml-user");
-    expect(state.db["2026-Outubro"].days.find(day => day.d === "03/10")).toMatchObject({ ml: 49.36, orders_ml: 2, other: 40, orders_other: 2 });
+    expect(state.db["2026-Outubro"].days.find(day => day.d === "03/10")).toMatchObject({ ml: 74.04, refunds_ml: 34.68, orders_ml: 3, other: 40, orders_other: 2 });
     expect(state.db["2026-Outubro"].days.find(day => day.d === "05/10")?.ml || 0).toBe(0);
     expect(state.db["2026-Outubro"].days.find(day => day.d === "20/10")).toMatchObject({ ml: 70, orders_ml: 1 });
     expect(state.db["2026-Outubro"].returns.ml).toBe(50);

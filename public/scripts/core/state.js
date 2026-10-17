@@ -103,7 +103,7 @@ function inferPlatformsFromLegacyData(data) {
   const keySet = new Set();
   Object.values(data || {}).forEach((md) => {
     (md?.days || []).forEach((day) => {
-      Object.keys(day || {}).forEach((key) => { if (key !== "d") keySet.add(key); });
+      Object.keys(day || {}).forEach((key) => { if (key !== "d") keySet.add(key.replace(/^(orders_|refunds_)/, "")); });
     });
     Object.keys(md?.returns || {}).forEach((key) => keySet.add(key));
   });
@@ -234,6 +234,8 @@ export function normalizeDay(day = {}, platforms) {
     let ov = kc.reduce((s, c) => s + Math.max(0, Math.round(Number(day[`orders_${c}`] || 0))), 0);
     if (!hasAnyPO && legacyOrders > 0 && firstActive && p.key === firstActive.key) ov = legacyOrders;
     n[ok] = ov;
+    const refunds = kc.reduce((sum, key) => sum + Number(day[`refunds_${key}`] || 0), 0);
+    if (refunds > 0) n[`refunds_${p.key}`] = refunds;
   });
   return n;
 }

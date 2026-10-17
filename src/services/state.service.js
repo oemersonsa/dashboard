@@ -58,12 +58,13 @@ async function replaceBusinessState(userId, state, expectedUpdatedAt) {
           if (!platformId || !day.d) continue;
           const amount = Number(day[platform.key] || 0);
           const orders = Math.max(0, Math.round(Number(day[`orders_${platform.key}`] || 0)));
-          if (amount <= 0 && orders <= 0) continue;
+          const refunds = Number(day[`refunds_${platform.key}`] || 0);
+          if (amount <= 0 && orders <= 0 && refunds <= 0) continue;
           statements.push({
             sql: `INSERT INTO sales
-                  (user_id, platform_id, month, date, amount, orders_count, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            args: [userId, platformId, month, day.d, amount, orders, timestamp, timestamp]
+                  (user_id, platform_id, month, date, amount, orders_count, refund_amount, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [userId, platformId, month, day.d, amount, orders, refunds, timestamp, timestamp]
           });
         }
       }
@@ -166,13 +167,14 @@ async function replaceMonth(userId, month, monthData) {
     for (const key of keys) {
       const amount = Number(day[key] || 0);
       const orders = Math.max(0, Math.round(Number(day[`orders_${key}`] || 0)));
-      if (amount <= 0 && orders <= 0) continue;
+      const refunds = Number(day[`refunds_${key}`] || 0);
+      if (amount <= 0 && orders <= 0 && refunds <= 0) continue;
       stmts.push({
         sql: `INSERT INTO sales
-              (user_id, platform_id, month, date, amount, orders_count, created_at, updated_at)
-              SELECT ?, id, ?, ?, ?, ?, ?, ? FROM platforms
+              (user_id, platform_id, month, date, amount, orders_count, refund_amount, created_at, updated_at)
+              SELECT ?, id, ?, ?, ?, ?, ?, ?, ? FROM platforms
               WHERE user_id = ? AND platform_key = ?`,
-        args: [userId, month, day.d, amount, orders, ts, ts, userId, key]
+        args: [userId, month, day.d, amount, orders, refunds, ts, ts, userId, key]
       });
     }
   }

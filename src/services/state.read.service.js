@@ -46,7 +46,7 @@ async function readBusinessState(userId, options = {}) {
     const clause = selected ? ` AND month IN (${selected.map(() => "?").join(",") || "NULL"})` : "";
     const args = [userId, ...(selected || [])];
     const data = await tx.batch([
-      { sql: `SELECT platform_id, month, date, amount, orders_count FROM sales WHERE user_id = ?${clause} ORDER BY month, date, platform_id`, args },
+      { sql: `SELECT platform_id, month, date, amount, orders_count, refund_amount FROM sales WHERE user_id = ?${clause} ORDER BY month, date, platform_id`, args },
       { sql: `SELECT platform_id, month, amount FROM returns WHERE user_id = ?${clause}`, args },
       { sql: `SELECT month, date FROM logged_days WHERE user_id = ?${clause} ORDER BY month, date`, args }
     ]);
@@ -64,6 +64,7 @@ async function readBusinessState(userId, options = {}) {
       const key = keyById.get(String(row.platform_id));
       if (!key) continue;
       const day = getDay(row.month, row.date); day[key] = Number(row.amount || 0); day[`orders_${key}`] = Number(row.orders_count || 0);
+      if (Number(row.refund_amount) > 0) day[`refunds_${key}`] = Number(row.refund_amount);
     }
     for (const row of data[1].rows) {
       const key = keyById.get(String(row.platform_id));

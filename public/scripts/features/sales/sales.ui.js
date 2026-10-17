@@ -213,15 +213,15 @@ function renderKPIs() {
         : "<div><dt>Comparação</dt><dd>Sem mês anterior disponível</dd></div>"}
       </dl>
       ${context ? `<p>${escapeHtml(context)}</p>` : ""}
-      ${allocatedReturns ? "<p>Devoluções proporcionais às vendas no recorte de dias.</p>" : ""}
+      ${allocatedReturns ? "<p>Ajustes manuais mensais proporcionais às vendas; devoluções e cancelamentos da API pela data original da venda.</p>" : ""}
     </div>`;
     return `<article class="kpi-card ${cls}" tabindex="0" aria-describedby="${id}"><span class="metric-icon ${color}">${appIcon(icon)}</span><div class="kpi-body"><div class="kpi-label">${name}</div><strong class="kpi-value">${count ? detailFormat(current) : R(current)}</strong><div class="kpi-change">${change}</div></div>${tooltip}</article>`;
   };
   el.innerHTML = [
     metric("Pedidos", t.orders, pt?.orders, "orders", "blue", "kpi-card--volume", "", false, true),
     metric("Vendas brutas", t.gross, pt?.gross, "money", "green", "kpi-card--gross", "Soma das vendas antes das devoluções"),
-    metric("Devoluções", t.totalRet, pt?.totalRet, "returns", "red", "kpi-card--returns", "", true),
-    metric("Vendas após devoluções", t.net, pt?.net, "report", "blue", "kpi-card--net", "Bruto menos devoluções. Não desconta taxas ou custos"),
+    metric("Devoluções e cancelamentos", t.totalRet, pt?.totalRet, "returns", "red", "kpi-card--returns", "Valores importados por dia mais os ajustes manuais do mês", true),
+    metric("Vendas após devoluções e cancelamentos", t.net, pt?.net, "report", "blue", "kpi-card--net", "Bruto menos devoluções e cancelamentos. Não desconta taxas ou custos"),
     metric("Ticket médio", t.orders > 0 ? t.gross / t.orders : 0, pt?.orders > 0 ? pt.gross / pt.orders : 0, "ticket", "purple", "kpi-card--ticket", "Vendas brutas divididas pelo número de pedidos")
   ].join("");
 }

@@ -25,14 +25,15 @@ async function render({ reset = false } = {}) {
   if (sequence !== renderSequence || owner !== state.auth?.username || m !== document.getElementById("returnMonth").value) return;
   if (!state.db[m]) state.db[m] = { days: [], returns: {} };
   const r = state.db[m].returns || {};
-  const next = JSON.stringify([owner, m, state.platforms, r]);
+  const imported = Object.fromEntries(state.platforms.map(p => [p.key, state.db[m].days.reduce((sum, day) => sum + Number(day[`refunds_${p.key}`] || 0), 0)]));
+  const next = JSON.stringify([owner, m, state.platforms, r, imported]);
   if (next === signature && !reset) return;
   signature = next;
   const el = document.getElementById("returnInputs");
   if (!el) return;
 
   el.innerHTML = state.platforms.filter((p) => !p.archived).map((p) => `
-    <div class="fg"><label class="flabel" for="ret_${escapeAttribute(p.key)}">${platformBadge(p)}</label><input type="text" inputmode="decimal" class="finput" id="ret_${escapeAttribute(p.key)}" value="${Number(r[p.key] || 0).toFixed(2)}" step="0.01" min="0"></div>
+    <div class="fg"><label class="flabel" for="ret_${escapeAttribute(p.key)}">${platformBadge(p)} · Ajuste manual adicional</label><input type="text" inputmode="decimal" class="finput" id="ret_${escapeAttribute(p.key)}" value="${Number(r[p.key] || 0).toFixed(2)}" step="0.01" min="0"><span class="card-sub">Devoluções e cancelamentos importados: ${Number(imported[p.key] || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}. Já entram no dashboard; não repita esse valor no ajuste manual.</span></div>
   `).join("");
   if (reset) sessionStorage.removeItem(draftKey(m));
   else try { const draft = JSON.parse(sessionStorage.getItem(draftKey(m)) || "{}");

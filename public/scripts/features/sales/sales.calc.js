@@ -72,11 +72,12 @@ function calculateTotals(month, options = {}) {
   const ret = {};
   state.platforms.forEach((p) => {
     const tr = Number((data.returns || {})[p.key] || 0);
-    if (!cd || cd >= getMonthDays(month)) { ret[p.key] = tr; return; }
+    const dailyRefunds = fd.reduce((sum, day) => sum + Number(day[`refunds_${p.key}`] || 0), 0);
+    if (!cd || cd >= getMonthDays(month)) { ret[p.key] = tr + dailyRefunds; return; }
     const fv = Number(fs[p.key] || 0);
     const pv = Number(sales[p.key] || 0);
     const sh = fv > 0 ? Math.min(pv / fv, 1) : 0;
-    ret[p.key] = tr * sh;
+    ret[p.key] = tr * sh + dailyRefunds;
   });
 
   const gross = state.platforms.reduce((s, p) => s + Number(sales[p.key] || 0), 0);

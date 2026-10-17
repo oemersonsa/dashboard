@@ -134,19 +134,21 @@ async function prepareDashboard(user, version) {
   if (user !== state.auth?.username || version !== revision) return;
   dashboardPreview = { input, data };
   el("mlDashboardPreview").hidden = false;
-  el("mlDashboardTotals").textContent = `${data.platform.name}: ${money(data.grossCents)} em ${data.orders} pedidos pagos · ${data.from.split("-").reverse().join("/")} a ${data.to.split("-").reverse().join("/")}. ${data.changedDays} dias com alteração; ${data.replacedDays} com lançamentos existentes. ${data.excluded} pedidos excluídos por status ou moeda.`;
-  for (const day of data.days.filter(day => day.amountCents !== day.previousCents || day.orders !== day.previousOrders)) {
+  el("mlDashboardTotals").textContent = `${data.platform.name}: vendas brutas ${money(data.grossCents)} em ${data.orders} pedidos; devoluções e cancelamentos ${money(data.refundCents || 0)}; saldo ${money(data.netCents ?? data.grossCents)} · ${data.from.split("-").reverse().join("/")} a ${data.to.split("-").reverse().join("/")}. ${data.changedDays} dias com alteração; ${data.replacedDays} com lançamentos existentes. ${data.excluded} pedidos excluídos por status, moeda ou desmembramento. ${data.refundEstimates || 0} reembolso(s) de pedidos ainda pagos: valor limitado aos produtos, podendo incluir frete (estimativa).`;
+  for (const day of data.days.filter(day => day.amountCents !== day.previousCents || day.orders !== day.previousOrders || (day.refundCents || 0) !== (day.previousRefundCents || 0))) {
     const row = document.createElement("tr");
     cell(row, day.date.split("-").reverse().join("/"));
     cell(row, money(day.previousCents));
     cell(row, money(day.amountCents));
+    cell(row, money(day.previousRefundCents || 0));
+    cell(row, money(day.refundCents || 0));
     cell(row, day.previousOrders);
     cell(row, day.orders);
     el("mlDashboardDays").append(row);
   }
   if (!data.changedDays) {
     const row = document.createElement("tr");
-    cell(row, "O dashboard já corresponde aos pedidos pagos deste intervalo.").colSpan = 5;
+    cell(row, "O dashboard já corresponde às vendas e aos descontos deste intervalo.").colSpan = 7;
     el("mlDashboardDays").append(row);
   }
 }

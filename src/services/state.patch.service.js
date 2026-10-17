@@ -39,7 +39,7 @@ async function patchBusinessState(userId, changes, expectedUpdatedAt) {
     const existingDays = new Map();
     for (let offset = 0; offset < affected.length; offset += 250) {
       const slice = affected.slice(offset, offset + 250);
-      const rows = await tx.batch(slice.map(({ month, day }) => ({ sql: `SELECT p.platform_key, s.amount, s.orders_count
+      const rows = await tx.batch(slice.map(({ month, day }) => ({ sql: `SELECT p.platform_key, s.amount, s.orders_count, s.refund_amount
         FROM sales s JOIN platforms p ON p.id = s.platform_id WHERE s.user_id = ? AND s.month = ? AND s.date = ?`, args: [userId, month, day.d] })));
       rows.forEach((result, index) => existingDays.set(`${slice[index].month}:${slice[index].day.d}`,
         new Map(result.rows.map(row => [row.platform_key, row]))));
@@ -77,17 +77,18 @@ async function patchBusinessState(userId, changes, expectedUpdatedAt) {
         statements.push({ sql: "INSERT OR IGNORE INTO logged_days (user_id, month, date) VALUES (?, ?, ?)", args: [userId, month, day.d] });
         for (const key of keys) {
           const amount = Number(day[key] || 0); const orders = Number(day[`orders_${key}`] || 0);
+          const refunds = Number(day[`refunds_${key}`] || 0);
           const previous = existingDays.get(`${month}:${day.d}`)?.get(key);
-          if (amount === Number(previous?.amount || 0) && orders === Number(previous?.orders_count || 0)) continue;
-          if (!amount && !orders) {
+          if (amount === Number(previous?.amount || 0) && orders === Number(previous?.orders_count || 0) && refunds === Number(previous?.refund_amount || 0)) continue;
+          if (!amount && !orders && !refunds) {
             statements.push({ sql: `DELETE FROM sales WHERE user_id = ? AND month = ? AND date = ?
               AND platform_id IN (SELECT id FROM platforms WHERE user_id = ? AND platform_key = ?)`, args: [userId, month, day.d, userId, key] });
             continue;
           }
-          statements.push({ sql: `INSERT INTO sales (user_id, platform_id, month, date, amount, orders_count, created_at, updated_at)
-            SELECT ?, id, ?, ?, ?, ?, ?, ? FROM platforms WHERE user_id = ? AND platform_key = ?
-            ON CONFLICT(user_id, platform_id, month, date) DO UPDATE SET amount=excluded.amount, orders_count=excluded.orders_count, updated_at=excluded.updated_at`,
-            args: [userId, month, day.d, amount, orders, timestamp, timestamp, userId, key] });
+          statements.push({ sql: `INSERT INTO sales (user_id, platform_id, month, date, amount, orders_count, refund_amount, created_at, updated_at)
+            SELECT ?, id, ?, ?, ?, ?, ?, ?, ? FROM platforms WHERE user_id = ? AND platform_key = ?
+            ON CONFLICT(user_id, platform_id, month, date) DO UPDATE SET amount=excluded.amount, orders_count=excluded.orders_count, refund_amount=excluded.refund_amount, updated_at=excluded.updated_at`,
+            args: [userId, month, day.d, amount, orders, refunds, timestamp, timestamp, userId, key] });
         }
       }
       for (const [key, amount] of Object.entries(data.returns)) {

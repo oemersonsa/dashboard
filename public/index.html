@@ -324,7 +324,7 @@
                 <div class="irow">
                   <div class="fg"><label class="flabel" for="returnMonth">Mês</label><select class="finput" id="returnMonth"></select></div>
                 </div>
-                <div class="sec-label small-label">Total de devoluções por plataforma no mês (R$)</div>
+                <div class="sec-label small-label">Ajustes manuais adicionais de devoluções e cancelamentos no mês (R$)</div>
                 <div class="pigrid" id="returnInputs"></div>
                 <div class="actions-row">
                   <button class="btn btn-primary" id="saveReturnsButton" type="button">Salvar Devoluções</button>
@@ -506,7 +506,7 @@
           <div class="ml-filters"><label class="fg"><span class="flabel">Plataforma de destino no dashboard</span><select class="finput" id="mlPlatform"><option value="">Selecione a plataforma de destino</option></select></label></div>
           <section class="ml-auto-sync" aria-labelledby="mlAutoHeading">
             <h3 id="mlAutoHeading">Atualização diária das vendas</h3>
-            <p class="card-sub">Uma vez ao dia, por volta das 6h de Brasília, o Kanri busca os pedidos dos últimos 31 dias e atualiza as vendas e quantidades da plataforma escolhida, mesmo com o app fechado. Os totais dessas datas são substituídos pelos pedidos pagos em reais, sem duplicar vendas. Lançamentos manuais de vendas nessas datas também serão substituídos. Devoluções, frete, tarifas e outras plataformas não são alterados.</p>
+            <p class="card-sub">Uma vez ao dia, por volta das 6h de Brasília, o Kanri revisa os últimos 31 dias, mesmo fechado. Vendas brutas incluem pedidos pagos e cancelados em reais. Devoluções e cancelamentos entram separadamente por dia e são descontados uma única vez no saldo. Os lançamentos dessas datas são substituídos; ajustes manuais mensais e outras plataformas são preservados. Reembolsos de pedidos ainda pagos podem incluir frete e são estimados, limitados ao valor dos produtos. Tarifas não são descontadas.</p>
             <p id="mlAutoStatus" role="status" aria-live="polite">Carregando atualização diária…</p>
             <div class="ml-actions">
               <button class="btn btn-primary" id="mlAutoEnable" type="button">Ativar atualização diária</button>
@@ -518,8 +518,8 @@
           <section id="mlDashboardPreview" aria-labelledby="mlDashboardHeading" hidden>
             <h3 id="mlDashboardHeading">Conferir vendas para o dashboard</h3>
             <p id="mlDashboardTotals" aria-live="polite"></p>
-            <p class="card-sub">Ao confirmar, os valores de vendas e as quantidades da plataforma escolhida serão substituídos nas datas selecionadas, inclusive por zero em dias sem pedidos pagos. Isso evita somar novamente vendas já lançadas. Outras plataformas, datas fora do intervalo e devoluções já registradas serão preservadas. Entram apenas pedidos pagos em reais, pelo valor dos produtos; frete, tarifas e reembolsos não são aplicados aqui.</p>
-            <div class="ml-table-wrap"><table><thead><tr><th scope="col">Data</th><th scope="col">Vendas atuais</th><th scope="col">Vendas da API</th><th scope="col">Pedidos atuais</th><th scope="col">Pedidos da API</th></tr></thead><tbody id="mlDashboardDays"></tbody></table></div>
+            <p class="card-sub">Ao confirmar, vendas brutas, quantidades e devoluções/cancelamentos da API serão substituídos nas datas selecionadas, sem duplicação. Pedidos cancelados entram no bruto e são descontados integralmente; reembolsos de pedidos pagos são limitados ao valor dos produtos e podem incluir frete (estimativa). Pedidos sem pagamento, moedas diferentes de BRL e pedidos originais desmembrados são excluídos. Outras datas, plataformas e ajustes manuais mensais são preservados. Não repita no ajuste manual um reembolso que já veio da API.</p>
+            <div class="ml-table-wrap"><table><thead><tr><th scope="col">Data</th><th scope="col">Vendas atuais</th><th scope="col">Vendas brutas da API</th><th scope="col">Devoluções/cancelamentos atuais</th><th scope="col">Devoluções/cancelamentos da API</th><th scope="col">Pedidos atuais</th><th scope="col">Pedidos da API</th></tr></thead><tbody id="mlDashboardDays"></tbody></table></div>
             <div class="ml-actions"><button class="btn btn-primary" id="mlApplyDashboard" type="button" disabled>Confirmar substituição no dashboard</button></div>
           </section>
           <div class="ml-table-wrap"><table><thead><tr><th scope="col">Identificador</th><th scope="col">Criação</th><th scope="col">Status</th><th scope="col">Itens / referência</th><th scope="col" id="mlValueHeading">Produtos / reembolsos</th></tr></thead><tbody id="mlRows"></tbody></table></div>

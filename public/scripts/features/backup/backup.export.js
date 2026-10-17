@@ -102,6 +102,9 @@ function mergeImported(rs) {
         const co = Math.max(0, Math.round(Number(ed[ok] || 0)));
         const io = Math.max(0, Math.round(Number(id[ok] || 0)));
         if (co === 0 && io > 0) ed[ok] = io;
+        const refundKey = `refunds_${p.key}`;
+        const refunds = Math.max(Number(ed[refundKey] || 0), Number(id[refundKey] || 0));
+        if (refunds > 0) ed[refundKey] = refunds;
       });
     });
     state.platforms.forEach((p) => {

@@ -2,7 +2,7 @@ const { queryAll, execute } = require("../index");
 
 async function listByUser(userId) {
   return queryAll(`
-    SELECT platform_id, month, date, amount, orders_count
+    SELECT platform_id, month, date, amount, orders_count, refund_amount
     FROM sales WHERE user_id = ?
     ORDER BY month ASC, date ASC, platform_id ASC
   `, [userId]);
@@ -21,13 +21,14 @@ async function insertMany(userId, months, platforms, platformIds, timestamp) {
 
         const amount = Number(day[platform.key] || 0);
         const orders = Math.max(0, Math.round(Number(day[`orders_${platform.key}`] || 0)));
-        if (amount <= 0 && orders <= 0) continue;
+        const refunds = Number(day[`refunds_${platform.key}`] || 0);
+        if (amount <= 0 && orders <= 0 && refunds <= 0) continue;
 
         await execute(`
           INSERT INTO sales
-            (user_id, platform_id, month, date, amount, orders_count, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [userId, platformId, month, day.d, amount, orders, timestamp, timestamp]);
+            (user_id, platform_id, month, date, amount, orders_count, refund_amount, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [userId, platformId, month, day.d, amount, orders, refunds, timestamp, timestamp]);
       }
     }
   }
