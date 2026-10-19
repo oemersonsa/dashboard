@@ -72,10 +72,10 @@ async function load(user) {
     const row = document.createElement("tr");
     const first = cell(row, `${o.id}\n${dateText(o.dateCreated)} · ${statusLabels[o.status] || o.status}`);
     first.className = "order-reference";
-    cell(row, o.items.map(p => `${p.quantity} × ${p.title}${p.sku ? ` · ${p.sku}` : ""}`).join("\n"));
-    cell(row, o.currency === "BRL" ? money(o.grossCents) : `${o.currency} ${(o.grossCents / 100).toFixed(2)}`);
-    cell(row, money(c.costs.feeCents)); cell(row, money(c.costs.shippingCents)); cell(row, money(c.costs.productCostCents));
-    cell(row, money(c.profitCents), c.profitCents < 0 ? "margin-negative" : ""); cell(row, percent(c.marginPercent));
+    cell(row, o.items.map(p => `${p.quantity} × ${p.title}${p.sku ? ` · ${p.sku}` : ""}`).join("\n"), "order-products");
+    cell(row, o.currency === "BRL" ? money(o.grossCents) : `${o.currency} ${(o.grossCents / 100).toFixed(2)}`, "order-number");
+    cell(row, money(c.costs.feeCents), "order-number"); cell(row, money(c.costs.shippingCents), "order-number"); cell(row, money(c.costs.productCostCents), "order-number");
+    cell(row, money(c.profitCents), `order-number${c.profitCents < 0 ? " margin-negative" : ""}`); cell(row, percent(c.marginPercent), "order-number");
     const stateCell = cell(row, !c.eligible ? "Fora do cálculo" : !c.ready ? "Custos pendentes" : c.estimated ? "Estimada" : "Custos conferidos");
     stateCell.className = !c.ready ? "margin-pending" : "";
     const action = document.createElement("button"); action.className = "btn btn-secondary"; action.type = "button"; action.textContent = "Analisar";

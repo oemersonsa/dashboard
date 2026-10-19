@@ -15,7 +15,7 @@ test("analisa taxas, frete, custos e margem por pedido com persistência e filtr
   }, { username, sessionToken });
   const products = [{ sku: "SKU-A", productCost: 20, packagingCost: 1 }];
   const order = { id: "111", status: "paid", currency: "BRL", grossCents: 10000, saleFeeCents: 1500, refundsKnown: true, refundedCents: 0,
-    dateCreated: "2026-10-03T12:00:00-03:00", items: [{ quantity: 2, title: "Produto <script>alert(1)</script>", sku: "SKU-A" }] };
+    dateCreated: "2026-10-03T12:00:00-03:00", items: [{ quantity: 2, title: "Vestido Longo Festa Elegante Tomara Que Caia Fenda Madrinha Versátil <script>alert(1)</script>", sku: "SKU-A" }] };
   let financial = {};
   let costs = {};
   let version = "";
@@ -55,6 +55,23 @@ test("analisa taxas, frete, custos e margem por pedido com persistência e filtr
   await expect(page.locator("#orderMarginRows > tr")).toHaveCount(3);
   await expect(page.locator("#orderMarginRows")).toContainText("Custos pendentes");
   await expect(page.locator("#orderMarginRows script")).toHaveCount(0);
+  for (const width of [1586, 768, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const layout = await page.locator("#orderMarginRows tr:first-child").evaluate(row => {
+      const product = row.querySelector(".order-products");
+      const range = document.createRange(); range.selectNodeContents(product);
+      const bounds = product.getBoundingClientRect();
+      return {
+        wraps: range.getClientRects().length > 1,
+        contained: [...range.getClientRects()].every(rect => rect.left >= bounds.left && rect.right <= bounds.right),
+        pageWidth: document.documentElement.scrollWidth
+      };
+    });
+    expect(layout.wraps).toBe(true);
+    expect(layout.contained).toBe(true);
+    expect(layout.pageWidth).toBeLessThanOrEqual(width);
+  }
+  await page.setViewportSize({ width: 1586, height: 1000 });
   await page.getByRole("button", { name: "Analisar pedido 111", exact: true }).click();
   await expect(page.locator("#orderMarginResult")).toHaveText("Margem pendente");
   await page.locator("#orderMarginRefreshFinancials").click();
