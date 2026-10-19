@@ -38,6 +38,102 @@ test.describe("Dashboard", () => {
     }, { timeout: 10000 });
   });
 
+  test("comparativo usa os dias lançados no mês em andamento e totais nos meses encerrados", async ({ page }) => {
+    await page.clock.install({ time: new Date(2026, 9, 19, 12) });
+    await page.evaluate(async () => {
+      const app = window.dashboard;
+      await app.ensureHistory();
+      app.state.platforms = [{ key: "ml", name: "Mercado Livre", icon: "ML", color: "#ffe500" }];
+      app.state.db = {
+        "2026-Outubro": { days: [{ d: "01/10", ml: 1000, orders_ml: 10, refunds_ml: 20 }, { d: "10/10", ml: 2000, orders_ml: 20, refunds_ml: 30 }], returns: {} },
+        "2026-Setembro": { days: [{ d: "01/09", ml: 1500, orders_ml: 15, refunds_ml: 25 }, { d: "10/09", ml: 500, orders_ml: 5, refunds_ml: 25 }, { d: "30/09", ml: 8000, orders_ml: 80, refunds_ml: 500 }], returns: {} },
+        "2026-Agosto": { days: [{ d: "01/08", ml: 1000, orders_ml: 10 }, { d: "31/08", ml: 4000, orders_ml: 40 }], returns: {} }
+      };
+      app.state.periods = Object.keys(app.state.db);
+      app.state.currentMonth = "2026-Outubro";
+      app.state.activeTab = "comparison";
+      app.setActiveScreen("dashboard"); app.renderScreen();
+    });
+    const panel = page.locator("#dashboard-panel-comparison");
+    await expect(panel.locator(".comparison-status")).toContainText("dias 1–10");
+    await expect(panel.locator(".comparison-kpi").nth(0)).toContainText("2.000,00");
+    await expect(panel.locator(".comparison-kpi").nth(0)).toContainText("50,00%");
+    await expect(panel.locator(".comparison-kpi").nth(1)).toContainText("0,00%");
+    await expect(panel.locator("tbody tr").first().locator("td").nth(1)).toContainText("2.000");
+    await expect(panel.locator("tfoot")).toContainText("50,00%");
+    await panel.locator('[data-comparison-mode="custom"]').click();
+    await panel.locator("#comparisonBaseline").selectOption("2026-Agosto");
+    await expect(panel.locator(".comparison-kpi").nth(0)).toContainText("200,00%");
+    await panel.locator("#comparisonReference").selectOption("2026-Setembro");
+    await expect(panel.locator(".comparison-status")).toContainText("totais completos");
+    await expect(panel.locator(".comparison-kpi").nth(0)).toContainText("10.000,00");
+    await expect(panel.locator(".comparison-kpi").nth(0)).toContainText("5.000,00");
+    await expect(panel.locator(".comparison-kpi").nth(0)).toContainText("100,00%");
+  });
+
+  test("comparativo mensal mostra totais, plataformas e troca dos períodos", async ({ page }) => {
+    await page.setViewportSize({ width: 1586, height: 1000 });
+    await page.evaluate(async () => {
+      const app = window.dashboard;
+      await app.ensureHistory();
+      app.state.platforms = [
+        { key: "mercado-livre", name: "Mercado Livre", icon: "ML", color: "#ffe500" },
+        { key: "shopee", name: "Shopee", icon: "SH", color: "#ff5722" },
+        { key: "amazon", name: "Amazon", icon: "AM", color: "#131921" },
+        { key: "magalu", name: "Magalu", icon: "MA", color: "#0086ff", archived: true }
+      ];
+      function month(date, sales, returns, orders) {
+        const day = { d: date };
+        const ret = {};
+        app.state.platforms.forEach((p, i) => { day[p.key] = sales[i]; day[`orders_${p.key}`] = orders[i]; ret[p.key] = returns[i]; });
+        return { days: [day], returns: ret };
+      }
+      app.state.db = {
+        "2026-Setembro": month("01/09", [62000, 38450, 18000, 10000], [1500, 1000, 450, 300], [700, 500, 180, 100]),
+        "2026-Agosto": month("01/08", [50000, 35000, 17000, 8000], [2000, 1200, 400, 400], [580, 440, 160, 70]),
+        "2026-Janeiro": { days: [], returns: {} }
+      };
+      app.state.periods = Object.keys(app.state.db);
+      app.state.currentMonth = "2026-Setembro";
+      app.state.activeTab = "comparison";
+      app.setActiveScreen("dashboard");
+      app.renderScreen();
+    });
+    const panel = page.locator("#dashboard-panel-comparison");
+    await expect(panel.locator("#comparisonBaseline")).toBeDisabled();
+    await expect(panel.locator(".comparison-kpis")).toContainText("128.450,00");
+    await expect(panel.locator(".comparison-kpis")).toContainText("16,77%");
+    await expect(panel.locator(".comparison-kpis")).toContainText("18,75%");
+    const amazon = panel.locator("tbody tr").filter({ hasText: "Amazon" });
+    await expect(amazon.locator(".worsened")).toContainText("12,50%");
+    await expect(panel.locator("tbody tr")).toHaveCount(4);
+    await expect(page.locator("#toast")).not.toHaveClass(/show/);
+    await page.screenshot({ path: "output/design/monthly-comparison-desktop.png", fullPage: true, animations: "disabled" });
+    await panel.locator("#comparisonPlatform").selectOption("amazon");
+    await expect(panel.locator("tbody tr")).toHaveCount(1);
+    await expect(panel.locator("tfoot")).toContainText("18.000");
+    await expect(panel.locator(".comparison-kpis")).toContainText("128.450,00");
+    await panel.locator('[data-comparison-mode="custom"]').click();
+    await panel.locator("#comparisonBaseline").selectOption("2026-Janeiro");
+    await expect(panel.locator(".comparison-kpis")).toContainText("Sem base");
+    await panel.locator("#comparisonReference").selectOption("2026-Agosto");
+    await expect(panel.locator("#comparisonReference")).toHaveValue("2026-Agosto");
+    await expect(panel.locator(".comparison-kpis")).toContainText("110.000,00");
+    await expect(page).toHaveURL(/comparison.*2026-Agosto/);
+    await panel.locator('[data-comparison-mode="previous"]').click();
+    await expect(panel.locator(".comparison-status")).toContainText("Sem dados para Julho 2026");
+    await expect(panel.locator(".comparison-kpis")).toContainText("Sem dados para comparar");
+    await panel.locator("#comparisonReference").selectOption("2026-Setembro");
+    await panel.locator("#comparisonPlatform").selectOption("");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await expect(panel.locator(".comparison-table-wrap")).toBeVisible();
+    await page.screenshot({ path: "output/design/monthly-comparison-mobile.png", fullPage: true, animations: "disabled" });
+    await page.evaluate(async () => { const { setMode } = await import("/scripts/ui/theme.js"); setMode("light"); });
+    await page.setViewportSize({ width: 1586, height: 1000 });
+    await page.screenshot({ path: "output/design/monthly-comparison-light.png", fullPage: true, animations: "disabled" });
+  });
+
   test("média por plataforma considera todas as vendas do período e acompanha os filtros", async ({ page }) => {
     await page.setViewportSize({ width: 1586, height: 1000 });
     await page.evaluate(async () => {

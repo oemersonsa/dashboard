@@ -54,6 +54,8 @@ O nome do pacote permanece `dashboard-vendas`, atualmente na versão `5.0.0`.
 - Indicadores de vendas, pedidos, médias diárias e variação contra o intervalo anterior equivalente.
 - Gráfico diário, participação das plataformas e tabela de desempenho.
 - Comparativo de até 12 meses com vendas, vendas após devoluções, pedidos ou ticket médio.
+- Comparativo mensal com vendas, devoluções e pedidos: totais gerais e tabela por plataforma, valores dos dois meses e variação percentual. Compare com o mês anterior do calendário ou outro mês disponível e filtre a plataforma. Meses sem dados e bases zeradas são identificados sem percentuais inválidos.
+- No comparativo, meses em andamento usam do dia 1 ao último dia lançado no mês selecionado, com o mesmo corte no mês de comparação (limitado ao tamanho desse mês). Meses encerrados usam os totais completos. Devoluções diárias respeitam o corte; devoluções mensais sem data são estimadas proporcionalmente às vendas do intervalo.
 - Linha de meta e identificação de períodos parciais ou sem lançamentos no comparativo multi-mês.
 
 ### Metas e projeções

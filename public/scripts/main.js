@@ -726,7 +726,7 @@ function bindSidebarActions() {
 }
 
 export function switchDashboardTab(name) {
-  const valid = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection", "calculator", "roas", "orders"];
+  const valid = ["overview", "daily", "weekly", "platforms", "trends", "comparison", "entries", "projection", "calculator", "roas", "orders"];
   const target = valid.includes(name) ? name : "overview";
 
   state.activeTab = target;
@@ -741,7 +741,7 @@ export function switchDashboardTab(name) {
   });
   const menuByTab = {
     overview: "sales", daily: "sales", weekly: "sales",
-    platforms: "analysis", trends: "analysis", orders: "analysis", entries: "management", projection: "management", calculator: "tools", roas: "tools"
+    platforms: "analysis", trends: "analysis", comparison: "analysis", orders: "analysis", entries: "management", projection: "management", calculator: "tools", roas: "tools"
   };
   document.querySelectorAll("[data-sidebar-menu-trigger]").forEach((trigger) => {
     trigger.classList.toggle("active", trigger.dataset.sidebarMenuTrigger === menuByTab[target]);
@@ -755,13 +755,14 @@ export function switchDashboardTab(name) {
     overview: ["Desempenho de vendas", "Acompanhe suas vendas e resultados nos marketplaces"], entries: ["Lançamentos", "Registre suas vendas e devoluções por marketplace"],
     daily: ["Vendas diárias", "Acompanhe a evolução das vendas no período"], weekly: ["Semanas", "Compare os resultados de cada semana"],
     platforms: ["Desempenho por plataforma", "Compare o desempenho e acompanhe pedidos"], trends: ["Tendência", "Acompanhe a evolução dos últimos meses"],
+    comparison: ["Comparativo mensal", "Compare o resultado geral e o desempenho de cada plataforma"],
     projection: ["Metas e projeção", "Planeje a meta e acompanhe o resultado esperado"], calculator: ["Calculadora de preço", "Simule preço, margem e lucro por plataforma"],
     roas: ["Calculadora de ROAS", "Descubra quanto pode investir em anúncios por pedido"],
     orders: ["Pedidos e margens", "Analise vendas, cobranças e custos de cada pedido do Mercado Livre"]
   };
   document.getElementById("dashboardPageTitle").textContent = pages[target][0];
   document.getElementById("dashboardPageSubtitle").textContent = pages[target][1];
-  document.querySelector(".dashboard-period-controls").hidden = ["calculator", "roas", "orders"].includes(target);
+  document.querySelector(".dashboard-period-controls").hidden = ["calculator", "roas", "orders", "comparison"].includes(target);
   document.getElementById("dashboardRegisterSalesButton").hidden = target !== "overview";
   document.getElementById("dashboardImportSalesButton").hidden = !["overview", "entries", "daily"].includes(target);
   document.getElementById("dashboardScreen").dataset.page = target;
@@ -773,13 +774,14 @@ export function switchDashboardTab(name) {
     Promise.all([ensureHistory(), loadCharts()]).then(() => import("./features/trends/trends.ui.js")).then(m => { if (state.activeTab === target) m.init?.(); }).catch(error => toastError(error.message));
   }
   const features = {
+    comparison: "./features/comparison/comparison.ui.js",
     platforms: "./features/platforms/analytics.ui.js",
     calculator: "./features/calculator/pricing.ui.js",
     roas: "./features/calculator/roas.ui.js",
     orders: "./features/orders/order-margins.ui.js"
   };
   if (features[target]) {
-    const ready = target === "platforms" ? Promise.all([ensureHistory(), loadCharts()]) : Promise.resolve();
+    const ready = target === "platforms" ? Promise.all([ensureHistory(), loadCharts()]) : target === "comparison" ? ensureHistory() : Promise.resolve();
     ready.then(() => import(features[target])).then(module => { if (state.activeTab === target) module.init(); }).catch(error => toastError(error.message));
   }
   if (["overview", "daily", "trends", "projection"].includes(target)) loadCharts().then(() => { if (state.activeTab === target) renderAll(); }).catch(error => toastError(error.message));

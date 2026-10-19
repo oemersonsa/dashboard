@@ -31,6 +31,7 @@ import {
 } from "./sales.calc.js";
 import { init as initProjection } from "../projection/projection.ui.js";
 import { renderWeekly } from "../weekly/weekly.ui.js";
+import { renderComparison } from "../comparison/comparison.ui.js";
 import { init as initReturns } from "../returns/returns.ui.js";
 import { showChartSkeleton, hideChartSkeleton, showPlatformBarsSkeleton } from "../../ui/skeleton.js";
 import { computeGoalProgress, GOAL_STATUS, getStatusColorVar } from "../goals/goals.calc.js";
@@ -64,6 +65,7 @@ export function renderAll() {
   return withTotalsCache(renderActivePanel);
 }
 function renderActivePanel() {
+  if (state.activeTab === "comparison") { renderComparison(); return; }
   renderTrackingAlerts();
   if (!state.platforms.length || !state.db[state.currentMonth]) return;
   const tab = state.activeTab || "overview";

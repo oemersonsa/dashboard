@@ -298,7 +298,7 @@ export function normalizeState(raw, presetMap) {
     }
   }
   next.pricing = normalizePricing(raw?.pricing || base.pricing, next.platforms, presetMap);
-  next.activeTab = ["overview", "daily", "weekly", "platforms", "trends", "entries", "projection", "calculator", "roas", "orders"].includes(raw?.activeTab)
+  next.activeTab = ["overview", "daily", "weekly", "platforms", "trends", "comparison", "entries", "projection", "calculator", "roas", "orders"].includes(raw?.activeTab)
   ? raw.activeTab
   : "overview";
   return next;
