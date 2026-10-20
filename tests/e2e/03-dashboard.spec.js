@@ -182,18 +182,18 @@ test.describe("Dashboard", () => {
   test("navega pelo menu com teclado em uma tela pequena", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.locator("#dashboardSidebar")).toBeHidden();
-    const dashboard = page.locator('[data-nav="dashboard"]');
-    await dashboard.focus(); await dashboard.press("Enter");
+    const panel = page.locator('[data-mobile-nav="panel"]');
+    await panel.focus(); await panel.press("Enter");
     await expect(page.locator("#dashboardScreen")).toBeVisible();
-    const toggle = page.locator("#menuToggleButton");
-    await toggle.focus(); await toggle.press("Enter");
-    await expect(page.locator("#dashboardSidebar")).toHaveClass(/open/);
-    const roas = page.locator('[data-dashboard-tab="roas"]');
+    const more = page.locator('[data-mobile-nav="more"]');
+    await more.focus(); await more.press("Enter");
+    const tools = page.locator("#mobileMore details").nth(1).locator("summary");
+    await tools.focus(); await tools.press("Enter");
+    const roas = page.locator('#mobileMore [data-mobile-tab="roas"]');
     await roas.focus(); await roas.press("Enter");
     await expect(page.locator("#dashboard-panel-roas")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
-
   test("navegação hub → dashboard", async ({ page }) => {
     await page.click('[data-nav="dashboard"]');
     await page.waitForFunction(() => !document.getElementById("dashboardScreen").hidden);

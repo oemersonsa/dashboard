@@ -1,4 +1,4 @@
-const screens = new Set(["hub", "dashboard", "dailyClose", "account"]);
+const screens = new Set(["hub", "dashboard", "dailyClose", "connections", "account", "more", "backups", "reports"]);
 const tabs = new Set(["overview", "daily", "weekly", "platforms", "trends", "comparison", "entries", "projection", "calculator", "roas", "orders"]);
 export function readRoute(hash) {
   const [path, query = ""] = String(hash || "").replace(/^#\/?/, "").split("?");

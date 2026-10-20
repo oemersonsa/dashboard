@@ -13,13 +13,13 @@ const missingLabels = { productCostCents: "produto", packagingCents: "embalagem"
   feeCents: "taxa do ML", shippingCents: "frete", productRefundCents: "reembolso dos produtos", review: "conferência dos custos", charges: "revisão das cobranças selecionadas" };
 const sourceLabels = { manual: "Informado por você", billing: "Faturamento da API", order: "API de pedidos", shipment: "API de envios", allocated: "Rateio do envio", sku: "Cadastro por SKU" };
 const statusLabels = { paid: "Pago", cancelled: "Cancelado", confirmed: "Confirmado", payment_required: "Aguardando pagamento", partially_paid: "Pago parcialmente" };
-const errors = { ml_not_connected: "Conecte sua conta em Minha conta → Mercado Livre para começar.", ml_resource_not_found: "Pedido não encontrado nesta conta. Sincronize o intervalo novamente.",
+const errors = { ml_account_required: "Selecione uma conta do Mercado Livre.", ml_not_connected: "Conecte sua conta em Conexões → Mercado Livre para começar.", ml_resource_not_found: "Pedido não encontrado nesta conta. Sincronize o intervalo novamente.",
   ml_invalid_date_range: "Escolha um intervalo válido de até 31 dias.", ml_invalid_costs: "Confira os custos: use valores positivos ou zero. Campos vazios ficam pendentes ou usam o valor indicado da API/SKU.",
   ml_cost_conflict: "Os custos deste pedido mudaram em outra sessão. Descarte o rascunho e abra o pedido novamente antes de salvar.",
   ml_invalid_charges: "As cobranças selecionadas mudaram. Recarregue o pedido e confira a seleção.", ml_rate_limited: "Limite de consultas do Mercado Livre atingido. Aguarde um minuto antes de continuar.",
-  too_many_requests: "Limite de consultas atingido. Aguarde um minuto e tente novamente.", ml_reconnect_required: "Reconecte sua conta em Minha conta → Mercado Livre.",
+  too_many_requests: "Limite de consultas atingido. Aguarde um minuto e tente novamente.", ml_reconnect_required: "Reconecte sua conta em Conexões → Mercado Livre.",
   ml_permission_denied: "A API recusou o acesso. Confira as permissões de pedidos, envios e faturamento da aplicação.",
-  ml_not_configured: "Configure a integração em Minha conta → Mercado Livre.", ml_connection_busy: "A conexão está sendo renovada. Tente novamente em instantes.",
+  ml_not_configured: "Configure a integração em Conexões → Mercado Livre.", ml_connection_busy: "A conexão está sendo renovada. Tente novamente em instantes.",
   ml_connection_changed: "A conexão mudou. Abra esta página novamente.", ml_sync_restart_required: "A sincronização mudou. Inicie o intervalo novamente.",
   ml_range_too_large: "Escolha um intervalo menor para sincronizar este volume de pedidos." };
 let owner = "", busy = false, bound = false, offset = 0, next = null, selected = null, dirty = false, syncResume = null;
@@ -30,7 +30,7 @@ const dateText = value => new Date(value).toLocaleDateString("pt-BR", { timeZone
 function status(text) { el("orderMarginNotice").textContent = text; }
 function controls() {
   el("dashboard-panel-orders").setAttribute("aria-busy", String(busy));
-  el("dashboard-panel-orders").querySelectorAll("button, input, select, textarea").forEach(input => { input.disabled = busy || input.dataset.unavailable === "true"; });
+  el("dashboard-panel-orders").querySelectorAll("button, input, select, textarea").forEach(input => { input.disabled = busy || (dirty && input.id === "orderMarginAccount") || input.dataset.unavailable === "true"; });
   el("orderMarginPrevious").disabled = busy || offset === 0;
   el("orderMarginNext").disabled = busy || next === null;
   el("orderMarginRefreshFinancials").disabled = busy || dirty;
@@ -44,7 +44,7 @@ async function run(action) {
   finally { busy = false; controls(); if (requestedOwner !== owner) void run(load); }
 }
 function active(user) { return user === owner && user === state.auth?.username; }
-function input() { return { from: el("orderMarginFrom").value, to: el("orderMarginTo").value,
+function input() { return { sellerId: el("orderMarginAccount").value, from: el("orderMarginFrom").value, to: el("orderMarginTo").value,
   q: el("orderMarginQuery").value.trim(), status: el("orderMarginStatus").value, margin: el("orderMarginFilter").value }; }
 function cell(row, text, className = "") { const td = document.createElement("td"); td.textContent = text; td.className = className; row.append(td); return td; }
 function summaryCard(label, value, sub) {
@@ -82,7 +82,7 @@ async function load(user) {
     action.setAttribute("aria-label", `Analisar pedido ${o.id}`);
     action.addEventListener("click", () => void run(async user => {
       if (dirty) { status("Salve ou descarte as alterações do pedido aberto antes de analisar outro."); return; }
-      const details = await apiRequest(`${BASE}/margins/${o.id}`);
+      const details = await apiRequest(`${BASE}/margins/${o.id}?${new URLSearchParams({ sellerId: input().sellerId })}`);
       if (!active(user)) return;
       renderDetail(details);
       el("orderMarginDetail").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -167,6 +167,7 @@ function mount() {
   el("dashboard-panel-orders").innerHTML = `
     <section class="card order-margin-intro"><div><span class="order-margin-eyebrow">MERCADO LIVRE · RESULTADO POR PEDIDO</span><h2>Saiba quanto sobra de cada venda</h2><p class="card-sub">Venda menos taxa, frete, produto, embalagem, impostos e demais custos. Margem = resultado ÷ valor da venda.</p></div><button class="btn btn-secondary" id="orderMarginConnection" type="button">Minha conexão</button></section>
     <section class="card"><form id="orderMarginFilters" class="order-margin-filters">
+      <label class="fg"><span class="flabel">Conta do Mercado Livre</span><select class="finput" id="orderMarginAccount"></select></label>
       <label class="fg"><span class="flabel">De</span><input class="finput" id="orderMarginFrom" type="date" required></label>
       <label class="fg"><span class="flabel">Até</span><input class="finput" id="orderMarginTo" type="date" required></label>
       <label class="fg order-margin-search"><span class="flabel">Pedido, produto ou SKU</span><input class="finput" id="orderMarginQuery" maxlength="100" placeholder="Buscar pedidos"></label>
@@ -190,14 +191,19 @@ function mount() {
 export function init() {
   if (!bound) {
     mount(); bound = true;
+    el("orderMarginAccount").addEventListener("change", () => {
+      offset = 0; next = null; syncResume = null; selected = null; dirty = false;
+      el("orderMarginDetail").hidden = true; el("orderMarginSync").textContent = "Sincronizar pedidos";
+      void run(load);
+    });
     el("orderMarginFilters").addEventListener("submit", event => { event.preventDefault(); offset = 0; void run(load); });
-    el("orderMarginConnection").addEventListener("click", () => { window.dashboard.setActiveScreen("account"); window.dashboard.renderScreen(); });
+    el("orderMarginConnection").addEventListener("click", () => { window.dashboard.setActiveScreen("connections"); window.dashboard.renderScreen(); });
     el("orderMarginPrevious").addEventListener("click", () => { offset = Math.max(0, offset - 50); void run(load); });
     el("orderMarginNext").addEventListener("click", () => { offset = next ?? 0; void run(load); });
     el("orderMarginSync").addEventListener("click", () => void run(async user => {
       if (dirty) { status("Salve ou descarte as alterações do pedido antes de sincronizar."); return; }
       const filters = input();
-      const key = `${filters.from}:${filters.to}`;
+      const key = `${filters.sellerId}:${filters.from}:${filters.to}`;
       let page = syncResume?.key === key ? syncResume.offset : 0;
       try {
         do {
@@ -217,7 +223,7 @@ export function init() {
     el("orderMarginRefreshFinancials").addEventListener("click", () => void run(async user => {
       if (!selected || dirty) return;
       status("Consultando pedido, taxas, frete e faturamento no Mercado Livre…");
-      const details = await apiRequest(`${BASE}/margins/${selected.order.id}/refresh`, { method: "POST" });
+      const details = await apiRequest(`${BASE}/margins/${selected.order.id}/refresh?${new URLSearchParams({ sellerId: input().sellerId })}`, { method: "POST" });
       if (!active(user)) return;
       renderDetail(details); await load(user); toastSuccess("Dados financeiros consultados. Confira os campos pendentes.");
     }));
@@ -231,14 +237,14 @@ export function init() {
     });
     el("orderMarginDiscard").addEventListener("click", () => void run(async user => {
       if (!selected) return;
-      const details = await apiRequest(`${BASE}/margins/${selected.order.id}`);
+      const details = await apiRequest(`${BASE}/margins/${selected.order.id}?${new URLSearchParams({ sellerId: input().sellerId })}`);
       if (active(user)) renderDetail(details);
     }));
     el("orderMarginCostForm").addEventListener("submit", event => {
       event.preventDefault(); void run(async user => {
         const costs = readCosts();
         status("Salvando os custos e recalculando a margem…");
-        const details = await apiRequest(`${BASE}/margins/${selected.order.id}/costs`, { method: "POST", body: JSON.stringify({ costs, expectedUpdatedAt: selected.updatedAt }) });
+        const details = await apiRequest(`${BASE}/margins/${selected.order.id}/costs`, { method: "POST", body: JSON.stringify({ sellerId: input().sellerId, costs, expectedUpdatedAt: selected.updatedAt }) });
         if (!active(user)) return;
         renderDetail(details); await load(user); toastSuccess("Custos salvos e margem recalculada.");
       });
@@ -255,5 +261,13 @@ export function init() {
     el("orderMarginFrom").value = `${parts.slice(0, 7)}-01`; el("orderMarginTo").value = parts;
     el("orderMarginQuery").value = ""; el("orderMarginStatus").value = "all"; el("orderMarginFilter").value = "all";
   }
-  if (!dirty) void run(load);
+  if (!dirty) void run(async user => {
+    const data = await apiRequest(BASE);
+    if (!active(user)) return;
+    const select = el("orderMarginAccount"), previous = select.value;
+    const accounts = data.accounts || (data.connected ? [{ sellerId: data.sellerId, nickname: data.nickname }] : []);
+    select.replaceChildren(...accounts.map(account => new Option(account.nickname, account.sellerId)));
+    if (accounts.some(account => account.sellerId === previous)) select.value = previous;
+    await load(user);
+  });
 }

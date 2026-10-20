@@ -14,9 +14,9 @@ function dateRange(now = new Date()) {
   const from = new Date(Date.parse(`${to}T12:00:00Z`) - 30 * 86400000).toISOString().slice(0, 10);
   return { from, to, kind: "orders" };
 }
-async function status(user) {
-  const row = await queryOne("SELECT * FROM ml_auto_sync WHERE user_id = ?", [user]);
-  const account = await queryOne("SELECT seller_id FROM ml_connections WHERE user_id = ?", [user]);
+async function status(user, sellerId) {
+  const account = await marketplace.accountFor(user, sellerId).catch(error => { if (error.code === "ml_not_connected" && !sellerId) return null; throw error; });
+  const row = account ? await queryOne("SELECT * FROM ml_auto_sync WHERE user_id = ? AND seller_id = ?", [user, account.seller_id]) : null;
   const enabled = Boolean(row?.enabled && row.seller_id === account?.seller_id);
   return { schedulerConfigured: config.CRON_SECRET.length >= 16, enabled,
     platformKey: row?.platform_key || "", lastAttemptAt: row?.last_attempt_at || null, lastSuccessAt: row?.last_success_at || null,
@@ -27,35 +27,40 @@ async function configure(user, input) {
   if (typeof input?.enabled !== "boolean") fail("ml_invalid_auto_sync_settings", 400);
   if (input.enabled && config.CRON_SECRET.length < 16) fail("ml_scheduler_not_configured", 503);
   await withTransaction(async tx => {
-    const account = (await tx.execute({ sql: "SELECT seller_id FROM ml_connections WHERE user_id = ?", args: [user] })).rows[0];
+    const account = await marketplace.accountFor(user, input.sellerId, tx);
     if (!account) fail("ml_not_connected");
-    if (!input.enabled) {
+    if (!input.enabled && !input.platformKey) {
       await tx.execute({ sql: `UPDATE ml_auto_sync SET enabled=0, lock_id=NULL, lock_until=0,
-        from_date=NULL, to_date=NULL, next_offset=0, last_error=NULL WHERE user_id=?`,
-        args: [user] });
+        from_date=NULL, to_date=NULL, next_offset=0, last_error=NULL WHERE user_id=? AND seller_id=?`,
+        args: [user, account.seller_id] });
       return;
     }
     const platform = (await tx.execute({ sql: "SELECT platform_key FROM platforms WHERE user_id = ? AND platform_key = ? AND archived = 0",
       args: [user, String(input.platformKey || "")] })).rows[0];
     if (!platform) fail("ml_platform_required", 400);
+    const occupied = (await tx.execute({ sql: "SELECT seller_id FROM ml_auto_sync WHERE user_id=? AND platform_key=? AND seller_id<>?", args: [user, platform.platform_key, account.seller_id] })).rows[0];
+    if (occupied) fail("ml_platform_in_use", 409);
     await tx.execute({ sql: `INSERT INTO ml_auto_sync (user_id, seller_id, platform_key, enabled)
-      VALUES (?, ?, ?, 1) ON CONFLICT(user_id) DO UPDATE SET seller_id=excluded.seller_id,
-      platform_key=excluded.platform_key, enabled=1, lock_id=NULL, lock_until=0,
+      VALUES (?, ?, ?, ?) ON CONFLICT(user_id, seller_id) DO UPDATE SET
+      platform_key=excluded.platform_key, enabled=excluded.enabled, lock_id=NULL, lock_until=0,
       from_date=NULL, to_date=NULL, next_offset=0, last_error=NULL, last_success_at=NULL, last_to_date=NULL`,
-      args: [user, account.seller_id, platform.platform_key] });
+      args: [user, account.seller_id, platform.platform_key, input.enabled ? 1 : 0] });
   });
-  return status(user);
+  return status(user, input.sellerId);
 }
-async function runUser(user, { deadline = Date.now() + 40000, force = false } = {}) {
+async function runUser(user, { deadline = Date.now() + 40000, force = false, sellerId } = {}) {
+  const account = await marketplace.accountFor(user, sellerId).catch(error => { if (error.code === "ml_not_connected") return null; throw error; });
+  if (!account) return { skipped: true };
+  sellerId = account.seller_id;
   const lockId = crypto.randomUUID();
   const row = await withTransaction(async tx => {
     const settings = (await tx.execute({ sql: `SELECT a.* FROM ml_auto_sync a JOIN ml_connections c ON c.user_id=a.user_id
-      AND c.seller_id=a.seller_id WHERE a.user_id=? AND a.enabled=1 AND a.lock_until < ?`, args: [user, Date.now()] })).rows[0];
+      AND c.seller_id=a.seller_id WHERE a.user_id=? AND a.seller_id=? AND a.enabled=1 AND a.lock_until < ?`, args: [user, sellerId, Date.now()] })).rows[0];
     if (!settings) return null;
     const dates = dateRange();
     if (!force && !settings.from_date && settings.last_to_date === dates.to) return null;
-    await tx.execute({ sql: "UPDATE ml_auto_sync SET lock_id=?, lock_until=?, last_attempt_at=?, last_error=NULL WHERE user_id=?",
-      args: [lockId, Date.now() + 90000, new Date().toISOString(), user] });
+    await tx.execute({ sql: "UPDATE ml_auto_sync SET lock_id=?, lock_until=?, last_attempt_at=?, last_error=NULL WHERE user_id=? AND seller_id=?",
+      args: [lockId, Date.now() + 90000, new Date().toISOString(), user, sellerId] });
     return settings;
   });
   if (!row) return { skipped: true };
@@ -65,11 +70,11 @@ async function runUser(user, { deadline = Date.now() + 40000, force = false } = 
     await execute("UPDATE ml_auto_sync SET from_date=?, to_date=?, next_offset=? WHERE user_id=? AND lock_id=?",
       [dates.from, dates.to, offset, user, lockId]);
     while (Date.now() + 15000 < deadline) {
-      const active = await queryOne("SELECT enabled, lock_id FROM ml_auto_sync WHERE user_id=?", [user]);
+      const active = await queryOne("SELECT enabled, lock_id FROM ml_auto_sync WHERE user_id=? AND seller_id=?", [user, sellerId]);
       if (!active?.enabled || active.lock_id !== lockId) fail("ml_auto_sync_changed");
-      const result = await marketplace.sync(user, { ...dates, offset });
+      const result = await marketplace.sync(user, { ...dates, offset, sellerId });
       if (result.nextOffset === null) {
-        const applied = await dashboard.applyAutomatic(user, { ...dates, platformKey: row.platform_key }, { lockId, sellerId: row.seller_id });
+        const applied = await dashboard.applyAutomatic(user, { ...dates, sellerId, platformKey: row.platform_key }, { lockId, sellerId: row.seller_id });
         return { completed: true, changedDays: applied.changedDays, to: dates.to };
       }
       offset = result.nextOffset;
@@ -88,14 +93,14 @@ async function runUser(user, { deadline = Date.now() + 40000, force = false } = 
 }
 async function runDaily() {
   const deadline = Date.now() + 40000;
-  const accounts = await queryAll(`SELECT a.user_id FROM ml_auto_sync a JOIN ml_connections c ON c.user_id=a.user_id
+  const accounts = await queryAll(`SELECT a.user_id, a.seller_id FROM ml_auto_sync a JOIN ml_connections c ON c.user_id=a.user_id
     AND c.seller_id=a.seller_id WHERE a.enabled=1 ORDER BY COALESCE(a.last_attempt_at, '')`);
   const result = { completed: 0, failed: 0, pending: 0, skipped: 0, deferred: 0 };
   for (const account of accounts) {
     if (Date.now() >= deadline) { result.deferred++; continue; }
-    let outcome = await runUser(account.user_id, { deadline });
+    let outcome = await runUser(account.user_id, { deadline, sellerId: account.seller_id });
     if (outcome.completed && outcome.to < dateRange().to && Date.now() + 15000 < deadline) {
-      outcome = await runUser(account.user_id, { deadline });
+      outcome = await runUser(account.user_id, { deadline, sellerId: account.seller_id });
     }
     result[outcome.completed ? "completed" : outcome.failed ? "failed" : outcome.pending ? "pending" : "skipped"]++;
   }

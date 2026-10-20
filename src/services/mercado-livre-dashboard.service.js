@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 const { withTransaction } = require("../db");
-const { range } = require("./mercado-livre.service");
+const { range, accountFor } = require("./mercado-livre.service");
 const MONTHS = ["Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const fail = (code, statusCode = 409) => { throw Object.assign(new Error(code), { code, statusCode }); };
 
@@ -10,11 +10,13 @@ async function build(tx, user, input) {
   const dates = range(input);
   if (Number(dates.from.slice(0, 4)) < 2000 || Number(dates.to.slice(0, 4)) > 2100) fail("ml_invalid_date_range", 400);
   if (input.kind !== "orders") fail("ml_orders_required", 400);
-  const account = (await tx.execute({ sql: "SELECT seller_id FROM ml_connections WHERE user_id = ?", args: [user] })).rows[0];
+  const account = await accountFor(user, input.sellerId, tx);
   if (!account) fail("ml_not_connected");
   const platform = (await tx.execute({ sql: "SELECT id, name, platform_key FROM platforms WHERE user_id = ? AND platform_key = ? AND archived = 0",
     args: [user, String(input.platformKey || "")] })).rows[0];
   if (!platform) fail("ml_platform_required", 400);
+  const occupied = (await tx.execute({ sql: "SELECT seller_id FROM ml_auto_sync WHERE user_id=? AND platform_key=? AND seller_id<>?", args: [user, platform.platform_key, account.seller_id] })).rows[0];
+  if (occupied) fail("ml_platform_in_use");
   const window = (await tx.execute({ sql: `SELECT run_id, completed_at, metrics_version FROM ml_sync_windows
     WHERE user_id = ? AND seller_id = ? AND from_date = ? AND to_date = ? AND next_offset IS NULL`,
     args: [user, account.seller_id, dates.from, dates.to] })).rows[0];

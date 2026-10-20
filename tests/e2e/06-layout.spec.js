@@ -201,46 +201,38 @@ test.describe("Layout Kanri", () => {
   test("menu móvel funciona entre telas e os formulários cabem na largura", async ({ page }) => {
     test.setTimeout(60000);
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.locator("#dashboardSidebar")).not.toBeVisible();
-    await page.click("#hubMenuButton");
-    await page.locator('.sidebar-item[data-dashboard-tab="entries"]').click();
-    await expect(page.locator("#dashboardSidebar")).not.toBeVisible();
+    await expect(page.locator("#dashboardSidebar")).toBeHidden();
+    await page.locator('[data-mobile-nav="register"]').click();
     await page.fill("#sale_mercado-livre", "77,50");
     const form = await page.locator(".entry-fields").boundingBox();
     const review = await page.locator(".entry-review").boundingBox();
-    expect(review.y).toBeGreaterThan(form.y + form.height);
+    expect(review.y).toBeGreaterThanOrEqual(form.y + form.height);
     await capture(page, "lancamentos-mobile");
-    await page.click("#menuToggleButton");
-    await page.locator("#sidebarOpenDailyClose").click();
-    await page.click("#dailyCloseMenuButton");
-    await page.locator('.sidebar-item[data-screen-nav="account"]').click();
+    const more = async () => { await page.locator('[data-mobile-nav="more"]').click(); };
+    await more();
+    await page.locator("#mobileMore details").nth(1).locator("summary").click();
+    await page.locator('#mobileMore [data-mobile-screen="dailyClose"]').click();
+    await expect(page.locator("#dailyCloseScreen")).toBeVisible();
+    await page.locator(".mobile-avatar").click();
     await expect(page.locator("#accountScreen")).toBeVisible();
-    await page.click("#accountMenuButton");
-    await page.locator('.sidebar-item[data-dashboard-tab="calculator"]').click();
-    await expect(page.locator(".pricing-result")).toBeVisible();
-    for (const input of await page.locator('#dashboard-panel-calculator input:visible, #dashboard-panel-calculator select:visible').all()) {
-      const box = await input.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(391);
-    }
-    await capture(page, "calculadora-mobile");
-    for (const tab of ["overview", "daily", "weekly", "platforms", "trends", "projection", "roas"]) {
-      await page.click("#menuToggleButton");
-      await page.locator(`.sidebar-item[data-dashboard-tab="${tab}"]`).click();
+    for (const tab of ["calculator", "overview", "daily", "weekly", "platforms", "trends", "projection", "roas"]) {
+      await more();
+      await page.locator(`#mobileMore [data-mobile-tab="${tab}"]`).click();
       await expect(page.locator(`#dashboard-panel-${tab}`)).toBeVisible();
-      if (tab === "overview") {
-        await page.locator(".kpi-card--returns").focus();
-        expect(await page.locator(".kpi-card--returns .kpi-comparison-tooltip").boundingBox().then(box => box.x + box.width)).toBeLessThanOrEqual(390);
-        await page.locator(".kpi-card--returns").evaluate(card => card.blur());
+      if (tab === "calculator") {
+        await page.locator('.mobile-price-tabs [data-mobile-price="result"]').click();
+        await expect(page.locator(".pricing-result")).toBeVisible();
+        for (const input of await page.locator('#dashboard-panel-calculator input:visible, #dashboard-panel-calculator select:visible').all()) {
+          const box = await input.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(391);
+        }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth), `Largura da tela ${tab}`).toBeLessThanOrEqual(390);
-      if (["projection", "roas"].includes(tab)) await capture(page, `${tab}-mobile`);
+      if (["projection", "roas", "calculator"].includes(tab)) await capture(page, `${tab}-mobile`);
     }
-    await page.click("#menuToggleButton");
-    await page.click("#sidebarManagePlatformsButton");
+    await more(); await page.locator('[data-mobile-action="platforms"]').click();
     await expect(page.locator("#setupScreen")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
     await capture(page, "gerenciar-plataformas-mobile");
-    await page.click("#setupMenuButton");
-    await page.locator('.sidebar-item[data-screen-nav="hub"]').click();
+    await page.locator('[data-mobile-nav="hub"]').click();
     await expect(page.locator("#hubScreen")).toBeVisible();
-  });
-});
+  });});

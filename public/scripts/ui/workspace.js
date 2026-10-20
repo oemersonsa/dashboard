@@ -22,6 +22,7 @@ export function renderWorkspace(screen, visible) {
     else button.removeAttribute("aria-current");
   });
   refreshAppearance();
+  window.dispatchEvent(new CustomEvent("dashboard:workspace-rendered"));
 }
 
 function refreshAppearance() {

@@ -25,7 +25,7 @@ test("consulta pedidos, sincroniza e acompanha devoluções no desktop e celular
       body = { records: claims
         ? [{ id: "456", dateCreated: "2026-10-03T12:00:00-03:00", type: "return", resource: "order", resourceId: "111", reason: "PDD", status: "opened", hasReturn: true }]
         : [{ id: "111", dateCreated: "2026-10-03T12:00:00-03:00", status: "paid", currency: "BRL", grossCents: 2468, refundedCents: 500,
-          items: [{ quantity: 2, title: "Produto <script>alert(1)</script>", sku: "SKU" }] }],
+          items: [{ quantity: 2, title: "Produto <script>alert(1)</script> Vestido Longo Festa Elegante Tomara Que Caia Fenda Madrinha Verde Oliva", sku: "SKU-VERDE-OLIVA-G-SEM-ESPACOS-123456789012345678901234567890" }] }],
       total: 1, nextOffset: null, summary: { paidCents: 2468, refundedCents: 500 } };
     } else if (url.pathname.endsWith("/sync")) {
       const input = route.request().postDataJSON();
@@ -65,20 +65,38 @@ test("consulta pedidos, sincroniza e acompanha devoluções no desktop e celular
   await page.click("#addPlatformConfigButton");
   await page.click("#finishSetupButton");
   await expect(page.locator("#hubScreen")).toBeVisible();
-  await page.locator('[data-screen-nav="account"]').click();
+  await page.locator('[data-screen-nav="connections"]').click();
   await expect(page.locator("#mlConnect")).toBeVisible();
   await expect(page.locator("#mlConnect")).toBeDisabled();
   await expect(page.locator("#mlConfigurationIssues")).toContainText("APP_ORIGIN");
   await expect(page.locator("#mlConfigurationIssues")).toContainText("https://public.example");
   setupReady = true;
   await page.evaluate(() => { window.dashboard.setActiveScreen("hub"); window.dashboard.renderScreen(); });
-  await page.locator('[data-screen-nav="account"]').click();
-  await expect(page.locator("#mlNotice")).toContainText("Loja teste");
+  await page.locator('[data-screen-nav="connections"]').click();
+  await expect(page.locator("#mlAccounts")).toContainText("Loja teste");
+  await page.locator("#mlManual summary").click();
   await expect(page.locator("#mlConnect")).toBeEnabled();
   await expect(page.locator("#mlConfigurationIssues")).toBeHidden();
   await expect(page.locator("#mlRows")).toContainText("Produto <script>alert(1)</script>");
   await expect(page.locator("#mlRows script")).toHaveCount(0);
   await expect(page.locator("#mlSummary")).toContainText("24,68");
+  for (const width of [1586, 960, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const layout = await page.locator("#mlRows tr:first-child").evaluate(row => {
+      const product = row.cells[3], values = row.cells[4];
+      const range = document.createRange(); range.selectNodeContents(product);
+      const bounds = product.getBoundingClientRect();
+      return { wraps: range.getClientRects().length > 1,
+        contained: [...range.getClientRects()].every(rect => rect.left >= bounds.left && rect.right <= bounds.right && (bounds.bottom <= values.getBoundingClientRect().top || rect.right <= values.getBoundingClientRect().left)),
+        pageWidth: document.documentElement.scrollWidth };
+    });
+    expect(layout.wraps).toBe(true);
+    expect(layout.contained).toBe(true);
+    expect(layout.pageWidth).toBeLessThanOrEqual(width);
+  }
+  await page.locator(".ml-records-table").screenshot({ path: "output/design/connections-manual-table-mobile.png" });
+  await page.setViewportSize({ width: 1586, height: 1000 });
+  await page.locator(".ml-records-table").screenshot({ path: "output/design/connections-manual-table-desktop.png" });
   await page.locator("#mlSync").click();
   await expect(page.locator("#mlNotice")).toContainText("Limite de consultas");
   await expect(page.locator("#mlSync")).toHaveText("Continuar sincronização");
@@ -110,18 +128,20 @@ test("consulta pedidos, sincroniza e acompanha devoluções no desktop e celular
   await expect(page.locator(".kpi-card--returns")).toContainText("5,00");
   await expect(page.locator(".kpi-card--net")).toContainText("19,68");
   await page.locator("#kpiRow").screenshot({ path: "output/design/mercado-livre-gross-refunds.png" });
-  await page.locator('[data-screen-nav="account"]').click();
-  await expect(page.locator("#mlAutoStatus")).toContainText("desativada");
-  await page.locator("#mlAutoEnable").click();
-  await expect(page.locator("#mlAutoStatus")).toContainText("Atualização diária ativa para Mercado Livre");
-  await expect(page.locator("#mlAutoStatus")).toContainText("Última atualização concluída");
-  await expect(page.locator("#mlAutoRun")).toBeEnabled();
+  await page.locator('[data-screen-nav="connections"]').click();
+  await expect(page.locator(".ml-toggle-copy")).toContainText("desativada");
+  await page.locator(".ml-account-card select").selectOption("mercado-livre");
+  await expect(page.locator(".ml-account-card select")).toBeEnabled();
+  await page.locator('[role="switch"]').click();
+  await expect(page.locator(".ml-toggle-copy")).toContainText("Atualização diária ativa");
+  await expect(page.locator(".ml-last-sync")).toContainText("Última atualização:");
+  await expect(page.locator('[data-action="run"]')).toBeEnabled();
   await page.locator("#mlIntegration").screenshot({ path: "output/design/mercado-livre-auto-sync.png" });
-  await page.locator("#mlAutoPause").click();
-  await expect(page.locator("#mlAutoStatus")).toContainText("desativada");
-  await expect(page.locator("#mlAutoRun")).toBeHidden();
-  await page.goto("/?ml=failed&ml_error=ml_oauth_cookie_missing#/account");
-  await expect(page.locator("#mlSummary")).toContainText("24,68");
+  await page.locator('[role="switch"]').click();
+  await expect(page.locator(".ml-toggle-copy")).toContainText("desativada");
+  await expect(page.locator('[data-action="run"]')).toBeDisabled();
+  await page.goto("/?ml=failed&ml_error=ml_oauth_cookie_missing#/connections");
+  await expect(page.locator("#mlAccounts")).toContainText("Loja teste");
   await expect(page.locator("#mlNotice")).toContainText("mesmo navegador");
   expect(page.url()).not.toContain("ml_error");
   await expect(page.locator("#mlConnect")).toBeEnabled();

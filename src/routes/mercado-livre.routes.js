@@ -22,40 +22,41 @@ async function callback(req, res, url) {
     outcome = "failed";
     const allowed = new Set(["ml_not_configured", "ml_invalid_oauth_state", "ml_oauth_cookie_missing", "ml_oauth_browser_mismatch", "ml_oauth_expired",
       "ml_authorization_denied", "ml_invalid_client", "ml_invalid_oauth_request", "ml_offline_access_required", "ml_reconnect_required", "ml_invalid_authorization_code",
-      "ml_permission_denied", "ml_rate_limited", "ml_unavailable", "ml_invalid_response", "ml_credentials_unavailable"]);
+      "ml_permission_denied", "ml_rate_limited", "ml_unavailable", "ml_invalid_response", "ml_credentials_unavailable", "ml_wrong_account"]);
     errorCode = allowed.has(error.code) ? error.code : "ml_callback_failed";
     const databaseCodes = new Set(["SQLITE_AUTH", "SQLITE_ERROR", "SQLITE_BUSY", "SERVER_ERROR", "AUTH_EXPIRED", "SQL_INPUT_ERROR"]);
     logger.warn("Mercado Livre OAuth callback failed", { code: errorCode, databaseCode: databaseCodes.has(error.code) ? error.code : "" });
   }
   const result = new URLSearchParams({ ml: outcome, ...(errorCode ? { ml_error: errorCode } : {}) });
-  res.writeHead(303, { Location: `${config.APP_ORIGIN}/?${result}#/account`,
+  res.writeHead(303, { Location: `${config.APP_ORIGIN}/?${result}#/connections`,
     "Set-Cookie": cookie("", 0), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   res.end();
 }
 async function handle(req, res, user, url) {
   const suffix = url.pathname.slice(BASE.length);
-  if (req.method === "GET" && suffix === "/auto-sync") return json(res, 200, await automatic.status(user));
+  const sellerId = url.searchParams.get("sellerId") || undefined;
+  if (req.method === "GET" && suffix === "/auto-sync") return json(res, 200, await automatic.status(user, sellerId));
   if (req.method === "POST" && suffix === "/auto-sync") return json(res, 200, await automatic.configure(user, await readJsonBody(req)));
   if (req.method === "POST" && suffix === "/auto-sync/run") {
-    const result = await automatic.runUser(user, { force: true });
-    return json(res, 200, { ...result, status: await automatic.status(user) });
+    const result = await automatic.runUser(user, { force: true, sellerId });
+    return json(res, 200, { ...result, status: await automatic.status(user, sellerId) });
   }
   if (req.method === "GET" && suffix === "/margins") return json(res, 200, await margins.list(user, Object.fromEntries(url.searchParams)));
   const marginMatch = suffix.match(/^\/margins\/(\d+)(?:\/(refresh|costs))?$/);
   if (marginMatch) {
     const [, id, action] = marginMatch;
-    if (req.method === "GET" && !action) return json(res, 200, await margins.detail(user, id));
-    if (req.method === "POST" && action === "refresh") return json(res, 200, await margins.refresh(user, id));
+    if (req.method === "GET" && !action) return json(res, 200, await margins.detail(user, id, sellerId));
+    if (req.method === "POST" && action === "refresh") return json(res, 200, await margins.refresh(user, id, sellerId));
     if (req.method === "POST" && action === "costs") return json(res, 200, await margins.saveCosts(user, id, await readJsonBody(req)));
   }
   if (req.method === "GET" && suffix === "") return json(res, 200, await service.status(user));
   if (req.method === "POST" && suffix === "/authorize") {
-    const result = await service.authorize(user);
+    const result = await service.authorize(user, sellerId);
     res.setHeader("Set-Cookie", cookie(result.state, 600));
     return json(res, 200, { url: result.url });
   }
   if (req.method === "DELETE" && suffix === "") {
-    await service.disconnect(user);
+    await service.disconnect(user, sellerId);
     return json(res, 200, { ok: true });
   }
   if (req.method === "POST" && suffix === "/sync") return json(res, 200, await service.sync(user, await readJsonBody(req)));
@@ -63,7 +64,7 @@ async function handle(req, res, user, url) {
   if (req.method === "POST" && suffix === "/dashboard/apply") return json(res, 200, await dashboard.apply(user, await readJsonBody(req)));
   if (req.method === "GET" && suffix === "/records") return json(res, 200, await service.list(user, Object.fromEntries(url.searchParams)));
   const match = suffix.match(/^\/claims\/(\d+)\/return$/);
-  if (req.method === "GET" && match) return json(res, 200, await service.returnDetails(user, match[1]));
+  if (req.method === "GET" && match) return json(res, 200, await service.returnDetails(user, match[1], sellerId));
   return json(res, 404, { error: "not_found" });
 }
 module.exports = { BASE, callback, handle };

@@ -1,4 +1,10 @@
 const paths = {
+  more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  chevronLeft: '<path d="m15 5-7 7 7 7"/>',
+  edit: '<path d="m15 3 6 6-12 12H3v-6zM13 5l6 6"/>',
+  download: '<path d="M12 3v13m-5-5 5 5 5-5M3 16v5h18v-5"/>',
+  refresh: '<path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/>',
+  trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
   logout: '<path d="M10 4H3v16h7m4-13 5 5-5 5m-7-5h12"/>',
   upload: '<path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>',

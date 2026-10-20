@@ -5,9 +5,9 @@ const fail = (code, statusCode = 400) => { throw Object.assign(new Error(code), 
 const DAY = 86400000;
 const read = (path, headers, includeStatus = false) => ml.remote(path, { headers, signal: AbortSignal.timeout(8000) }, includeStatus);
 function validId(id) { if (!/^\d{1,24}$/.test(String(id))) fail("ml_invalid_resource"); }
-async function accountFor(user, id) {
+async function accountFor(user, id, sellerId) {
   if (id !== undefined) validId(id);
-  const account = await queryOne("SELECT seller_id FROM ml_connections WHERE user_id = ?", [user]);
+  const account = await ml.accountFor(user, sellerId);
   if (!account) fail("ml_not_connected", 409);
   if (id !== undefined && !await queryOne("SELECT 1 FROM ml_records WHERE user_id = ? AND seller_id = ? AND kind = 'orders' AND resource_id = ?", [user, account.seller_id, id])) fail("ml_resource_not_found", 404);
   return account;
@@ -26,8 +26,8 @@ function analysis(row, products) {
   return { order, financial, settings, updatedAt: row.costs_updated_at || "", financialUpdatedAt: row.financial_updated_at || null,
     calculation: calculate(order, financial, settings, products) };
 }
-async function detail(user, id) {
-  const account = await accountFor(user, id);
+async function detail(user, id, sellerId) {
+  const account = await accountFor(user, id, sellerId);
   const row = await queryOne(`${JOIN} WHERE r.user_id = ? AND r.seller_id = ? AND r.kind = 'orders' AND r.resource_id = ?`, [user, account.seller_id, id]);
   return analysis(row, await productsFor(user));
 }
@@ -37,7 +37,7 @@ async function list(user, input) {
   const q = String(input.q || "").trim().toLocaleLowerCase("pt-BR");
   if (!Number.isInteger(offset) || offset < 0 || offset % 50 || offset > 9950 || q.length > 100 ||
       !["all", "paid", "cancelled"].includes(input.status || "all") || !["all", "pending", "profit", "loss"].includes(input.margin || "all")) fail("ml_invalid_filters");
-  const account = await accountFor(user);
+  const account = await accountFor(user, undefined, input.sellerId);
   const rows = await queryAll(`${JOIN} WHERE r.user_id = ? AND r.seller_id = ? AND r.kind = 'orders'
     AND r.date_created >= ? AND r.date_created <= ? ORDER BY r.date_created DESC, r.resource_id DESC LIMIT 10001`,
     [user, account.seller_id, new Date(dates.start).toISOString(), new Date(dates.end).toISOString()]);
@@ -115,9 +115,9 @@ async function shippingData(user, account, order, headers) {
   }
   return { costCents: share, allocated: true, totalCents, orderIds: ids, reason: "Frete do vendedor rateado entre os pedidos pelo valor dos produtos." };
 }
-async function refresh(user, id) {
-  await accountFor(user, id);
-  const account = await ml.connection(user);
+async function refresh(user, id, sellerId) {
+  await accountFor(user, id, sellerId);
+  const account = await ml.connection(user, sellerId);
   const headers = { Authorization: `Bearer ${account.accessToken}` };
   const raw = await read(`/orders/${id}`, headers);
   if (String(raw.seller?.id) !== account.seller_id || String(raw.id) !== id) fail("ml_resource_not_found", 404);
@@ -140,7 +140,7 @@ async function refresh(user, id) {
   const financial = { shipping, billing, warnings };
   const timestamp = new Date().toISOString();
   await withTransaction(async tx => {
-    const current = (await tx.execute({ sql: "SELECT generation FROM ml_connections WHERE user_id = ?", args: [user] })).rows[0];
+    const current = (await tx.execute({ sql: "SELECT generation FROM ml_connections WHERE user_id = ? AND seller_id = ?", args: [user, account.seller_id] })).rows[0];
     if (current?.generation !== account.generation) fail("ml_connection_changed", 409);
     await tx.execute({ sql: "UPDATE ml_records SET payload = ?, synced_at = ? WHERE user_id = ? AND seller_id = ? AND kind = 'orders' AND resource_id = ?",
       args: [JSON.stringify(order), timestamp, user, account.seller_id, id] });
@@ -148,10 +148,10 @@ async function refresh(user, id) {
       ON CONFLICT(user_id, seller_id, order_id) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at`,
       args: [user, account.seller_id, id, JSON.stringify(financial), timestamp] });
   });
-  return detail(user, id);
+  return detail(user, id, account.seller_id);
 }
 async function saveCosts(user, id, input) {
-  const account = await accountFor(user, id);
+  const account = await accountFor(user, id, input?.sellerId);
   if (!input || typeof input !== "object" || !input.costs || typeof input.costs !== "object" || Array.isArray(input.costs) || typeof input.expectedUpdatedAt !== "string") fail("ml_invalid_costs");
   const settings = input.costs;
   if (Object.keys(settings).some(field => ![...COST_FIELDS, "includedChargeIds", "reviewed", "note"].includes(field)) ||
@@ -160,7 +160,7 @@ async function saveCosts(user, id, input) {
     !Array.isArray(settings.includedChargeIds) || settings.includedChargeIds.length > 200 || settings.includedChargeIds.some(id => typeof id !== "string" || id.length > 100) ||
     new Set(settings.includedChargeIds).size !== settings.includedChargeIds.length) fail("ml_invalid_costs");
   await withTransaction(async tx => {
-    const currentAccount = (await tx.execute({ sql: "SELECT seller_id FROM ml_connections WHERE user_id = ?", args: [user] })).rows[0];
+    const currentAccount = await ml.accountFor(user, account.seller_id, tx);
     if (currentAccount?.seller_id !== account.seller_id) fail("ml_connection_changed", 409);
     const current = (await tx.execute({ sql: "SELECT updated_at FROM ml_order_costs WHERE user_id = ? AND seller_id = ? AND order_id = ?", args: [user, account.seller_id, id] })).rows[0];
     if ((current?.updated_at || "") !== input.expectedUpdatedAt) fail("ml_cost_conflict", 409);

@@ -88,21 +88,32 @@ function validTokens(tokens) {
   if (!tokens.refresh_token) throw fail("ml_offline_access_required", 409);
   return Date.now() + Number(tokens.expires_in) * 1000;
 }
+async function accountFor(user, sellerId, tx) {
+  const sql = "SELECT * FROM ml_connections WHERE user_id = ?" + (sellerId ? " AND seller_id = ?" : "") + " ORDER BY seller_id";
+  const args = sellerId ? [user, String(sellerId)] : [user];
+  const rows = tx ? (await tx.execute({ sql, args })).rows : await queryAll(sql, args);
+  if (!rows.length) throw fail("ml_not_connected", 409);
+  if (rows.length > 1) throw fail("ml_account_required", 400);
+  return rows[0];
+}
 async function status(user) {
-  const row = await queryOne("SELECT seller_id, nickname FROM ml_connections WHERE user_id = ?", [user]);
+  const rows = await queryAll("SELECT seller_id, nickname FROM ml_connections WHERE user_id = ? ORDER BY seller_id", [user]);
+  const row = rows[0];
   const setup = configuration();
   return { configured: setup.issues.length === 0, configuration: setup,
+    accounts: rows.map(row => ({ sellerId: row.seller_id, nickname: row.nickname })),
     connected: Boolean(row), sellerId: row?.seller_id || null, nickname: row?.nickname || null };
 }
-async function authorize(user) {
+async function authorize(user, sellerId) {
   requireConfig();
+  if (sellerId) await accountFor(user, sellerId);
   const state = crypto.randomBytes(32).toString("base64url");
   const verifier = crypto.randomBytes(32).toString("base64url");
   await withTransaction(async tx => {
     await tx.execute({ sql: "DELETE FROM ml_oauth_states WHERE user_id = ? OR expires_at < ?", args: [user, Date.now()] });
     await tx.execute({
-      sql: "INSERT INTO ml_oauth_states (state_hash, user_id, verifier, expires_at) VALUES (?, ?, ?, ?)",
-      args: [crypto.createHash("sha256").update(state).digest("hex"), user, encrypt(verifier, user), Date.now() + 600000]
+      sql: "INSERT INTO ml_oauth_states (state_hash, user_id, verifier, expires_at, seller_id) VALUES (?, ?, ?, ?, ?)",
+      args: [crypto.createHash("sha256").update(state).digest("hex"), user, encrypt(verifier, user), Date.now() + 600000, sellerId || null]
     });
   });
   const params = new URLSearchParams({ response_type: "code", client_id: config.ML_CLIENT_ID,
@@ -129,16 +140,16 @@ async function callback(params, cookieState) {
   const expires = validTokens(tokens);
   const seller = await remote("/users/me", { headers: { Authorization: `Bearer ${tokens.access_token}` } });
   if (String(seller.id) !== String(tokens.user_id)) throw fail("ml_invalid_response", 502);
+  if (pending.seller_id && pending.seller_id !== String(seller.id)) throw fail("ml_wrong_account", 409);
   await execute(`INSERT INTO ml_connections (user_id, seller_id, nickname, tokens, expires_at, generation)
-    VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET seller_id=excluded.seller_id,
+    VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, seller_id) DO UPDATE SET
     nickname=excluded.nickname, tokens=excluded.tokens, expires_at=excluded.expires_at,
     generation=excluded.generation, refresh_lock_until=0`,
   [pending.user_id, String(seller.id), String(seller.nickname || seller.id), encrypt(tokens, pending.user_id), expires, crypto.randomUUID()]);
 }
-async function connection(user) {
+async function connection(user, sellerId) {
   requireConfig();
-  const row = await queryOne("SELECT * FROM ml_connections WHERE user_id = ?", [user]);
-  if (!row) throw fail("ml_not_connected", 409);
+  const row = await accountFor(user, sellerId);
   let tokens = decrypt(row.tokens, user);
   if (Number(row.expires_at) <= Date.now() + 60000) {
     // Refresh tokens are single use. The database lease also covers other server instances.
@@ -213,7 +224,7 @@ function claimRecord(claim, sellerId) {
 async function sync(user, input) {
   const dates = range(input);
   const { kind, offset } = paging(input);
-  const account = await connection(user);
+  const account = await connection(user, input.sellerId);
   let runId = "";
   if (kind === "orders") {
     if (offset === 0) {
@@ -260,7 +271,7 @@ async function sync(user, input) {
   const timestamp = new Date().toISOString();
   const nextOffset = offset + source.length < page.paging.total ? offset + PAGE_SIZE : null;
   await withTransaction(async tx => {
-    const current = await tx.execute({ sql: "SELECT generation FROM ml_connections WHERE user_id = ?", args: [user] });
+    const current = await tx.execute({ sql: "SELECT generation FROM ml_connections WHERE user_id = ? AND seller_id = ?", args: [user, account.seller_id] });
     if (current.rows[0]?.generation !== account.generation) throw fail("ml_connection_changed", 409);
     if (kind === "orders") {
       const run = (await tx.execute({ sql: `SELECT run_id, next_offset FROM ml_sync_windows
@@ -290,8 +301,7 @@ async function sync(user, input) {
 async function list(user, input) {
   const dates = range(input);
   const { kind, offset } = paging(input);
-  const account = await queryOne("SELECT seller_id FROM ml_connections WHERE user_id = ?", [user]);
-  if (!account) throw fail("ml_not_connected", 409);
+  const account = await accountFor(user, input.sellerId);
   const args = [user, account.seller_id, kind, new Date(dates.start).toISOString(), new Date(dates.end).toISOString()];
   const where = "user_id = ? AND seller_id = ? AND kind = ? AND date_created >= ? AND date_created <= ?";
   const rows = await queryAll(`SELECT payload, synced_at FROM ml_records WHERE ${where} ORDER BY date_created DESC, resource_id DESC LIMIT ? OFFSET ?`, [...args, PAGE_SIZE, offset]);
@@ -306,9 +316,9 @@ async function list(user, input) {
     summary: { paidCents: Number(summary.paidCents), refundedCents: Number(summary.refundedCents) },
     nextOffset: offset + PAGE_SIZE < Number(total.n) ? offset + PAGE_SIZE : null };
 }
-async function returnDetails(user, id) {
+async function returnDetails(user, id, sellerId) {
   if (!/^\d{1,24}$/.test(id)) throw fail("ml_invalid_resource");
-  const account = await connection(user);
+  const account = await connection(user, sellerId);
   const row = await queryOne("SELECT payload FROM ml_records WHERE user_id = ? AND seller_id = ? AND kind = 'claims' AND resource_id = ?",
     [user, account.seller_id, id]);
   if (!row || !JSON.parse(row.payload).hasReturn) throw fail("ml_resource_not_found", 404);
@@ -317,11 +327,13 @@ async function returnDetails(user, id) {
   return { id: String(data.id), status: data.status || null, lastUpdated: data.last_updated,
     shipments: (data.shipments || []).map(item => ({ id: String(item.shipment_id), status: item.status, trackingNumber: item.tracking_number })) };
 }
-async function disconnect(user) {
+async function disconnect(user, sellerId) {
   await withTransaction(async tx => {
-    for (const table of ["ml_auto_sync", "ml_connections", "ml_oauth_states", "ml_records", "ml_sync_windows", "ml_financials"]) {
-      await tx.execute({ sql: `DELETE FROM ${table} WHERE user_id = ?`, args: [user] });
+    const account = await accountFor(user, sellerId, tx);
+    for (const table of ["ml_auto_sync", "ml_connections", "ml_records", "ml_sync_windows", "ml_financials"]) {
+      await tx.execute({ sql: `DELETE FROM ${table} WHERE user_id = ? AND seller_id = ?`, args: [user, account.seller_id] });
     }
+    await tx.execute({ sql: "DELETE FROM ml_oauth_states WHERE user_id = ? AND (seller_id = ? OR seller_id IS NULL)", args: [user, account.seller_id] });
   });
 }
-module.exports = { status, authorize, callback, sync, list, returnDetails, disconnect, range, connection, remote, orderRecord };
+module.exports = { status, authorize, callback, sync, list, returnDetails, disconnect, range, connection, accountFor, remote, orderRecord };

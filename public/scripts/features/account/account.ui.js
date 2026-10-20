@@ -1,7 +1,6 @@
 import { state } from "../../core/state.js";
 import { apiRequest, clearSession } from "../../core/api.js";
 import { toastSuccess, toastError } from "../../ui/toast.js";
-import { init as initMercadoLivre } from "../integrations/mercado-livre.ui.js";
 
 const profileByUser = new Map();
 const profileRequests = new Map();
@@ -213,7 +212,6 @@ function bindEvents() {
 }
 
 export function init() {
-  initMercadoLivre();
   const username = currentUsername();
   if (formUsername !== username) {
     formUsername = username;

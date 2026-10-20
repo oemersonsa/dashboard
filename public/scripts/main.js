@@ -1,3 +1,5 @@
+import { initMobileWorkspace, refreshMobileWorkspace, renderMobileScreen, isMobileScreen, isMobile } from "./ui/mobile-workspace.js";
+import { init as initConnections } from "./features/integrations/mercado-livre.ui.js";
 /* ═══════════════════════════════════════════════════════════════
    main.js — entrypoint do frontend
    ═══════════════════════════════════════════════════════════════ */
@@ -40,7 +42,7 @@ import {
   openAddMonth,
   confirmAddMonth,
   refreshMonthPickerForYear,
-  selectMonth,
+  selectMonth, switchMonth,
   switchDashboardPeriod
 } from "./features/sales/sales.ui.js";
 
@@ -99,7 +101,7 @@ async function openReport() {
 }
 
 // ─── Roteador ───────────────────────────────────────────────────────────────
-const KNOWN_SCREENS = ["hub", "dashboard", "calculator", "dailyClose", "account"];
+const KNOWN_SCREENS = ["hub", "dashboard", "calculator", "dailyClose", "connections", "account", "more", "backups", "reports"];
 let activeScreen = "hub";
 
 export function getActiveScreen() { return activeScreen; }
@@ -109,8 +111,9 @@ export function setActiveScreen(screen) {
     state.activeTab = "calculator";
     screen = "dashboard";
   }
+  if (isMobileScreen(screen) && !isMobile()) screen = "hub";
   activeScreen = KNOWN_SCREENS.includes(screen) ? screen : "hub";
-  state.currentScreen = activeScreen === "account" ? "dashboard" : activeScreen;
+  state.currentScreen = ["account", "connections", "more", "backups", "reports"].includes(activeScreen) ? "dashboard" : activeScreen;
   saveNavigation();
 }
 
@@ -122,7 +125,9 @@ export function renderScreen() {
     hub: document.getElementById("hubScreen"),
     dashboard: document.getElementById("dashboardScreen"),
     dailyClose: document.getElementById("dailyCloseScreen"),
-    account: document.getElementById("accountScreen")
+    connections: document.getElementById("connectionsScreen"),
+    account: document.getElementById("accountScreen"),
+    mobile: document.getElementById("mobileUtilityScreen")
   };
 
   const hasAuth = Boolean(state.auth?.username);
@@ -154,6 +159,12 @@ export function renderScreen() {
     queueMicrotask(() => void applyRoute(routeAtBoot));
   }
 
+  if (isMobileScreen(activeScreen)) {
+    renderMobileScreen(activeScreen);
+    refreshMobileWorkspace();
+    return;
+  }
+
   if (activeScreen === "dashboard") {
     screens.dashboard.hidden = false;
     syncDashboardUserProfile();
@@ -166,6 +177,12 @@ export function renderScreen() {
   if (activeScreen === "dailyClose") {
     screens.dailyClose.hidden = false;
     initDailyClose();
+    return;
+  }
+
+  if (activeScreen === "connections") {
+    screens.connections.hidden = false;
+    initConnections();
     return;
   }
 
@@ -374,7 +391,9 @@ export function openSetupScreen() {
     hub: document.getElementById("hubScreen"),
     dashboard: document.getElementById("dashboardScreen"),
     dailyClose: document.getElementById("dailyCloseScreen"),
-    account: document.getElementById("accountScreen")
+    connections: document.getElementById("connectionsScreen"),
+    account: document.getElementById("accountScreen"),
+    mobile: document.getElementById("mobileUtilityScreen")
   };
   Object.values(screens).forEach((s) => { if (s) s.hidden = true; });
   screens.setup.hidden = false;
@@ -766,6 +785,7 @@ export function switchDashboardTab(name) {
   document.getElementById("dashboardRegisterSalesButton").hidden = target !== "overview";
   document.getElementById("dashboardImportSalesButton").hidden = !["overview", "entries", "daily"].includes(target);
   document.getElementById("dashboardScreen").dataset.page = target;
+  refreshMobileWorkspace();
   const k = document.getElementById("kpiRow");
   if (k) k.hidden = target !== "overview";
 
@@ -793,6 +813,7 @@ export function switchDashboardTab(name) {
 async function init() {
   showGlobalLoader();
   initWorkspace();
+  initMobileWorkspace({ setActiveScreen, getActiveScreen, renderScreen, switchMonth, openAddMonth, openSetupScreen, openReport, exportBackup, openImportBackupModal, saveNow, handleLogout });
   hydrateAppIcons();
   bindModalDismiss();
   bindSidebarActions();

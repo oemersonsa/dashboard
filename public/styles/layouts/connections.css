@@ -1,0 +1,92 @@
+.sidebar-connections { margin-top:8px; border-top:1px solid var(--border); border-radius:0; }
+.sidebar-connections + .sidebar-account { margin-top:0; border-top:0; padding-top:11px; border-radius:8px; }
+body:not(.dark-theme)[data-screen="connections"] { --bg:#f5f5f7; --surface:#fff; --border:#e3e8ef; --border-2:#cdd5e1; --text:#1d1d1f; --muted:#7a8192; --muted-2:#535e74; --accent:#0071e3; --green:#00995a; --red:#f23445; }
+.connections-screen { --accent:#0071e3; --accent-2:#0864d8; }
+.connections-main { width:min(100% - 64px, 1240px); margin:0 auto; padding:10px 0 48px; }
+.connections-screen .ml-integration { padding:24px; border-radius:20px; }
+.ml-connections-header,.ml-brand,.ml-header-actions { display:flex; align-items:center; gap:16px; }
+.ml-connections-header { justify-content:space-between; margin-bottom:28px; flex-wrap:wrap; }
+.ml-brand { min-width:0; flex:1 1 360px; }
+.ml-brand img,.ml-account-logo { flex-shrink:0; object-fit:contain; border-radius:50%; background:#ffe600; }
+.ml-brand h2 { margin:0 0 4px; font-size:25px; letter-spacing:-.5px; }
+.ml-brand p { color:var(--muted); font-size:15px; margin:0; line-height:1.5; }
+.ml-header-actions { flex-wrap:wrap; gap:12px; }
+.connections-screen .btn { border-radius:10px; min-height:46px; font-weight:500; }
+.connections-screen .btn-primary,body.dark-theme .connections-screen .btn-primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+.ml-count { color:var(--accent); background:color-mix(in srgb,var(--accent) 9%,var(--surface)); border-radius:30px; font-size:13px; padding:8px 14px; white-space:nowrap; }
+.ml-account-list { display:grid; gap:18px; }
+.ml-account-card { padding:22px 24px; border:1px solid var(--border); border-radius:15px; min-width:0; }
+.ml-account-heading { display:flex; align-items:center; gap:16px; margin-bottom:22px; }
+.ml-account-heading h3 { font-size:20px; letter-spacing:-.4px; margin:0 0 5px; overflow-wrap:anywhere; }
+.ml-account-identity { min-width:0; flex:1; }
+.ml-account-identity p { margin:0; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+.ml-account-badge { display:inline-flex; align-items:center; gap:9px; border-radius:30px; padding:8px 14px; background:color-mix(in srgb,#08a866 12%,var(--surface)); color:var(--green); font-size:13px; white-space:nowrap; }
+.ml-account-badge::before,.ml-last-sync::before { content:""; width:9px; height:9px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.ml-account-card .fg { display:block; margin:0; max-width:560px; }
+.ml-account-card .flabel { display:block; margin-bottom:7px; }
+.ml-account-card .finput { background:var(--surface); border-radius:8px; }
+.ml-account-footer { display:flex; gap:22px; align-items:flex-end; justify-content:space-between; margin-top:18px; flex-wrap:wrap; }
+.ml-auto-settings { display:grid; gap:18px; }
+.ml-toggle-line { display:flex; gap:14px; align-items:flex-start; }
+.ml-toggle { display:inline-block; flex-shrink:0; width:50px; height:28px; border:0; border-radius:30px; background:var(--muted); padding:3px; cursor:pointer; margin-top:1px; }
+.ml-toggle::after { content:""; display:block; height:22px; width:22px; border-radius:50%; background:#fff; box-shadow:0 1px 4px #0002; transition:transform 150ms; }
+.ml-toggle[aria-checked="true"] { background:#0aa765; }
+.ml-toggle[aria-checked="true"]::after { transform:translateX(22px); }
+.ml-toggle:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.ml-toggle:disabled { cursor:wait; opacity:.55; }
+.ml-toggle-copy strong { display:block; font-size:15px; font-weight:500; line-height:1.6; }
+.ml-toggle-copy small { display:block; color:var(--muted); font-size:13px; line-height:1.6; }
+.ml-last-sync { display:flex; gap:12px; align-items:center; color:var(--muted-2); margin:0; font-size:13px; }
+.ml-last-sync::before { color:#0aa765; }
+.ml-last-sync.is-pending::before { color:#d18a00; }
+.ml-last-sync.is-error::before { color:var(--red); }
+.ml-account-actions { display:flex; flex-wrap:wrap; gap:9px; }
+.ml-account-actions .btn { font-size:13px; padding:10px 16px; }
+.connections-screen .ml-account-actions .ml-run { color:var(--accent); border-color:var(--accent); }
+.connections-screen .ml-account-actions .ml-disconnect { color:var(--red); border-color:var(--red); }
+.ml-info { display:flex; align-items:center; gap:18px; margin:16px 0; border-radius:12px; background:color-mix(in srgb,var(--accent) 8%,var(--surface)); color:var(--accent); padding:18px 20px; font-size:13px; line-height:1.5; }
+.ml-info > span { font-size:24px; }
+.ml-manual { border:1px solid var(--border); border-radius:14px; margin-top:18px; }
+.ml-manual summary { list-style:none; cursor:pointer; display:flex; gap:18px; align-items:center; padding:18px 24px; }
+.ml-manual summary::-webkit-details-marker { display:none; }
+.ml-manual summary strong { font-size:15px; font-weight:500; }
+.ml-manual summary small { display:block; color:var(--muted); margin-top:5px; font-size:13px; }
+.ml-manual-icon { color:var(--muted-2); font-size:26px; }
+.ml-chevron { margin-left:auto; color:var(--muted-2); font-size:22px; }
+.ml-manual[open] .ml-chevron { transform:rotate(180deg); }
+.ml-manual-content { padding:0 24px 24px; min-width:0; }
+.ml-manual-content .ml-filters { margin-top:8px; }
+.ml-table-wrap th,.ml-table-wrap td { white-space:normal; overflow-wrap:anywhere; line-height:1.5; }
+.ml-table-wrap .ml-records-table { table-layout:fixed; min-width:760px; }
+.ml-records-table th:nth-child(1) { width:18%; }
+.ml-records-table th:nth-child(2),.ml-records-table th:nth-child(3) { width:12%; }
+.ml-records-table th:nth-child(4) { width:36%; }
+.ml-records-table th:nth-child(5) { width:22%; }
+.ml-records-table td { max-width:none; }
+.ml-empty { text-align:center; padding:45px 18px; color:var(--muted); }
+.ml-empty h3 { color:var(--text); margin-bottom:10px; }
+#mlNotice:empty { display:none; }
+#mlNotice:not(:empty) { margin:0 0 18px; color:var(--muted-2); font-size:14px; line-height:1.5; }
+#mlConfigurationIssues { margin-bottom:20px; }
+@media (max-width:760px) {
+  .connections-main { width:calc(100% - 28px); padding-top:22px; }
+  .connections-screen .ml-integration { padding:16px; }
+  .ml-brand { flex-basis:100%; gap:12px; }
+  .ml-brand img { width:48px; height:48px; }
+  .ml-brand h2 { font-size:22px; }
+  .ml-brand p { font-size:13px; }
+  .ml-header-actions { width:100%; justify-content:space-between; }
+  .ml-header-actions .btn { font-size:12px; padding:10px 12px; }
+  .ml-count { font-size:11px; padding:8px 10px; }
+  .ml-account-card { padding:18px 14px; }
+  .ml-account-heading { gap:10px; flex-wrap:wrap; }
+  .ml-account-heading h3 { font-size:17px; }
+  .ml-account-logo { width:42px; height:42px; }
+  .ml-account-badge { padding:6px 10px; font-size:11px; margin-left:auto; }
+  .ml-account-footer { gap:18px; }
+  .ml-account-actions { width:100%; }
+  .ml-account-actions .btn { flex:1 1 auto; font-size:12px; padding:9px; }
+  .ml-info { padding:14px; gap:12px; }
+  .ml-manual summary { padding:16px 14px; gap:12px; }
+  .ml-manual-content { padding:0 14px 16px; }
+}
