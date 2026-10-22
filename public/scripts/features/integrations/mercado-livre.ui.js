@@ -6,6 +6,7 @@ import { appIcon } from "../../ui/app-icons.js";
 
 const BASE = "/api/integrations/mercado-livre";
 const messages = {
+  ml_manual_sync_only: "Apenas a sincronização manual está disponível. Use Sincronizar intervalo.",
   ml_account_required: "Selecione uma conta do Mercado Livre.",
   ml_wrong_account: "Autorize com a mesma conta que você escolheu reconectar. Para outra loja, use Conectar outra conta.",
   ml_platform_in_use: "Essa plataforma já recebe vendas de outra conta. Selecione uma plataforma diferente para esta loja.",
@@ -119,45 +120,17 @@ function renderAccounts() {
     }
     select.value = data.platformKey || ""; field.append(select);
     const footer = node("div", "ml-account-footer"), settings = node("div", "ml-auto-settings");
-    const line = node("div", "ml-toggle-line"), toggle = node("button", "ml-toggle");
-    toggle.type = "button"; toggle.dataset.action = "toggle"; toggle.setAttribute("role", "switch");
-    toggle.setAttribute("aria-label", "Atualização diária de " + account.nickname);
-    toggle.setAttribute("aria-checked", String(Boolean(data.enabled)));
-    toggle.dataset.unavailable = String(!data.schedulerConfigured && !data.enabled);
-    const copy = node("span", "ml-toggle-copy");
-    copy.append(node("strong", "", data.enabled ? "Atualização diária ativa" : "Atualização diária desativada"),
-      node("small", "", "Todos os dias, por volta das 6h • Horário de Brasília"));
-    line.append(toggle, copy);
-    let last = "Nenhuma atualização concluída ainda.";
-    if (data.lastSuccessAt) last = "Última atualização: " + new Date(data.lastSuccessAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
-    if (data.running) last = "Atualização em andamento…";
-    else if (data.pending) last = "Consulta pendente. Use Atualizar agora para continuar.";
-    if (data.lastError) last = errorMessage(new Error(data.lastError));
-    if (!data.schedulerConfigured) last = messages.ml_scheduler_not_configured;
-    const lastLine = node("p", "ml-last-sync" + (data.lastError ? " is-error" : !data.lastSuccessAt || data.pending ? " is-pending" : ""), last);
-    lastLine.setAttribute("role", "status"); settings.append(line, lastLine);
+    settings.append(node("strong", "", "Sincronização manual"),
+      node("p", "ml-last-sync", "Use Sincronizar intervalo para atualizar os pedidos."));
     const actions = node("div", "ml-account-actions");
-    for (const [action, label, className, icon] of [["run", "Atualizar agora", "ml-run", "refresh"], ["reconnect", "Reconectar", "", "link"], ["disconnect", "Desconectar", "ml-disconnect", "trash"]]) {
+    for (const [action, label, className, icon] of [["reconnect", "Reconectar", "", "link"], ["disconnect", "Desconectar", "ml-disconnect", "trash"]]) {
       const button = node("button", "btn btn-secondary " + className);
       button.innerHTML = appIcon(icon); button.append(document.createTextNode(label));
       button.type = "button"; button.dataset.action = action;
-      button.dataset.unavailable = String(action === "run" ? !data.enabled : action === "reconnect" ? !canConnect : false);
+      button.dataset.unavailable = String(action === "reconnect" ? !canConnect : false);
       actions.append(button);
     }
     footer.append(settings, actions); card.append(heading, field, footer); container.append(card);
-  }
-}
-async function runAutomatic(user, version, sellerId) {
-  if (!await window.dashboard.saveNow()) throw new Error("ml_save_pending");
-  if (user !== state.auth?.username || version !== revision) return;
-  const result = await apiRequest(accountUrl("/auto-sync/run", sellerId), { method: "POST" });
-  if (user !== state.auth?.username || version !== revision) return;
-  autoBySeller.set(sellerId, result.status); renderAccounts();
-  if (result.failed) throw new Error(result.error);
-  if (result.completed) {
-    resetDashboardPreview();
-    if (!await window.dashboard.loadBusinessStateFromServer({ quiet: true })) throw new Error("ml_dashboard_reload_failed");
-    toastSuccess("Vendas do Mercado Livre atualizadas no dashboard.");
   }
 }
 async function configureAccount(user, version, sellerId, enabled, platformKey) {
@@ -167,7 +140,7 @@ async function configureAccount(user, version, sellerId, enabled, platformKey) {
   if (user !== state.auth?.username || version !== revision) return;
   autoBySeller.set(sellerId, data); renderAccounts(); resetDashboardPreview();
   if (el("mlAccount").value === sellerId && data.platformKey) el("mlPlatform").value = data.platformKey;
-  toastSuccess(enabled ? "Atualização diária ativada." : "Configuração salva. Atualização diária pausada.");
+  toastSuccess("Plataforma de destino salva.");
 }
 function resetDashboardPreview() {
   dashboardPreview = null;
@@ -364,13 +337,8 @@ export function init() {
     el("mlAccounts").addEventListener("click", event => {
       const button = event.target.closest("button[data-action]"); if (!button || busy) return;
       const card = button.closest("[data-seller-id]"), sellerId = card.dataset.sellerId;
-      const data = autoBySeller.get(sellerId), platformKey = card.querySelector("select").value;
       void run(async (user, version) => {
-        if (button.dataset.action === "toggle") {
-          await configureAccount(user, version, sellerId, !data.enabled, platformKey);
-          if (!data.enabled) await runAutomatic(user, version, sellerId);
-        } else if (button.dataset.action === "run") await runAutomatic(user, version, sellerId);
-        else if (button.dataset.action === "reconnect") {
+        if (button.dataset.action === "reconnect") {
           const result = await apiRequest(accountUrl("/authorize", sellerId), { method: "POST" });
           if (user === state.auth?.username && version === revision) window.location.assign(result.url);
         } else if (button.dataset.action === "disconnect") {
@@ -384,7 +352,7 @@ export function init() {
       const select = event.target.closest("select[data-action]"); if (!select || busy) return;
       const sellerId = select.closest("[data-seller-id]").dataset.sellerId;
       void run(async (user, version) => {
-        try { await configureAccount(user, version, sellerId, Boolean(autoBySeller.get(sellerId)?.enabled), select.value); }
+        try { await configureAccount(user, version, sellerId, false, select.value); }
         finally { if (user === state.auth?.username && version === revision) renderAccounts(); }
       });
     });

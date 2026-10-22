@@ -59,13 +59,11 @@ test("gerencia duas contas em Conexões com destinos e controles independentes",
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: "output/design/connections-mobile.png", fullPage: true, animations: "disabled" });
   await page.setViewportSize({ width: 1536, height: 1024 });
-  await first.getByRole("switch").click();
-  await expect(first.getByRole("switch")).toHaveAttribute("aria-checked", "false");
-  await expect(second.getByRole("switch")).toHaveAttribute("aria-checked", "true");
-  await expect(first.locator('[data-action="run"]')).toBeDisabled();
-  await second.locator('[data-action="run"]').click();
-  await expect(second.locator('[data-action="run"]')).toBeEnabled();
-  expect(calls.filter(call => call.path.endsWith("/auto-sync/run")).map(call => call.sellerId)).toEqual(["987654321"]);
+  await expect(page.locator('[role="switch"]')).toHaveCount(0);
+  await expect(page.locator('[data-action="run"]')).toHaveCount(0);
+  await expect(first).toContainText("Sincronização manual");
+  await expect(second).toContainText("Sincronização manual");
+  expect(calls.filter(call => call.path.endsWith("/auto-sync/run"))).toEqual([]);
   await page.locator("#mlManual summary").click();
   await page.locator("#mlAccount").selectOption("987654321");
   await expect(page.locator("#mlPlatform")).toHaveValue("second");
@@ -78,7 +76,7 @@ test("gerencia duas contas em Conexões com destinos e controles independentes",
   await expect(first.locator('.ml-account-actions [data-action="disconnect"]')).toBeEnabled();
   await first.locator('.ml-account-actions [data-action="disconnect"]').click();
   await expect(page.locator(".ml-account-card")).toHaveCount(1);
-  await expect(second.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+  await expect(second).toContainText("Sincronização manual");
   await expect(page.locator("#mlAccountCount")).toHaveText("1 conta conectada");
   expect(errors).toEqual([]);
 });

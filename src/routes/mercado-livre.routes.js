@@ -35,11 +35,14 @@ async function callback(req, res, url) {
 async function handle(req, res, user, url) {
   const suffix = url.pathname.slice(BASE.length);
   const sellerId = url.searchParams.get("sellerId") || undefined;
-  if (req.method === "GET" && suffix === "/auto-sync") return json(res, 200, await automatic.status(user, sellerId));
-  if (req.method === "POST" && suffix === "/auto-sync") return json(res, 200, await automatic.configure(user, await readJsonBody(req)));
+  if (req.method === "GET" && suffix === "/auto-sync") return json(res, 200, { ...await automatic.status(user, sellerId), enabled: false, schedulerConfigured: false, pending: false, running: false });
+  if (req.method === "POST" && suffix === "/auto-sync") {
+    const input = await readJsonBody(req);
+    if (input.enabled) return json(res, 409, { error: "ml_manual_sync_only" });
+    return json(res, 200, await automatic.configure(user, input));
+  }
   if (req.method === "POST" && suffix === "/auto-sync/run") {
-    const result = await automatic.runUser(user, { force: true, sellerId });
-    return json(res, 200, { ...result, status: await automatic.status(user, sellerId) });
+    return json(res, 409, { error: "ml_manual_sync_only" });
   }
   if (req.method === "GET" && suffix === "/margins") return json(res, 200, await margins.list(user, Object.fromEntries(url.searchParams)));
   const marginMatch = suffix.match(/^\/margins\/(\d+)(?:\/(refresh|costs))?$/);

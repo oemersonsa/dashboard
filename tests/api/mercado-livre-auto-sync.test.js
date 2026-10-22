@@ -64,15 +64,16 @@ afterEach(() => vi.restoreAllMocks());
 afterAll(async () => { await require("../../src/server/index").stopServer(); await cleanupTestDb(); });
 
 describe("daily Mercado Livre sales", () => {
-  it("requires a configured scheduler, active destination, authentication and explicit enablement", async () => {
+  it("rejects automatic enablement and execution while retaining manual configuration", async () => {
     expect((await request("/auto-sync", { auth: null })).status).toBe(401);
     expect((await request("/auto-sync", { method: "POST", auth: otherToken, body: { enabled: true, platformKey: "ml" } })).status).toBe(409);
-    expect((await request("/auto-sync", { method: "POST", body: { enabled: true, platformKey: "missing" } })).status).toBe(400);
-    expect((await request("/auto-sync", { method: "POST", body: { enabled: "yes" } })).status).toBe(400);
+    expect((await request("/auto-sync", { method: "POST", body: { enabled: true, platformKey: "missing" } })).status).toBe(409);
+    expect((await request("/auto-sync", { method: "POST", body: { enabled: "yes" } })).status).toBe(409);
     config.CRON_SECRET = "";
-    expect((await request("/auto-sync", { method: "POST", body: { enabled: true, platformKey: "ml" } })).status).toBe(503);
+    expect((await request("/auto-sync", { method: "POST", body: { enabled: true, platformKey: "ml" } })).status).toBe(409);
     expect((await request("/auto-sync")).status).toBe(200);
     expect(await automatic.status("daily-user")).toMatchObject({ enabled: false, schedulerConfigured: false });
+    expect((await request("/auto-sync/run", { method: "POST" })).status).toBe(409);
     expect(calls).toEqual([]);
   });
   it("secures cron independently of user sessions and never leaks credentials", async () => {
@@ -85,8 +86,10 @@ describe("daily Mercado Livre sales", () => {
     config.CRON_SECRET = "private-cron-secret-at-least-16";
     const response = await cron(config.CRON_SECRET);
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ completed: 1, failed: 0 });
-    expect(await (await cron(config.CRON_SECRET)).json()).toMatchObject({ completed: 0, skipped: 1 });
+    expect(await response.json()).toEqual({ disabled: true, reason: "ml_manual_sync_only" });
+    expect(calls).toEqual([]);
+    expect(await (await request("/auto-sync")).json()).toMatchObject({ enabled: false, pending: false, running: false });
+    expect(await (await cron(config.CRON_SECRET)).json()).toMatchObject({ disabled: true });
     const status = JSON.stringify(await (await request("/auto-sync")).json());
     for (const secret of [config.CRON_SECRET, config.ML_CLIENT_SECRET, "private-access", "private-refresh"]) expect(status).not.toContain(secret);
   });
