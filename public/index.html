@@ -480,12 +480,13 @@
             <summary><span class="ml-manual-icon" aria-hidden="true">▦</span><span><strong>Sincronização manual por período</strong><small>Selecione uma conta para consultar pedidos e devoluções.</small></span><span class="ml-chevron" aria-hidden="true">⌄</span></summary>
             <div class="ml-manual-content">
           <div class="ml-filters"><label class="fg"><span class="flabel">Conta do Mercado Livre</span><select class="finput" id="mlAccount"></select></label>
+            <label class="fg"><span class="flabel">Período de sincronização</span><select class="finput" id="mlPeriod"><option value="month">Mês atual</option><option value="31">Últimos 31 dias</option><option value="custom">Período personalizado</option></select></label>
             <label class="fg"><span class="flabel">Data inicial</span><input class="finput" id="mlFrom" type="date"></label>
             <label class="fg"><span class="flabel">Data final</span><input class="finput" id="mlTo" type="date"></label>
             <label class="fg"><span class="flabel">Consultar</span><select class="finput" id="mlKind"><option value="orders">Pedidos e vendas</option><option value="claims">Reclamações e devoluções</option></select></label>
           </div>
           <div class="ml-actions"><button class="btn btn-primary" id="mlSync" type="button">Sincronizar intervalo</button><button class="btn btn-secondary" id="mlRefresh" type="button">Consultar dados salvos</button></div>
-          <p class="card-sub">Até 31 dias por consulta, pela data de criação no horário de Brasília. Sincronize pedidos e reclamações separadamente. Repita a sincronização para atualizar status antigos. Os reembolsos informados podem incluir frete e não equivalem ao valor de produtos devolvidos.</p>
+          <p class="card-sub">Escolha as datas para sincronizar quantos dias precisar, incluindo a data inicial e a final. Períodos maiores são consultados em blocos de até 31 dias, no horário de Brasília. Sincronize pedidos e reclamações separadamente. Repita a sincronização para atualizar status antigos. Os reembolsos informados podem incluir frete e não equivalem ao valor de produtos devolvidos.</p>
           <p id="mlSummary" aria-live="polite"></p>
           <div class="ml-filters"><label class="fg"><span class="flabel">Plataforma de destino no dashboard</span><select class="finput" id="mlPlatform"><option value="">Selecione a plataforma de destino</option></select></label></div>
           <div class="ml-actions"><button class="btn btn-secondary" id="mlPrepareDashboard" type="button">Prévia para o dashboard</button></div>

@@ -3,6 +3,7 @@ import { state } from "../../core/state.js";
 import { toastSuccess, toastError } from "../../ui/toast.js";
 import { showGlobalLoader, hideGlobalLoader } from "../../ui/skeleton.js";
 import { appIcon } from "../../ui/app-icons.js";
+import { syncPeriods } from "./mercado-livre-period.js";
 
 const BASE = "/api/integrations/mercado-livre";
 const messages = {
@@ -16,7 +17,7 @@ const messages = {
   ml_permission_denied: "O Mercado Livre negou o acesso. Confira as permissões da aplicação.",
   ml_rate_limited: "Limite de consultas atingido. Aguarde um minuto e tente novamente.",
   too_many_requests: "Limite de consultas atingido. Aguarde um minuto e tente novamente.",
-  ml_invalid_date_range: "Selecione um intervalo de até 31 dias, com início anterior ao fim.",
+  ml_invalid_date_range: "Selecione datas válidas entre 2000 e 2100, com início anterior ou igual ao fim.",
   ml_range_too_large: "Há muitos registros. Sincronize um intervalo menor.",
   ml_connection_busy: "A conexão está sendo renovada. Tente novamente em instantes.",
   ml_connection_changed: "A conexão mudou durante a consulta. Atualize a página.",
@@ -84,7 +85,7 @@ function controls() {
   el("mlApplyDashboard").disabled = busy || !dashboardPreview?.data.changedDays;
   el("mlPrevious").disabled = busy || offset === 0;
   el("mlNext").disabled = busy || nextOffset === null;
-  for (const id of ["mlFrom", "mlTo", "mlKind", "mlPlatform", "mlAccount"]) el(id).disabled = busy;
+  for (const id of ["mlFrom", "mlTo", "mlPeriod", "mlKind", "mlPlatform", "mlAccount"]) el(id).disabled = busy;
 }
 function accountUrl(path, sellerId) { return BASE + path + "?" + new URLSearchParams({ sellerId }); }
 function node(tag, className, text) {
@@ -121,9 +122,9 @@ function renderAccounts() {
     select.value = data.platformKey || ""; field.append(select);
     const footer = node("div", "ml-account-footer"), settings = node("div", "ml-auto-settings");
     settings.append(node("strong", "", "Sincronização manual"),
-      node("p", "ml-last-sync", "Use Sincronizar intervalo para atualizar os pedidos."));
+      node("p", "ml-last-sync", "Sincronizar agora busca os pedidos do mês atual. Para outras datas, use Sincronizar intervalo."));
     const actions = node("div", "ml-account-actions");
-    for (const [action, label, className, icon] of [["reconnect", "Reconectar", "", "link"], ["disconnect", "Desconectar", "ml-disconnect", "trash"]]) {
+    for (const [action, label, className, icon] of [["sync", "Sincronizar agora", "ml-run", "refresh"], ["reconnect", "Reconectar", "", "link"], ["disconnect", "Desconectar", "ml-disconnect", "trash"]]) {
       const button = node("button", "btn btn-secondary " + className);
       button.innerHTML = appIcon(icon); button.append(document.createTextNode(label));
       button.type = "button"; button.dataset.action = action;
@@ -246,6 +247,35 @@ async function loadRecords(requestedOwner, requestedRevision) {
   const data = await apiRequest(`${BASE}/records?${new URLSearchParams({ ...input, offset })}`);
   if (owner === requestedOwner && state.auth?.username === owner && revision === requestedRevision) renderRows(data, input.kind);
 }
+async function syncManual(user, version) {
+  const input = params();
+  const periods = syncPeriods(input.from, input.to);
+  resetDashboardPreview();
+  const selection = JSON.stringify(input);
+  const saved = resume?.selection === selection ? resume : null;
+  let count = saved?.count || 0;
+  notice("Sincronizando com o Mercado Livre…");
+  for (let index = saved?.index || 0; index < periods.length; index++) {
+    let page = index === saved?.index ? saved.offset : 0;
+    do {
+      resume = { selection, index, offset: page, count };
+      el("mlSync").textContent = "Continuar sincronização";
+      const result = await apiRequest(`${BASE}/sync`, { method: "POST", body: JSON.stringify({ ...input, ...periods[index], offset: page }) });
+      if (user !== state.auth?.username || version !== revision) return;
+      count += result.count;
+      page = result.nextOffset;
+      resume = { selection, index: page === null ? index + 1 : index, offset: page ?? 0, count };
+      notice(`Sincronizando bloco ${index + 1} de ${periods.length}: ${count} registros consultados. Páginas concluídas já estão salvas.`);
+    } while (page !== null);
+  }
+  resume = null;
+  el("mlSync").textContent = "Sincronizar intervalo";
+  offset = 0;
+  await loadRecords(user, version);
+  notice(`Sincronização concluída: ${count} registros consultados. ${new Date().toLocaleString("pt-BR")}.`);
+  toastSuccess("Dados do Mercado Livre atualizados.");
+  if (input.kind === "orders" && el("mlPlatform").value) await prepareDashboard(user, version);
+}
 async function run(action) {
   if (busy) return;
   busy = true;
@@ -331,6 +361,7 @@ export function init() {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     el("mlFrom").value = `${today.slice(0, 7)}-01`;
     el("mlTo").value = today;
+    el("mlPeriod").value = "month";
   }
   if (!bound) {
     bound = true;
@@ -338,7 +369,18 @@ export function init() {
       const button = event.target.closest("button[data-action]"); if (!button || busy) return;
       const card = button.closest("[data-seller-id]"), sellerId = card.dataset.sellerId;
       void run(async (user, version) => {
-        if (button.dataset.action === "reconnect") {
+        if (button.dataset.action === "sync") {
+          const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+          el("mlAccount").value = sellerId;
+          el("mlPlatform").value = autoBySeller.get(sellerId)?.platformKey || "";
+          el("mlKind").value = "orders";
+          el("mlFrom").value = today.slice(0, 7) + "-01";
+          el("mlTo").value = today;
+          el("mlPeriod").value = "month";
+          el("mlManual").open = true;
+          el("mlManual").scrollIntoView({ behavior: "smooth", block: "start" });
+          await syncManual(user, version);
+        } else if (button.dataset.action === "reconnect") {
           const result = await apiRequest(accountUrl("/authorize", sellerId), { method: "POST" });
           if (user === state.auth?.username && version === revision) window.location.assign(result.url);
         } else if (button.dataset.action === "disconnect") {
@@ -389,29 +431,14 @@ export function init() {
     }));
     el("mlPrevious").addEventListener("click", () => void run(async (user, version) => { offset = Math.max(0, offset - 50); await loadRecords(user, version); }));
     el("mlNext").addEventListener("click", () => void run(async (user, version) => { offset = nextOffset ?? 0; await loadRecords(user, version); }));
-    el("mlSync").addEventListener("click", () => void run(async (user, version) => {
-      const input = params();
-      resetDashboardPreview();
-      const selection = JSON.stringify(input);
-      let page = resume?.selection === selection ? resume.offset : 0;
-      let count = page;
-      notice("Sincronizando com o Mercado Livre…");
-      do {
-        const result = await apiRequest(`${BASE}/sync`, { method: "POST", body: JSON.stringify({ ...input, offset: page }) });
-        if (user !== state.auth?.username || version !== revision) return;
-        count += result.count;
-        page = result.nextOffset;
-        resume = page === null ? null : { selection, offset: page };
-        el("mlSync").textContent = page === null ? "Sincronizar intervalo" : "Continuar sincronização";
-        notice(`Sincronizando: ${count} de ${result.total} registros. Páginas concluídas já estão salvas.`);
-      } while (page !== null);
-      offset = 0;
-      await loadRecords(user, version);
-      notice(`Sincronização concluída: ${count} registros consultados. ${new Date().toLocaleString("pt-BR")}.`);
-      toastSuccess("Dados do Mercado Livre atualizados.");
-      if (input.kind === "orders" && el("mlPlatform").value) await prepareDashboard(user, version);
-    }));
-    for (const id of ["mlFrom", "mlTo", "mlKind", "mlAccount"]) el(id).addEventListener("change", () => {
+    el("mlSync").addEventListener("click", () => void run(syncManual));
+    for (const id of ["mlFrom", "mlTo", "mlPeriod", "mlKind", "mlAccount"]) el(id).addEventListener("change", () => {
+      if (id === "mlFrom" || id === "mlTo") el("mlPeriod").value = "custom";
+      if (id === "mlPeriod" && el("mlPeriod").value !== "custom") {
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+        el("mlTo").value = today;
+        el("mlFrom").value = el("mlPeriod").value === "month" ? today.slice(0, 7) + "-01" : new Date(Date.parse(today) - 30 * 86400000).toISOString().slice(0, 10);
+      }
       offset = 0;
       resume = null;
       if (id === "mlAccount") {

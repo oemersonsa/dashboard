@@ -266,6 +266,27 @@ describe("Mercado Livre integration", () => {
     expect((await request("/dashboard/preview", { method: "POST", body: { ...input, platformKey: "missing" } })).status).toBe(400);
     expect((await request("/dashboard/apply", { method: "POST", body: input })).status).toBe(400);
   });
+  it("requires every custom-period block and invalidates the preview when a block is restarted", async () => {
+    mockProvider();
+    orders = [];
+    const first = { from: "2026-10-01", to: "2026-10-31", kind: "orders" };
+    const second = { from: "2026-11-01", to: "2026-11-30", kind: "orders" };
+    const input = { ...first, to: second.to, platformKey: "ml" };
+    expect((await request("/sync", { method: "POST", body: first })).status).toBe(200);
+    expect(await (await request("/dashboard/preview", { method: "POST", body: input })).json()).toEqual({ error: "ml_sync_incomplete" });
+    expect((await request("/sync", { method: "POST", body: second })).status).toBe(200);
+    const preview = await (await request("/dashboard/preview", { method: "POST", body: input })).json();
+    expect(preview.days).toHaveLength(61);
+    expect((await request("/records?" + new URLSearchParams(input))).status).toBe(200);
+    await request("/sync", { method: "POST", body: second });
+    expect(await (await request("/dashboard/apply", { method: "POST", body: { ...input, fingerprint: preview.fingerprint } })).json()).toEqual({ error: "ml_preview_expired" });
+    const renewed = await (await request("/dashboard/preview", { method: "POST", body: input })).json();
+    expect((await request("/dashboard/apply", { method: "POST", body: { ...input, fingerprint: renewed.fingerprint } })).status).toBe(200);
+    orderTotal = 51;
+    orders = [order];
+    await request("/sync", { method: "POST", body: first });
+    expect(await (await request("/dashboard/preview", { method: "POST", body: input })).json()).toEqual({ error: "ml_sync_incomplete" });
+  });
   it("disconnects and clears credentials, pending grants and cached records", async () => {
     expect((await request("", { method: "DELETE" })).status).toBe(200);
     expect(await (await request()).json()).toMatchObject({ connected: false });

@@ -17,10 +17,15 @@ async function build(tx, user, input) {
   if (!platform) fail("ml_platform_required", 400);
   const occupied = (await tx.execute({ sql: "SELECT seller_id FROM ml_auto_sync WHERE user_id=? AND platform_key=? AND seller_id<>?", args: [user, platform.platform_key, account.seller_id] })).rows[0];
   if (occupied) fail("ml_platform_in_use");
-  const window = (await tx.execute({ sql: `SELECT run_id, completed_at, metrics_version FROM ml_sync_windows
-    WHERE user_id = ? AND seller_id = ? AND from_date = ? AND to_date = ? AND next_offset IS NULL`,
-    args: [user, account.seller_id, dates.from, dates.to] })).rows[0];
-  if (!window?.completed_at || Number(window.metrics_version) < 2) fail("ml_sync_incomplete");
+  const windows = (await tx.execute({ sql: `SELECT run_id, completed_at, metrics_version, from_date, to_date FROM ml_sync_windows
+    WHERE user_id = ? AND seller_id = ? AND from_date <= ? AND to_date >= ? ORDER BY from_date`,
+    args: [user, account.seller_id, dates.to, dates.from] })).rows;
+  let coveredUntil = dates.from;
+  for (const window of windows) {
+    if (window.from_date > coveredUntil || !window.completed_at || Number(window.metrics_version) < 2) fail("ml_sync_incomplete");
+    coveredUntil = new Date(Date.parse(window.to_date) + 86400000).toISOString().slice(0, 10);
+  }
+  if (coveredUntil <= dates.to) fail("ml_sync_incomplete");
   const records = (await tx.execute({ sql: `SELECT resource_id, payload FROM ml_records WHERE user_id = ? AND seller_id = ?
     AND kind = 'orders' AND date_created >= ? AND date_created <= ? ORDER BY resource_id`,
     args: [user, account.seller_id, new Date(dates.start).toISOString(), new Date(dates.end).toISOString()] })).rows;
@@ -61,8 +66,8 @@ async function build(tx, user, input) {
     rows.push({ ...day, previousCents: Math.round(Number(previous?.amount || 0) * 100), previousOrders: Number(previous?.orders_count || 0), previousRefundCents: Math.round(Number(previous?.refund_amount || 0) * 100) });
   }
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ user, seller: account.seller_id, platform: platform.platform_key,
-    dates, version, run: window.run_id, records, rows })).digest("hex");
-  return { platform, version, fingerprint, from: dates.from, to: dates.to, syncedAt: window.completed_at,
+    dates, version, runs: windows.map(window => window.run_id), records, rows })).digest("hex");
+  return { platform, version, fingerprint, from: dates.from, to: dates.to, syncedAt: windows.map(window => window.completed_at).sort()[0],
     days: rows, months: [...new Set(rows.map(day => day.month))], excluded, refundEstimates,
     refundCents: rows.reduce((sum, day) => sum + day.refundCents, 0),
     netCents: rows.reduce((sum, day) => sum + day.amountCents - day.refundCents, 0),

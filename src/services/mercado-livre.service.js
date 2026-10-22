@@ -174,12 +174,13 @@ async function connection(user, sellerId) {
   }
   return { ...row, accessToken: tokens.access_token };
 }
-function range(input) {
+function range(input, maxDays = Infinity) {
   if (!input || typeof input !== "object") throw fail("ml_invalid_date_range");
   const { from, to } = input;
   const valid = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
     Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
-  if (!valid(from) || !valid(to) || from > to || (Date.parse(to) - Date.parse(from)) / 86400000 > 30) throw fail("ml_invalid_date_range");
+  if (!valid(from) || !valid(to) || from > to || from < "2000-01-01" || to > "2100-12-31" ||
+    (Date.parse(to) - Date.parse(from)) / 86400000 + 1 > maxDays) throw fail("ml_invalid_date_range");
   return { from, to, start: `${from}T00:00:00.000-03:00`, end: `${to}T23:59:59.999-03:00` };
 }
 function paging(input) {
@@ -222,7 +223,7 @@ function claimRecord(claim, sellerId) {
       .flatMap(player => player.available_actions || []).map(action => ({ action: action.action, dueDate: action.due_date })) };
 }
 async function sync(user, input) {
-  const dates = range(input);
+  const dates = range(input, 31);
   const { kind, offset } = paging(input);
   const account = await connection(user, input.sellerId);
   let runId = "";

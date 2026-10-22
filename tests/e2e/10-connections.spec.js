@@ -22,7 +22,7 @@ test("gerencia duas contas em Conexões com destinos e controles independentes",
     const url = new URL(route.request().url()), method = route.request().method();
     const input = method === "POST" && route.request().postData() ? route.request().postDataJSON() : {};
     const sellerId = url.searchParams.get("sellerId") || input.sellerId;
-    calls.push({ path: url.pathname, method, sellerId });
+    calls.push({ path: url.pathname, method, sellerId, input });
     let body;
     if (url.pathname === base) {
       if (method === "DELETE") accounts = accounts.filter(account => account.sellerId !== sellerId);
@@ -31,6 +31,9 @@ test("gerencia duas contas em Conexões com destinos e controles independentes",
       if (method === "POST") jobs[sellerId] = { ...jobs[sellerId], ...input };
       body = jobs[sellerId];
     } else if (url.pathname.endsWith("/auto-sync/run")) body = { completed: true, status: jobs[sellerId] };
+    else if (url.pathname.endsWith("/sync")) body = { count: 0, total: 0, nextOffset: null };
+    else if (url.pathname.endsWith("/dashboard/preview")) body = { platform: { name: "Loja secundária" }, from: input.from, to: input.to,
+      grossCents: 0, orders: 0, changedDays: 0, replacedDays: 0, excluded: 0, days: [] };
     else if (url.pathname.endsWith("/records")) body = { records: [], total: 0, nextOffset: null, summary: { paidCents: 0, refundedCents: 0 } };
     else return route.abort();
     await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
@@ -49,6 +52,8 @@ test("gerencia duas contas em Conexões com destinos e controles independentes",
   await expect(second.locator('option[value="main"]')).toHaveAttribute("disabled", "");
   await expect(page.locator(".global-loader")).toHaveCount(0);
   await expect(first.locator("select")).toBeEnabled();
+  await expect(first.getByRole("button", { name: "Sincronizar agora" })).toBeVisible();
+  expect(await first.locator('.ml-account-actions button').allTextContents()).toEqual(["Sincronizar agora", "Reconectar", "Desconectar"]);
   await page.evaluate(() => { document.body.classList.remove("dark-theme"); });
   await page.screenshot({ path: "output/design/connections-desktop.png", fullPage: true, animations: "disabled" });
   await page.evaluate(() => { document.body.classList.add("dark-theme"); });
@@ -56,6 +61,7 @@ test("gerencia duas contas em Conexões com destinos e controles independentes",
   await page.screenshot({ path: "output/design/connections-dark.png", fullPage: true, animations: "disabled" });
   await page.evaluate(() => { document.body.classList.remove("dark-theme"); });
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(second.getByRole("button", { name: "Sincronizar agora" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: "output/design/connections-mobile.png", fullPage: true, animations: "disabled" });
   await page.setViewportSize({ width: 1536, height: 1024 });
@@ -64,11 +70,30 @@ test("gerencia duas contas em Conexões com destinos e controles independentes",
   await expect(first).toContainText("Sincronização manual");
   await expect(second).toContainText("Sincronização manual");
   expect(calls.filter(call => call.path.endsWith("/auto-sync/run"))).toEqual([]);
-  await page.locator("#mlManual summary").click();
-  await page.locator("#mlAccount").selectOption("987654321");
+  await second.getByRole("button", { name: "Sincronizar agora" }).click();
+  await expect(page.locator("#mlDashboardPreview")).toBeVisible();
+  await expect(page.locator("#mlAccount")).toHaveValue("987654321");
   await expect(page.locator("#mlPlatform")).toHaveValue("second");
   await expect(page.locator("#mlAccount")).toBeEnabled();
+  const syncCalls = calls.filter(call => call.path === base + "/sync");
+  expect(syncCalls).toHaveLength(1);
+  expect(syncCalls[0].input).toMatchObject({ sellerId: "987654321", kind: "orders", offset: 0 });
+  expect(syncCalls[0].input.from).toBe(syncCalls[0].input.to.slice(0, 7) + "-01");
+  expect(calls.find(call => call.path.endsWith("/dashboard/preview")).input.platformKey).toBe("second");
+  expect(calls.filter(call => call.path.endsWith("/dashboard/apply") || call.path.endsWith("/auto-sync/run"))).toEqual([]);
   expect(calls.filter(call => call.path.endsWith("/records")).at(-1).sellerId).toBe("987654321");
+  await page.locator("#mlPeriod").selectOption("custom");
+  await expect(page.locator("#mlFrom")).toBeEnabled();
+  await page.locator("#mlFrom").fill("2026-10-01");
+  await expect(page.locator("#mlFrom")).toBeEnabled();
+  await page.locator("#mlTo").fill("2026-11-30");
+  await expect(page.locator("#mlSync")).toBeEnabled();
+  await page.locator("#mlSync").click();
+  await expect(page.locator("#mlDashboardTotals")).toContainText("01/10/2026 a 30/11/2026");
+  expect(calls.filter(call => call.path === base + "/sync").slice(-2).map(call => [call.input.from, call.input.to])).toEqual([
+    ["2026-10-01", "2026-10-31"], ["2026-11-01", "2026-11-30"]
+  ]);
+  await expect(page.locator("#mlPeriod")).toHaveValue("custom");
   await page.locator('[data-screen-nav="account"]').click();
   await expect(page.locator("#accountScreen")).toBeVisible();
   await expect(page.locator("#accountScreen #mlIntegration")).toHaveCount(0);
